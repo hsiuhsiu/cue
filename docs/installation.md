@@ -4,17 +4,17 @@ Cue 是選單列中的 macOS 應用程式啟動器。按下 **Option+Space** 即
 
 ## 下載
 
-- [下載 Cue 0.1.0 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v0.1.0/Cue-0.1.0-universal.dmg)
-- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v0.1.0)
+- [下載 Cue 0.1.1 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v0.1.1/Cue-0.1.1-universal.dmg)
+- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v0.1.1)
 
-目前儲存庫是私有的，請先登入有權存取 `hsiuhsiu/cue` 的 GitHub 帳號。沒有權限時，連結可能顯示找不到頁面。
+儲存庫與下載現在都已公開，不需要 GitHub 帳號。版本說明同時提供 English／正體中文。
 
 安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。這次預覽版僅在 **Apple silicon、macOS 26.6.2** 實際執行測試；Intel 與其他 macOS 版本尚未驗證。
 
 ## 安裝與更新
 
 1. 若 Cue 正在執行，先從選單列的 Cue 圖示選擇 **Quit Cue**。
-2. 開啟下載的 **Cue-0.1.0-universal.dmg**。
+2. 開啟下載的 **Cue-0.1.1-universal.dmg**。
 3. 將 **Cue.app** 拖曳至 **Applications／應用程式**。若已有舊版本，選擇取代。
 4. 從「應用程式」開啟 Cue，再退出掛載的 Cue 磁碟映像。
 
@@ -46,10 +46,20 @@ Cue 會出現在選單列，不會顯示 Dock 圖示。按下 **Option+Space**�
 
 安裝或移除其他 App 後，在 Cue 輸入 **更新索引**、`reindex` 或 `refresh apps`，選擇 **Update App Index** 並按 Enter，即可重新掃描。
 
-## 更新、重新安裝與限制
+## App 內更新
+
+**0.1.0 使用者必須先手動安裝 0.1.1 一次**，才能取得更新功能；原有設定會保留。
+
+安裝 0.1.1 後，Cue 預設約每天在背景檢查一次新版。找到新版時，選單列圖示會變成更新提示，選單中也會顯示版本，不會搶走搜尋框或其他 App 的焦點。
+
+從 Cue 選單列選擇 **Check for Updates…**，或按 **Command+, → Updates**，即可手動檢查、查看更新。選擇下載後，完成時按 **Install and Relaunch** 即可安裝並重啟。請先把 Cue 安裝至「應用程式」再更新；直接從唯讀 DMG 執行無法自我更新，安裝需要額外權限時 macOS 可能要求授權。
+
+設定中的 **Automatically check for updates** 可隨時關閉。關閉後不再排程檢查，仍可手動使用 **Check for Updates…**。Cue 不會自動替你安裝或重啟，也不會傳送使用行為分析或系統資訊；更新檢查與下載會連線至 GitHub。
+
+## 重新安裝與限制
 
 更新或重新安裝時，依照上方步驟退出 Cue、取代「應用程式」中的 Cue.app，再重新開啟。設定存放在 App 外，單純取代 Cue.app 會保留既有快捷鍵與其他設定。macOS 在更新後可能再次要求允許開啟，請參照[首次開啟](#首次開啟)流程。
 
-這個版本尚未提供自動更新或登入時自動啟動功能。重新登入 Mac 後，請從「應用程式」開啟 Cue。應用程式索引會在 Cue 啟動時建立，也可以手動更新。
+這個版本尚未提供登入時自動啟動功能。重新登入 Mac 後，請從「應用程式」開啟 Cue。應用程式索引會在 Cue 啟動時建立，也可以手動更新。
 
-版本頁同時提供 **SHA256SUMS.txt**，供需要核對下載檔案完整性的人使用；檢查碼不代表 Apple 簽署或公證。
+版本頁同時提供 **SHA256SUMS.txt**，供需要核對下載檔案完整性的人使用。App 內更新另外以 Cue 內建的公開金鑰驗證更新檔與資訊；這些措施都不代表 Apple 簽署或公證。

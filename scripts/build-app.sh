@@ -5,8 +5,10 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
 configuration="${1:-release}"
+[[ $# -le 1 ]] || { echo "Usage: $0 [debug|release]" >&2; exit 2; }
 case "$configuration" in
-    debug|release) ;;
+    debug) xcode_configuration=Debug ;;
+    release) xcode_configuration=Release ;;
     *) echo "Usage: $0 [debug|release]" >&2; exit 2 ;;
 esac
 
@@ -15,10 +17,25 @@ if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]
     export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 fi
 
-swift build --configuration "$configuration" --product Cue
-binary_directory="$(swift build --configuration "$configuration" --show-bin-path)"
+build_directory="$repo_root/.build/local-xcode"
+xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration "$xcode_configuration" \
+    -destination "platform=macOS,arch=$(uname -m)" -derivedDataPath "$build_directory" \
+    CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES build
+
+temporary_directory="$(mktemp -d "$repo_root/.build/.cue-app.XXXXXX")"
+trap 'rm -rf "$temporary_directory"' EXIT
+staged_app="$temporary_directory/Cue.app"
+ditto "$build_directory/Build/Products/$xcode_configuration/Cue.app" "$staged_app"
+
+# Keep Sparkle's signed framework and helpers intact; sign only our outer bundle.
+sparkle_framework="$build_directory/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+diff --no-dereference -qr "$sparkle_framework" "$staged_app/Contents/Frameworks/Sparkle.framework"
+codesign --verify --deep --strict --all-architectures \
+    "$staged_app/Contents/Frameworks/Sparkle.framework"
+codesign --force --sign - --timestamp=none "$staged_app"
+codesign --verify --deep --strict --all-architectures "$staged_app"
+
 app_directory="$repo_root/.build/Cue.app"
-install -d "$app_directory/Contents/MacOS"
-install -m 755 "$binary_directory/Cue" "$app_directory/Contents/MacOS/Cue"
-install -m 644 Resources/Info.plist "$app_directory/Contents/Info.plist"
+rm -rf "$app_directory"
+mv "$staged_app" "$app_directory"
 printf 'Built %s\n' "$app_directory"

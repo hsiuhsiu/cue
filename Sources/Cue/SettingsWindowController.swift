@@ -4,21 +4,25 @@ import SwiftUI
 
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
-    init(settings: CueSettings, applyShortcut: @escaping (LauncherShortcut) -> String?) {
+    init(settings: CueSettings, updates: UpdateController, applyShortcut: @escaping (LauncherShortcut) -> String?) {
+        let contentSize = NSSize(width: 510, height: 560)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 510, height: 420),
+            contentRect: NSRect(origin: .zero, size: contentSize),
             styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false
         )
         window.title = "Cue Settings"
+        window.contentMinSize = contentSize
         window.isReleasedWhenClosed = false
         window.animationBehavior = .none
         window.contentView = NSHostingView(rootView: CueSettingsView(
-            settings: settings, applyShortcut: applyShortcut
+            settings: settings, updates: updates, applyShortcut: applyShortcut
         ))
         super.init(window: window)
         window.delegate = self
         window.center()
         window.setFrameAutosaveName("CueSettingsWindow")
+        // Older releases saved a shorter window; retain its position, not its old content size.
+        window.setContentSize(contentSize)
     }
 
     @available(*, unavailable)
@@ -50,6 +54,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
 private struct CueSettingsView: View {
     @ObservedObject var settings: CueSettings
+    @ObservedObject var updates: UpdateController
     let applyShortcut: (LauncherShortcut) -> String?
     @State private var shortcutError: String?
 
@@ -102,9 +107,49 @@ private struct CueSettingsView: View {
                 }
                 Toggle("Dismiss when switching to another app", isOn: $settings.preferences.dismissOnFocusLoss)
             }
+
+            Section {
+                LabeledContent("Version", value: appVersion)
+                Toggle("Automatically check for updates", isOn: Binding(
+                    get: { updates.automaticChecksEnabled },
+                    set: { updates.setAutomaticChecksEnabled($0) }
+                ))
+                .disabled(updates.startupError != nil)
+                HStack {
+                    if let version = updates.availableVersion {
+                        Text("Version \(version) is available")
+                            .font(.callout)
+                    }
+                    Spacer()
+                    Button(updates.availableVersion == nil ? "Check for Updates…" : "Show Update…") {
+                        updates.checkForUpdates()
+                    }
+                    .disabled(!updates.canCheckForUpdates)
+                }
+                if let error = updates.startupError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text("Checks run in the background without interrupting search. You choose when to install and restart Cue.")
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 510, height: 420)
+        .frame(width: 510, height: 560)
+    }
+
+    private var appVersion: String {
+        guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
+            return "Development build"
+        }
+        if let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
+            return "\(version) (\(build))"
+        }
+        return version
     }
 }
 

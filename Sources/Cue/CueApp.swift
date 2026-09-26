@@ -14,13 +14,16 @@ struct CueApp {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var launcher: LauncherPanelController!
     private var hotKey: HotKeyManager!
     private var statusItem: NSStatusItem!
     private let settings = CueSettings()
     private var settingsController: SettingsWindowController?
     private var preferencesSubscription: AnyCancellable?
+    private var updates: UpdateController!
+    private var updateSubscription: AnyCancellable?
+    private var updateMenuItems: [NSMenuItem] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -43,6 +46,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.statusItem.button?.toolTip = "Cue — \(preferences.shortcut.displayName)"
         }
         Task { await launcher.model.loadApplications() }
+        // Construct the launcher and register its hotkey before starting update work.
+        updates = UpdateController()
+        updates.onPresentUpdate = { [weak self] in
+            self?.launcher.dismiss()
+            NSApp.activate()
+        }
+        updateSubscription = updates.$availableVersion.combineLatest(updates.$canCheckForUpdates)
+            .sink { [weak self] version, canCheck in
+                self?.updateMenuItems.forEach {
+                    $0.title = version.map { "Update Available (\($0))…" } ?? "Check for Updates…"
+                    $0.isEnabled = canCheck
+                }
+                self?.statusItem.button?.image = NSImage(
+                    systemSymbolName: version == nil ? "command.square" : "arrow.down.circle",
+                    accessibilityDescription: version == nil ? "Cue" : "Cue — update available"
+                )
+            }
+        Task { @MainActor [weak self] in self?.updates.start() }
     }
 
     func applicationWillTerminate(_ notification: Notification) { hotKey?.unregister() }
@@ -55,11 +76,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showCue() { launcher.show() }
     @objc private func quitCue() { NSApp.terminate(nil) }
+    @objc private func checkForUpdates() { updates.checkForUpdates() }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(checkForUpdates) {
+            return updates?.canCheckForUpdates ?? false
+        }
+        return true
+    }
 
     @objc private func showSettings() {
         launcher.dismiss()
         if settingsController == nil {
-            settingsController = SettingsWindowController(settings: settings) { [weak self] shortcut in
+            settingsController = SettingsWindowController(settings: settings, updates: updates) { [weak self] shortcut in
                 guard let self else { return "Cue is unavailable." }
                 let status = self.hotKey.register(shortcut: shortcut)
                 guard status == noErr else {
@@ -78,6 +107,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return item
     }
 
+    private func updateMenuItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        item.target = self
+        item.isEnabled = false
+        updateMenuItems.append(item)
+        return item
+    }
+
     private func configureMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "command.square", accessibilityDescription: "Cue")
@@ -86,6 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         show.target = self
         menu.addItem(show)
         menu.addItem(settingsMenuItem())
+        menu.addItem(updateMenuItem())
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit Cue", action: #selector(quitCue), keyEquivalent: "q")
         quit.target = self
@@ -97,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         let appMenu = NSMenu()
         appMenu.addItem(settingsMenuItem())
+        appMenu.addItem(updateMenuItem())
         appMenu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit Cue", action: #selector(quitCue), keyEquivalent: "q")
         quit.target = self

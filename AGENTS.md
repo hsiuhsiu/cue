@@ -18,3 +18,4 @@
 - Do not prematurely create generic or plugin abstractions.
 - Do not add networking, telemetry, analytics, or cloud services unless explicitly requested.
 - Run relevant tests and build checks before declaring a task complete.
+- Write release notes in both English and Traditional Chinese (正體中文), covering the same changes, installation steps, and limitations in each language.

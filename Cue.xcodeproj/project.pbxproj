@@ -8,12 +8,15 @@
 /* Begin PBXBuildFile section */
 		A90000000000000000000001 /* CueCore in Frameworks */ = {isa = PBXBuildFile; productRef = A80000000000000000000002 /* CueCore */; };
 		A90000000000000000000002 /* CueCore in Frameworks */ = {isa = PBXBuildFile; productRef = A80000000000000000000003 /* CueCore */; };
+		A90000000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A80000000000000000000005 /* Sparkle */; };
+		A90000000000000000000005 /* Sparkle-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = A40000000000000000000004 /* Sparkle-LICENSE.txt */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A40000000000000000000001 /* Cue.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Cue.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A40000000000000000000002 /* CueCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CueCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A40000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A40000000000000000000004 /* Sparkle-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Sparkle-LICENSE.txt"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -22,7 +25,7 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		A50000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A90000000000000000000001 /* CueCore in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
+		A50000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A90000000000000000000001 /* CueCore in Frameworks */, A90000000000000000000003 /* Sparkle in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
 		A50000000000000000000005 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A90000000000000000000002 /* CueCore in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
@@ -38,7 +41,7 @@
 			sourceTree = "<group>";
 		};
 		A30000000000000000000002 /* Products */ = {isa = PBXGroup; children = (A40000000000000000000001 /* Cue.app */, A40000000000000000000002 /* CueCoreTests.xctest */,); name = Products; sourceTree = "<group>"; };
-		A30000000000000000000003 /* Resources */ = {isa = PBXGroup; children = (A40000000000000000000003 /* Info.plist */,); path = Resources; sourceTree = "<group>"; };
+		A30000000000000000000003 /* Resources */ = {isa = PBXGroup; children = (A40000000000000000000003 /* Info.plist */, A40000000000000000000004 /* Sparkle-LICENSE.txt */,); path = Resources; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -50,7 +53,7 @@
 			dependencies = ();
 			fileSystemSynchronizedGroups = (A30000000000000000000004 /* Cue */,);
 			name = Cue;
-			packageProductDependencies = (A80000000000000000000002 /* CueCore */,);
+			packageProductDependencies = (A80000000000000000000002 /* CueCore */, A80000000000000000000005 /* Sparkle */,);
 			productName = Cue;
 			productReference = A40000000000000000000001 /* Cue.app */;
 			productType = "com.apple.product-type.application";
@@ -88,7 +91,7 @@
 			knownRegions = (en, Base,);
 			mainGroup = A30000000000000000000001;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (A80000000000000000000001 /* XCLocalSwiftPackageReference "." */,);
+			packageReferences = (A80000000000000000000001 /* XCLocalSwiftPackageReference "." */, A80000000000000000000004 /* XCRemoteSwiftPackageReference "Sparkle" */,);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A30000000000000000000002 /* Products */;
 			projectDirPath = "";
@@ -98,7 +101,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A50000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A50000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A90000000000000000000005 /* Sparkle-LICENSE.txt in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
 		A50000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
@@ -144,12 +147,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGNING_ALLOWED = NO;
+				COPY_PHASE_STRIP = NO;
 				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks",);
 				PRODUCT_BUNDLE_IDENTIFIER = com.yyhsiu.cue;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REMOVE_HEADERS_FROM_EMBEDDED_BUNDLES = NO;
 			};
 			name = Debug;
 		};
@@ -157,12 +163,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGNING_ALLOWED = NO;
+				COPY_PHASE_STRIP = NO;
 				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks",);
 				PRODUCT_BUNDLE_IDENTIFIER = com.yyhsiu.cue;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REMOVE_HEADERS_FROM_EMBEDDED_BUNDLES = NO;
 			};
 			name = Release;
 		};
@@ -200,9 +209,14 @@
 		A80000000000000000000001 /* XCLocalSwiftPackageReference "." */ = {isa = XCLocalSwiftPackageReference; relativePath = .; };
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		A80000000000000000000004 /* XCRemoteSwiftPackageReference "Sparkle" */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/sparkle-project/Sparkle"; requirement = {kind = exactVersion; version = 2.10.0; }; };
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		A80000000000000000000002 /* CueCore */ = {isa = XCSwiftPackageProductDependency; package = A80000000000000000000001 /* XCLocalSwiftPackageReference "." */; productName = CueCore; };
 		A80000000000000000000003 /* CueCore */ = {isa = XCSwiftPackageProductDependency; package = A80000000000000000000001 /* XCLocalSwiftPackageReference "." */; productName = CueCore; };
+		A80000000000000000000005 /* Sparkle */ = {isa = XCSwiftPackageProductDependency; package = A80000000000000000000004 /* XCRemoteSwiftPackageReference "Sparkle" */; productName = Sparkle; };
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A10000000000000000000001 /* Project object */;

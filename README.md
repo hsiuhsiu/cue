@@ -4,9 +4,9 @@ Cue is a small native macOS application launcher. It runs in the menu bar, opens
 
 ## Download and install
 
-[Download Cue 0.1.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.1.0/Cue-0.1.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.1.0) · [繁體中文安裝說明](docs/installation.md)
+[Download Cue 0.1.1 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.1.1/Cue-0.1.1-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.1.1) · [正體中文安裝說明](docs/installation.md)
 
-This first preview is distributed through a **private GitHub repository**. Sign in with a GitHub account that has access to `hsiuhsiu/cue`; the download is unavailable to other accounts.
+The repository and release downloads are public. **Version 0.1.0 users must install 0.1.1 manually once** to gain in-app updates.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
@@ -31,14 +31,20 @@ open .build/xcode/Build/Products/Release/Cue.app
 
 Source builds require a Swift 6 toolchain. Xcode must have completed its first-run setup and license acceptance. The app is not sandboxed; the preview packaging process below uses ad-hoc signing.
 
-Alternatively, build a local app bundle with Swift Package Manager:
+Alternatively, use the local app build script:
 
 ```sh
 ./scripts/build-app.sh
 open .build/Cue.app
 ```
 
-The script defaults to an optimized **Release** build for daily use; pass `debug` for development. It uses `/Applications/Xcode.app` when available, otherwise the selected developer tools, and honors an explicit `DEVELOPER_DIR`. Command Line Tools alone can build the app, but the XCTest suite requires full Xcode.
+The script defaults to an optimized **Release** build for daily use; pass `debug` for development. It uses `/Applications/Xcode.app` when available, otherwise the selected developer tools, and honors an explicit `DEVELOPER_DIR`. Full Xcode is required to build the app bundle with its embedded updater and run tests. Sparkle 2.10.0 is pinned in both dependency graphs.
+
+## Updates
+
+Use **Check for Updates…** from the menu bar or **Command+, → Updates**. Automatic checks are enabled by default, normally once every 24 hours, and can be disabled without losing manual checks. Scheduled updates only change the menu bar indicator and update entry; they do not take focus from typing. The user chooses whether to download and install, then uses **Install and Relaunch** to finish.
+
+Sparkle verifies signed update archives and the signed HTTPS appcast against the public key embedded in Cue. Checks contact GitHub; no usage analytics or system profile is sent. Updates run independently of launcher input. Sparkle's license is included in the app bundle and in [Resources/Sparkle-LICENSE.txt](Resources/Sparkle-LICENSE.txt).
 
 ## Package a preview release
 
@@ -46,7 +52,7 @@ The script defaults to an optimized **Release** build for daily use; pass `debug
 ./scripts/release.sh
 ```
 
-The local release script reads the version from `Resources/Info.plist`, builds a universal app, and writes `Cue-<version>-universal.dmg` and `SHA256SUMS.txt` under `.build/releases/<version>/`. It prepares the release files locally; it does not upload them or publish a GitHub release. Developer ID signing and notarization are not part of this pipeline. See [publishing a release](docs/releasing.md) for the publication steps.
+The local release script reads the version from `Resources/Info.plist`, builds a universal app, and writes `Cue-<version>-universal.dmg`, a signed `appcast.xml`, and `SHA256SUMS.txt` under `.build/releases/<version>/`. Publishing requires the maintainer's update-signing key in Keychain; ordinary source builds and tests do not. The script prepares files locally and never uploads them. Developer ID signing and notarization are not part of this pipeline. See [publishing a release](docs/releasing.md) for publication order and key management.
 
 ## Tests
 

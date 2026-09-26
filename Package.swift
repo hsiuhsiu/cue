@@ -8,11 +8,14 @@ let package = Package(
         .library(name: "CueCore", targets: ["CueCore"]),
         .executable(name: "Cue", targets: ["Cue"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.0"),
+    ],
     targets: [
         .target(name: "CueCore"),
         .executableTarget(
             name: "Cue",
-            dependencies: ["CueCore"],
+            dependencies: ["CueCore", .product(name: "Sparkle", package: "Sparkle")],
             linkerSettings: [.linkedFramework("Carbon")]
         ),
         .testTarget(name: "CueCoreTests", dependencies: ["CueCore"]),
