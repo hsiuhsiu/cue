@@ -1,0 +1,209 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A90000000000000000000001 /* CueCore in Frameworks */ = {isa = PBXBuildFile; productRef = A80000000000000000000002 /* CueCore */; };
+		A90000000000000000000002 /* CueCore in Frameworks */ = {isa = PBXBuildFile; productRef = A80000000000000000000003 /* CueCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A40000000000000000000001 /* Cue.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Cue.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A40000000000000000000002 /* CueCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CueCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A40000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A30000000000000000000004 /* Cue */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Sources/Cue; sourceTree = "<group>"; };
+		A30000000000000000000005 /* CueCoreTests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Tests/CueCoreTests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A50000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A90000000000000000000001 /* CueCore in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
+		A50000000000000000000005 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A90000000000000000000002 /* CueCore in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A30000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A30000000000000000000004 /* Cue */,
+				A30000000000000000000005 /* CueCoreTests */,
+				A30000000000000000000003 /* Resources */,
+				A30000000000000000000002 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A30000000000000000000002 /* Products */ = {isa = PBXGroup; children = (A40000000000000000000001 /* Cue.app */, A40000000000000000000002 /* CueCoreTests.xctest */,); name = Products; sourceTree = "<group>"; };
+		A30000000000000000000003 /* Resources */ = {isa = PBXGroup; children = (A40000000000000000000003 /* Info.plist */,); path = Resources; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A20000000000000000000001 /* Cue */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A60000000000000000000002 /* Build configuration list for PBXNativeTarget "Cue" */;
+			buildPhases = (A50000000000000000000001 /* Sources */, A50000000000000000000002 /* Frameworks */, A50000000000000000000003 /* Resources */,);
+			buildRules = ();
+			dependencies = ();
+			fileSystemSynchronizedGroups = (A30000000000000000000004 /* Cue */,);
+			name = Cue;
+			packageProductDependencies = (A80000000000000000000002 /* CueCore */,);
+			productName = Cue;
+			productReference = A40000000000000000000001 /* Cue.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A20000000000000000000002 /* CueCoreTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A60000000000000000000003 /* Build configuration list for PBXNativeTarget "CueCoreTests" */;
+			buildPhases = (A50000000000000000000004 /* Sources */, A50000000000000000000005 /* Frameworks */, A50000000000000000000006 /* Resources */,);
+			buildRules = ();
+			dependencies = ();
+			fileSystemSynchronizedGroups = (A30000000000000000000005 /* CueCoreTests */,);
+			name = CueCoreTests;
+			packageProductDependencies = (A80000000000000000000003 /* CueCore */,);
+			productName = CueCoreTests;
+			productReference = A40000000000000000000002 /* CueCoreTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					A20000000000000000000001 = {CreatedOnToolsVersion = 26.0; };
+					A20000000000000000000002 = {CreatedOnToolsVersion = 26.0; };
+				};
+			};
+			buildConfigurationList = A60000000000000000000001 /* Build configuration list for PBXProject "Cue" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base,);
+			mainGroup = A30000000000000000000001;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (A80000000000000000000001 /* XCLocalSwiftPackageReference "." */,);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A30000000000000000000002 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (A20000000000000000000001 /* Cue */, A20000000000000000000002 /* CueCoreTests */,);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A50000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A50000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A50000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A50000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A70000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A70000000000000000000002 /* Release */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+					CLANG_ENABLE_MODULES = YES;
+					CLANG_ENABLE_OBJC_ARC = YES;
+					DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+					GCC_C_LANGUAGE_STANDARD = gnu17;
+					MACOSX_DEPLOYMENT_TARGET = 14.0;
+					SDKROOT = macosx;
+					SWIFT_COMPILATION_MODE = wholemodule;
+					SWIFT_OPTIMIZATION_LEVEL = "-O";
+					SWIFT_VERSION = 6.0;
+				};
+				name = Release;
+		};
+		A70000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks",);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yyhsiu.cue;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		A70000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks",);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yyhsiu.cue;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		A70000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@loader_path/../Frameworks", "@executable_path/../Frameworks",);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yyhsiu.cue.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		A70000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@loader_path/../Frameworks", "@executable_path/../Frameworks",);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yyhsiu.cue.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A60000000000000000000001 /* Build configuration list for PBXProject "Cue" */ = {isa = XCConfigurationList; buildConfigurations = (A70000000000000000000001 /* Debug */, A70000000000000000000002 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A60000000000000000000002 /* Build configuration list for PBXNativeTarget "Cue" */ = {isa = XCConfigurationList; buildConfigurations = (A70000000000000000000003 /* Debug */, A70000000000000000000004 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A60000000000000000000003 /* Build configuration list for PBXNativeTarget "CueCoreTests" */ = {isa = XCConfigurationList; buildConfigurations = (A70000000000000000000005 /* Debug */, A70000000000000000000006 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A80000000000000000000001 /* XCLocalSwiftPackageReference "." */ = {isa = XCLocalSwiftPackageReference; relativePath = .; };
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A80000000000000000000002 /* CueCore */ = {isa = XCSwiftPackageProductDependency; package = A80000000000000000000001 /* XCLocalSwiftPackageReference "." */; productName = CueCore; };
+		A80000000000000000000003 /* CueCore */ = {isa = XCSwiftPackageProductDependency; package = A80000000000000000000001 /* XCLocalSwiftPackageReference "." */; productName = CueCore; };
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A10000000000000000000001 /* Project object */;
+}

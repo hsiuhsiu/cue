@@ -1,0 +1,20 @@
+# Engineering principles
+
+## Highest priority: fast, simple, and lightweight
+
+- Cue's most important product and engineering principle is immediate responsiveness. Keep the app extremely fast, simple, and lightweight; make every reasonable effort to eliminate perceptible interaction delay. Evaluate every feature, dependency, and architectural choice against this principle.
+- Typing must feel continuous and instantaneous. Perceptible stutter, dropped keystrokes, delayed focus, or lag in search results and keyboard selection are defects, not acceptable tradeoffs for added features.
+- Keep the input and rendering paths minimal. Move expensive work, filesystem access, indexing, and image loading or decoding off the main thread. Reuse views and cached work where useful, and avoid unnecessary allocations, redraws, and resource consumption.
+- Do not introduce artificial waits, animations that delay interaction, or debounce delays in the core typing and navigation flow. Acknowledge user actions immediately.
+- Work that genuinely takes time may run asynchronously with a clear indication that it is in progress. Such work must keep typing and navigation responsive; a progress indicator never excuses a blocked interface.
+- Validate changes to interaction paths in an optimized build through actual use and appropriate measurements. Assess invocation, immediate typing, search updates, selection, and launching, including first use and background work. Fast average computation times alone do not establish a smooth experience; investigate visible stalls and latency spikes.
+
+## Implementation
+
+- Cue is a native macOS application. Prefer Swift, SwiftUI, AppKit, and system APIs.
+- Avoid dependencies unless they provide clear value.
+- Optimize for keyboard-first interaction and low latency.
+- Keep core logic testable outside the UI.
+- Do not prematurely create generic or plugin abstractions.
+- Do not add networking, telemetry, analytics, or cloud services unless explicitly requested.
+- Run relevant tests and build checks before declaring a task complete.
