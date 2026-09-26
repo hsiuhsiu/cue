@@ -59,9 +59,12 @@ The local release script reads the version from `Resources/Info.plist`, builds a
 ```sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-settings.sh
+./scripts/check-launcher-keyboard.sh
 ```
 
 The settings check exercises the actual `CueSettings` store: bounded change notifications, saving edits, and reloading preferences. It uses an isolated temporary preferences domain and leaves the app’s settings untouched.
+
+The optimized launcher keyboard check exercises the real AppKit view without an app-menu fallback, including Command-comma, modifiers, repeat events, and marked-text composition. It does not show windows or change user preferences.
 
 Or run the **Cue** scheme's tests in Xcode / from the command line:
 
@@ -78,7 +81,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 | Control | Action |
 | --- | --- |
 | Option+Space (default, configurable) | Show or hide Cue |
-| Command+, | Open Settings while Cue is active |
+| Command+, | Open Settings from Cue's launcher |
 | Up / Down | Select a result |
 | Enter | Launch the selected application or run the selected command |
 | Escape | Dismiss Cue |

@@ -1,21 +1,16 @@
 import AppKit
-import Carbon
 import CueCore
 
 private final class LauncherPanel: NSPanel {
     var onToggle: (() -> Void)?
-    var onSettings: (() -> Void)?
     var shortcut = LauncherShortcut.default
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
     override func sendEvent(_ event: NSEvent) {
         if event.type == .keyDown {
-            let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
-            if event.keyCode == UInt16(kVK_ANSI_Comma), modifiers == .command {
-                if !event.isARepeat { onSettings?() }
-                return
-            }
+            // Keep the direct-event fallback on the same route as native key equivalents.
+            if (contentView as? LauncherView)?.handleSettingsShortcut(event) == true { return }
             if shortcut.matches(event: event) {
                 if !event.isARepeat { onToggle?() }
                 return
@@ -53,7 +48,6 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         panel.animationBehavior = .none
         panel.delegate = self
         panel.onToggle = { [weak self] in self?.toggle() }
-        panel.onSettings = { [weak self] in self?.onSettings?() }
         launcherView = LauncherView(
             model: model,
             onSubmit: { [weak self] in self?.runSelected() },

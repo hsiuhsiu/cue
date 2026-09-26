@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import CueCore
 
 private final class ResultsTable: NSTableView {
@@ -142,6 +143,22 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Command keys take this path before window.sendEvent, including when Cue is inactive.
+        if handleSettingsShortcut(event) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    func handleSettingsShortcut(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+              event.charactersIgnoringModifiers == "," || event.keyCode == UInt16(kVK_ANSI_Comma)
+        else { return false }
+        // Invoke directly, without a button's simulated-click animation or a deferred callback.
+        if !event.isARepeat { onSettings() }
+        return true
+    }
 
     override func layout() {
         super.layout()
