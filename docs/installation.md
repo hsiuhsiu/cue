@@ -4,8 +4,8 @@ Cue 是選單列中的 macOS 應用程式啟動器。按下 **Option+Space** 即
 
 ## 下載
 
-- [下載 Cue 0.1.1 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v0.1.1/Cue-0.1.1-universal.dmg)
-- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v0.1.1)
+- [下載 Cue 0.2.0 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v0.2.0/Cue-0.2.0-universal.dmg)
+- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v0.2.0)
 
 儲存庫與下載現在都已公開，不需要 GitHub 帳號。版本說明同時提供 English／正體中文。
 
@@ -13,12 +13,14 @@ Cue 是選單列中的 macOS 應用程式啟動器。按下 **Option+Space** 即
 
 ## 安裝與更新
 
-1. 若 Cue 正在執行，先從選單列的 Cue 圖示選擇 **Quit Cue**。
-2. 開啟下載的 **Cue-0.1.1-universal.dmg**。
+1. 若 Cue 正在執行，先從選單列的 Cue 圖示選擇**結束 Cue／Quit Cue**。
+2. 開啟下載的 **Cue-0.2.0-universal.dmg**。
 3. 將 **Cue.app** 拖曳至 **Applications／應用程式**。若已有舊版本，選擇取代。
 4. 從「應用程式」開啟 Cue，再退出掛載的 Cue 磁碟映像。
 
-Cue 會出現在選單列，不會顯示 Dock 圖示。按下 **Option+Space**，或從選單列選擇 **Show Cue** 即可開啟搜尋面板。
+Cue 會出現在選單列，不會顯示 Dock 圖示。按下 **Option+Space**，或從選單列選擇**顯示 Cue／Show Cue**即可開啟搜尋面板。
+
+若目前使用 **0.1.1**，也可直接從 App 內檢查更新；**0.1.0** 尚未包含更新器，請依上方步驟直接安裝 0.2.0，不必先安裝 0.1.1。原有設定會保留。
 
 ## 首次開啟
 
@@ -42,19 +44,25 @@ Cue 會出現在選單列，不會顯示 Dock 圖示。按下 **Option+Space**�
 | Escape | 關閉搜尋面板 |
 | Cue 中按 Command+, | 開啟設定 |
 
-設定頁可以更改全域快捷鍵、搜尋結果數量、顯示螢幕，以及切換 App 時是否關閉面板。設定會立即保存。若預設快捷鍵被其他 App 使用，請從 Cue 選單列的 **Settings…** 更換。
+設定頁可以更改全域快速鍵、搜尋結果數量、顯示螢幕、切換 App 時是否隱藏面板、介面語言，以及更新檢查。按 **Command+,** 會將設定視窗帶到最前面並取得鍵盤焦點。設定會立即保存；除了語言需重新開啟 Cue，其餘設定立即生效。若預設快速鍵被其他 App 使用，請從 Cue 選單列的**設定⋯／Settings…** 更換。
 
-安裝或移除其他 App 後，在 Cue 輸入 **更新索引**、`reindex` 或 `refresh apps`，選擇 **Update App Index** 並按 Enter，即可重新掃描。
+安裝或移除其他 App 後，在 Cue 輸入**更新索引**、`reindex` 或 `refresh apps`，選擇**更新應用程式索引／Update App Index** 並按 Enter，即可在背景重新掃描。
+
+## 介面語言
+
+Cue 支援英文與正體中文，包含所有設定、選單、搜尋提示，以及 Cue 的狀態與錯誤訊息。預設為**跟隨系統／Follow System**，依 macOS 的語言偏好選擇介面。
+
+到**設定 → 語言 → App 語言**（**Settings → Language → App language**）可改為 **English** 或**正體中文**。選擇後退出並重新開啟 Cue，語言變更才會生效；也可隨時改回跟隨系統。Cue 的名稱不變，已安裝的應用程式名稱仍依 macOS 顯示，不受 Cue 的語言選項影響。
 
 ## App 內更新
 
-**0.1.0 使用者必須先手動安裝 0.1.1 一次**，才能取得更新功能；原有設定會保留。
+**0.1.1 使用者可在 App 內更新至 0.2.0。0.1.0 使用者需直接手動安裝 0.2.0 一次**，才能取得更新功能；不必先安裝 0.1.1，原有設定會保留。
 
-安裝 0.1.1 後，Cue 預設約每天在背景檢查一次新版。找到新版時，選單列圖示會變成更新提示，選單中也會顯示版本，不會搶走搜尋框或其他 App 的焦點。
+Cue 預設約每天在背景檢查一次新版。找到新版時，0.2.0 的選單列圖示會加上小圓點，選單中也會顯示版本，不會搶走搜尋框或其他 App 的焦點。
 
-從 Cue 選單列選擇 **Check for Updates…**，或按 **Command+, → Updates**，即可手動檢查、查看更新。選擇下載後，完成時按 **Install and Relaunch** 即可安裝並重啟。請先把 Cue 安裝至「應用程式」再更新；直接從唯讀 DMG 執行無法自我更新，安裝需要額外權限時 macOS 可能要求授權。
+從 Cue 選單列選擇**檢查更新⋯／Check for Updates…**，或按 **Command+, → 更新／Updates**，即可手動檢查、查看更新。選擇下載後，依更新視窗的安裝並重新啟動提示完成（英文介面為 **Install and Relaunch**）。0.1.1 的選單與設定使用英文。請先把 Cue 安裝至「應用程式」等可寫入的位置再更新；直接從唯讀 DMG 執行無法自我更新，安裝需要額外權限時 macOS 可能要求授權。
 
-設定中的 **Automatically check for updates** 可隨時關閉。關閉後不再排程檢查，仍可手動使用 **Check for Updates…**。Cue 不會自動替你安裝或重啟，也不會傳送使用行為分析或系統資訊；更新檢查與下載會連線至 GitHub。
+設定中的**自動檢查更新／Automatically check for updates** 可隨時關閉。關閉後不再排程檢查，仍可手動使用**檢查更新⋯／Check for Updates…**。Cue 不會自動替你安裝或重啟，也不會傳送使用行為分析或系統資訊；更新檢查與下載會連線至 GitHub。
 
 ## 重新安裝與限制
 

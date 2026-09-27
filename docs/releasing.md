@@ -27,9 +27,11 @@ archive verification enabled in production.
 
 1. Set `CFBundleShortVersionString` and increment `CFBundleVersion` in
    `Resources/Info.plist`. Sparkle compares the monotonically increasing build
-   number. Write **both English and Traditional Chinese** sections in
+   number; for example, 0.2.0 uses build 3 after 0.1.1's build 2. Never reset
+   the build number when changing the displayed version. Write **both English and Traditional Chinese** sections in
    `docs/releases/v<version>.md`, with equivalent changes and limitations.
-   Update README and installation download links.
+   Update README and installation download links. Finalize the notes before
+   running the release script because they become part of the signed feed.
 2. Run `./scripts/release.sh` with full Xcode. It tests, builds both
    architectures, preserves Sparkle's framework/helper signatures, signs the
    complete Cue bundle locally, creates the DMG, and signs/verifies the archive
@@ -46,7 +48,8 @@ archive verification enabled in production.
 5. Test actual browser downloads on another Mac when available. Record tested
    machines accurately; compiling Intel and targeting macOS 14 does not prove
    runtime compatibility there. Version 0.1.0 needs one manual installation of
-   0.1.1 because it has no updater.
+   the current release (0.2.0) because it has no updater; installing 0.1.1
+   first is unnecessary. Version 0.1.1 can use the in-app updater.
 
 The script refuses to overwrite an existing version directory. Inspect and
 move aside failed/unpublished attempts before retrying; never silently replace
@@ -55,19 +58,19 @@ an already-published build with different bytes.
 ## Publish assets before the feed
 
 Commit and push the reviewed source. Create and push an annotated version tag
-on that commit. Publish the tested assets and bilingual notes; for 0.1.1:
+on that commit. Publish the tested assets and bilingual notes; for 0.2.0:
 
 ```sh
-git tag -a v0.1.1 -m "Cue 0.1.1 in-app updates"
+git tag -a v0.2.0 -m "Cue 0.2.0 Traditional Chinese and new artwork"
 git push origin main
-git push origin v0.1.1
-gh release create v0.1.1 \
-  .build/releases/0.1.1/Cue-0.1.1-universal.dmg \
-  .build/releases/0.1.1/appcast.xml \
-  .build/releases/0.1.1/SHA256SUMS.txt \
+git push origin v0.2.0
+gh release create v0.2.0 \
+  .build/releases/0.2.0/Cue-0.2.0-universal.dmg \
+  .build/releases/0.2.0/appcast.xml \
+  .build/releases/0.2.0/SHA256SUMS.txt \
   --repo hsiuhsiu/cue --verify-tag --prerelease --latest=false \
-  --title "Cue 0.1.1 — Updates / App 內更新" \
-  --notes-file docs/releases/v0.1.1.md
+  --title "Cue 0.2.0 — Traditional Chinese and new artwork / 正體中文與全新圖示" \
+  --notes-file docs/releases/v0.2.0.md
 ```
 
 Download the assets into a fresh directory and run

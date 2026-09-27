@@ -18,11 +18,9 @@ Cue is a small native macOS application launcher. It runs in the menu bar, opens
 
 ## Download and install
 
-[Download Cue 0.1.1 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.1.1/Cue-0.1.1-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.1.1) · [正體中文安裝說明](docs/installation.md)
+[Download Cue 0.2.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.2.0/Cue-0.2.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.2.0) · [正體中文安裝說明](docs/installation.md)
 
-The repository and release downloads are public. **Version 0.1.0 users must install 0.1.1 manually once** to gain in-app updates.
-
-The new artwork, launcher settings-focus fix, and Traditional Chinese interface are in the current source build; they are not yet included in the published 0.1.1 download.
+The repository and release downloads are public. **Version 0.1.1 users can update from within Cue. Version 0.1.0 users must install 0.2.0 manually once** to gain in-app updates; installing 0.1.1 first is unnecessary.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
@@ -32,7 +30,9 @@ The preview has an **ad-hoc signature**, without Developer ID signing or Apple n
 
 ## Features
 
-The interface supports **English and Traditional Chinese (正體中文)**, including all settings, menus, search prompts, and Cue's status/error messages. It follows macOS by default. Choose **Settings → Language → App language** to use **Follow System**, **English**, or **正體中文**, then reopen Cue to apply the change. Cue and installed application names remain unchanged. Translations are cached outside the typing path.
+The interface supports **English and Traditional Chinese (正體中文)**, including all settings, menus, search prompts, and Cue's status/error messages. It follows macOS by default. Choose **Settings → Language → App language** to use **Follow System**, **English**, or **正體中文**, then reopen Cue to apply the change. Cue keeps its name, and installed application names continue to follow macOS. Translations are cached outside the typing path.
+
+The blue app icon appears in Finder and **About Cue**. The matching menu bar icon supports light and dark appearances and shows a small dot when an update is available. **Command+,** brings Settings to the front with keyboard focus, including when Settings was already open or minimized.
 
 The prototype discovers applications under `/Applications`, `/System/Applications`, and `~/Applications`, including nested folders. Results show application names and icons. Ranking prefers exact, prefix, word-prefix, substring, then subsequence matches. The global shortcut uses the system hot-key API and does not require Accessibility permission.
 
@@ -112,7 +112,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 
 Type `reindex`, `update index`, `refresh apps`, or `更新索引` to find **Update App Index**, then press Enter. Cue scans again in the background, keeps the launcher usable, and shows the updated application count when finished. You can install or remove applications and refresh without restarting Cue.
 
-Press **Command+,** in Cue (or click the gear/menu-bar Settings item) to configure the global shortcut, maximum result count, pointer/main display placement, and dismissal on focus loss. Changes apply immediately and persist across restarts. If a new shortcut conflicts, Cue keeps the previous working shortcut.
+Press **Command+,** in Cue (or click the gear/menu-bar Settings item) to configure the global shortcut, maximum result count, pointer/main display placement, dismissal on focus loss, language, and update checks. Preferences are saved immediately and persist across restarts; language changes take effect when Cue reopens. If a new shortcut conflicts, Cue keeps the previous working shortcut.
 
 Pressing Enter on an app dismisses Cue immediately; launch failures reopen the query with an error. The default placement follows the mouse pointer. The index is built at startup; use Update App Index after installing or removing applications. Show Cue remains available from the menu bar if another app occupies the saved shortcut.
 
