@@ -80,7 +80,9 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 
 The settings check exercises the actual `CueSettings` store: bounded change notifications, saving edits, and reloading preferences. It uses an isolated temporary preferences domain and leaves the app’s settings untouched.
 
-The optimized launcher keyboard check exercises the real AppKit view without an app-menu fallback, including Command-comma, modifiers, repeat events, and marked-text composition. It does not show windows or change user preferences.
+The optimized launcher keyboard check exercises the real AppKit view without an app-menu fallback, including Command-comma, modifiers, repeat events, and marked-text composition. It verifies shortcut routing, not application activation, and does not show windows or change user preferences.
+
+Verify Settings focus in a Release build: with another app active, invoke Cue, type a query, and press Command-comma. Settings must appear in front with an active title bar and keyboard focus, without another click. Repeat with Settings already open behind another app, after closing it, and after minimizing it. Switching away afterward must not pull focus back to Cue.
 
 Or run the **Cue** scheme's tests in Xcode / from the command line:
 

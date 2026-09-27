@@ -46,7 +46,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func show() {
-        NSApp.activate()
+        // This is an explicit user request from a nonactivating launcher. Plain activate()
+        // can leave another app active, with Settings visible but unable to receive input.
+        NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
     }
