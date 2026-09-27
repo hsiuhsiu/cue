@@ -26,3 +26,11 @@
 "recorder.label" = "Open Cue keyboard shortcut";
 "recorder.help" = "Press to record a new keyboard shortcut. Escape cancels recording.";
 "recorder.prompt" = "Press shortcut…";
+"startup.heading" = "Startup";
+"startup.launch_at_login" = "Launch at login";
+"startup.updating" = "Updating login item…";
+"startup.approval_required" = "Allow Cue in System Settings → General → Login Items to launch at login.";
+"startup.open_login_items" = "Open Login Items…";
+"startup.unavailable" = "macOS could not find Cue's login item. Open your installed copy of Cue, then try again.";
+"startup.unknown" = "macOS could not confirm Cue's login status. Check Login Items in System Settings.";
+"startup.error" = "Could not update launch at login: %@";

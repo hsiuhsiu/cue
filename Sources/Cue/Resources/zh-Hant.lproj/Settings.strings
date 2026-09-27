@@ -26,3 +26,11 @@
 "recorder.label" = "叫出 Cue 的快速鍵";
 "recorder.help" = "按一下以設定新的快速鍵。按 Escape 取消設定。";
 "recorder.prompt" = "請按下快速鍵⋯";
+"startup.heading" = "啟動";
+"startup.launch_at_login" = "登入時啟動";
+"startup.updating" = "正在更新登入項目⋯";
+"startup.approval_required" = "請在「系統設定 → 一般 → 登入項目」允許 Cue，才能在登入時啟動。";
+"startup.open_login_items" = "開啟登入項目⋯";
+"startup.unavailable" = "macOS 找不到 Cue 的登入項目。請開啟已安裝的 Cue 後再試一次。";
+"startup.unknown" = "macOS 無法確認 Cue 的登入狀態。請在系統設定中檢查登入項目。";
+"startup.error" = "無法更新登入時啟動設定：%@";

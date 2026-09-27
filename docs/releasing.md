@@ -51,6 +51,10 @@ archive verification enabled in production.
    notes, or DMG afterward. SHA-256 is a transfer check, not a publisher identity.
 4. Run the optimized launcher, clipboard, settings, localization, and system-action
    checks. Clipboard checks must use synthetic data and private pasteboards.
+   Run `scripts/check-login-item.sh` with its injected service; it must not change
+   the operator's login items. For manual login testing, install Cue in a stable
+   Applications location, check registration and state after reopening Settings,
+   and distinguish those checks from an actual logout/login test.
    Sleep/Lock checks inject actions instead of changing the operator's session;
    report actual sleep/lock as unverified unless deliberately tested. Check the
    Release interface for blank initial input, all nine numbered shortcuts,

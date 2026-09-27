@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var statusItem: NSStatusItem!
     private let settings = CueSettings()
     private var settingsController: SettingsWindowController?
+    private lazy var loginItem = LoginItemController()
     private var preferencesSubscription: AnyCancellable?
     private var updates: UpdateController!
     private var updateSubscription: AnyCancellable?
@@ -116,6 +117,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        // Reflect changes made in macOS Login Items when returning to Settings.
+        // No service lookup is performed for ordinary launcher invocation.
+        settingsController?.refreshLoginItemStatus()
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if settingsController?.window?.isVisible != true { launcher.show() }
         return false
@@ -141,7 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func showSettings() {
         launcher.dismiss()
         if settingsController == nil {
-            settingsController = SettingsWindowController(settings: settings, updates: updates) { [weak self] shortcut in
+            settingsController = SettingsWindowController(settings: settings, updates: updates, loginItem: loginItem) { [weak self] shortcut in
                 guard let self else { return MenuText.appUnavailable }
                 let status = self.hotKey.register(shortcut: shortcut)
                 guard status == noErr else {

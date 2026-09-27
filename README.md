@@ -60,27 +60,26 @@ The page's gear or **Command+,** opens its own recording and retention settings.
 
 See the [Clipboard History guide / 剪貼簿記錄說明](docs/clipboard.md) for retention, storage limits, and privacy details, and the [clipboard search benchmark](docs/performance-clipboard.md) for reproducible performance measurements.
 
-## Build and run
+## Build and install from source
 
-Open `Cue.xcodeproj` in Xcode and run the **Cue** scheme, or use:
-
-```sh
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
-  -project Cue.xcodeproj -scheme Cue -configuration Release \
-  -derivedDataPath .build/xcode CODE_SIGNING_ALLOWED=NO build
-open .build/xcode/Build/Products/Release/Cue.app
-```
-
-Source builds require a Swift 6 toolchain. Xcode must have completed its first-run setup and license acceptance. The app is not sandboxed; the release packaging process below uses ad-hoc signing.
-
-Alternatively, use the local app build script:
+Prefer building your own app? Install full **Xcode with Swift 6 or later**, open it once to complete its license and setup (also after upgrading to Xcode 27), then quit any running Cue and run:
 
 ```sh
-./scripts/build-app.sh
-open .build/Cue.app
+git clone https://github.com/hsiuhsiu/cue.git
+cd cue
+./scripts/install-app.sh
+open "$HOME/Applications/Cue.app"
 ```
 
-The script defaults to an optimized **Release** build for daily use; pass `debug` for development. It uses `/Applications/Xcode.app` when available, otherwise the selected developer tools, and honors an explicit `DEVELOPER_DIR`. Full Xcode is required to build the app bundle with its embedded updater and run tests. Sparkle 2.10.0 is pinned in both dependency graphs.
+This builds an optimized **Release** app for your Mac and installs it permanently at **`~/Applications/Cue.app`**, without a paid developer account, signing key, or administrator access. Existing settings and clipboard history are preserved. Full Xcode is required; Command Line Tools alone are insufficient. The first build downloads the pinned Sparkle 2.10.0 dependency.
+
+**Current source builds add Settings → Launch at login**, so Cue can start automatically after you log in. This option is not in the existing 0.3.0 DMG; it will be included in the next release. Installation keeps the app on disk after reboot; enabling this option also starts it for you.
+
+To update, quit Cue, run `git pull --ff-only` and `./scripts/install-app.sh` in this repository, then open the installed app again. To keep using only your own builds, turn off **Settings → Updates → Automatically check for updates**; installing an update offered by Cue replaces your build with the published GitHub app.
+
+也可以自行編譯，無須下載 DMG。先安裝完整 Xcode 並完成首次啟動與授權設定，再執行上方指令，即可建置 Release 版本並固定安裝至 **`~/Applications/Cue.app`**，不需付費開發者帳號或管理者權限。現有設定與剪貼簿記錄會保留。目前原始碼另提供 **設定 → 登入時啟動**；既有 0.3.0 DMG 尚未包含此選項。若要一直使用自行建置的版本，請關閉自動檢查更新，之後以 `git pull --ff-only` 與安裝腳本更新。
+
+See the [English / 正體中文 source installation guide](docs/building.md) for updating, custom install locations, Xcode setup, build-only and Debug options. `./scripts/build-app.sh --check` checks prerequisites without building. You can also open `Cue.xcodeproj` and run the **Cue** scheme for development.
 
 ## Updates
 
@@ -101,6 +100,7 @@ The local release script reads the version from `Resources/Info.plist`, builds a
 ```sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-settings.sh
+./scripts/check-login-item.sh
 ./scripts/check-launcher-keyboard.sh
 ./scripts/check-clipboard.sh
 ./scripts/check-system-actions.sh
@@ -109,7 +109,9 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift scripts/che
 
 The settings check exercises the actual `CueSettings` store: bounded change notifications, saving edits, and reloading preferences. It uses an isolated temporary preferences domain and leaves the app’s settings untouched.
 
-It also verifies per-app language overrides, relaunch persistence, restoring the system preference, and preserving existing shortcuts. The localization check compares all English/Traditional Chinese keys and format arguments, language fallback, and resources inside a built app. Omit the app path to check only source tables. Verify both languages in a Release build, including Settings layout, menu items, shortcut recording/canceling, Chinese command search, and Command-comma focus; restore **Follow System** after testing.
+The login-item check uses an injected macOS service to verify enabling, disabling, approval-required states, errors, and refresh behavior without changing system login items.
+
+The settings check also verifies per-app language overrides, relaunch persistence, restoring the system preference, and preserving existing shortcuts. The localization check compares all English/Traditional Chinese keys and format arguments, language fallback, and resources inside a built app. Omit the app path to check only source tables. Verify both languages in a Release build, including Settings layout, menu items, shortcut recording/canceling, Chinese command search, and Command-comma focus; restore **Follow System** after testing.
 
 The optimized launcher keyboard check exercises the real AppKit view without an app-menu fallback, including Command-comma, modifiers, repeat events, and marked-text composition. It verifies shortcut routing, not application activation, and does not show windows or change user preferences.
 

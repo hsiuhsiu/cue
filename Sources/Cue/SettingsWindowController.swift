@@ -31,11 +31,23 @@ private enum SettingsText {
     static let recorderLabel = L10n.string("recorder.label", table: "Settings", value: "Open Cue keyboard shortcut")
     static let recorderHelp = L10n.string("recorder.help", table: "Settings", value: "Press to record a new keyboard shortcut. Escape cancels recording.")
     static let pressShortcut = L10n.string("recorder.prompt", table: "Settings", value: "Press shortcut…")
+    static let startup = L10n.string("startup.heading", table: "Settings", value: "Startup")
+    static let launchAtLogin = L10n.string("startup.launch_at_login", table: "Settings", value: "Launch at login")
+    static let updatingLoginItem = L10n.string("startup.updating", table: "Settings", value: "Updating login item…")
+    static let approvalRequired = L10n.string("startup.approval_required", table: "Settings", value: "Allow Cue in System Settings → General → Login Items to launch at login.")
+    static let openLoginItems = L10n.string("startup.open_login_items", table: "Settings", value: "Open Login Items…")
+    static let loginItemUnavailable = L10n.string("startup.unavailable", table: "Settings", value: "macOS could not find Cue's login item. Open your installed copy of Cue, then try again.")
+    static let loginItemUnknown = L10n.string("startup.unknown", table: "Settings", value: "macOS could not confirm Cue's login status. Check Login Items in System Settings.")
+    static let loginItemError = L10n.string("startup.error", table: "Settings", value: "Could not update launch at login: %@")
 }
 
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
-    init(settings: CueSettings, updates: UpdateController, applyShortcut: @escaping (LauncherShortcut) -> String?) {
+    private let loginItem: LoginItemController
+
+    init(settings: CueSettings, updates: UpdateController, loginItem: LoginItemController,
+         applyShortcut: @escaping (LauncherShortcut) -> String?) {
+        self.loginItem = loginItem
         let contentSize = NSSize(width: 510, height: 660)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: contentSize),
@@ -46,7 +58,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.animationBehavior = .none
         window.contentView = NSHostingView(rootView: CueSettingsView(
-            settings: settings, updates: updates, applyShortcut: applyShortcut
+            settings: settings, updates: updates, loginItem: loginItem, applyShortcut: applyShortcut
         ))
         super.init(window: window)
         window.delegate = self
@@ -82,12 +94,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
+        refreshLoginItemStatus()
+    }
+
+    func refreshLoginItemStatus() {
+        guard window?.isVisible == true else { return }
+        Task { await loginItem.refresh() }
     }
 }
 
 private struct CueSettingsView: View {
     @ObservedObject var settings: CueSettings
     @ObservedObject var updates: UpdateController
+    @ObservedObject var loginItem: LoginItemController
     let applyShortcut: (LauncherShortcut) -> String?
     @State private var shortcutError: String?
 
@@ -131,6 +150,38 @@ private struct CueSettingsView: View {
                     Text(SettingsText.mainDisplay).tag(LauncherPreferences.Display.main)
                 }
                 Toggle(SettingsText.dismissOnFocusLoss, isOn: $settings.preferences.dismissOnFocusLoss)
+            }
+
+            Section(SettingsText.startup) {
+                HStack {
+                    Toggle(SettingsText.launchAtLogin, isOn: Binding(
+                        get: { loginItem.isSelected },
+                        set: { enabled in Task { await loginItem.setEnabled(enabled) } }
+                    ))
+                    .disabled(!loginItem.hasLoaded || loginItem.isBusy)
+                    if loginItem.isBusy {
+                        ProgressView().controlSize(.small)
+                            .accessibilityLabel(SettingsText.updatingLoginItem)
+                    }
+                }
+                if loginItem.status == .requiresApproval {
+                    Text(SettingsText.approvalRequired)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(SettingsText.openLoginItems) { loginItem.openSystemSettings() }
+                } else if loginItem.hasMissingRegistrationError || loginItem.status == .unknown {
+                    Text(loginItem.hasMissingRegistrationError ? SettingsText.loginItemUnavailable : SettingsText.loginItemUnknown)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let error = loginItem.errorDescription {
+                    Text(L10n.format(SettingsText.loginItemError, error))
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Section {
