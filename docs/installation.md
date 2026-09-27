@@ -9,7 +9,7 @@ Cue 是選單列中的 macOS 應用程式啟動器。按下 **Option+Space** 即
 
 儲存庫與下載現在都已公開，不需要 GitHub 帳號。版本說明同時提供 English／正體中文。
 
-安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。這次預覽版僅在 **Apple silicon、macOS 26.6.2** 實際執行測試；Intel 與其他 macOS 版本尚未驗證。
+安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。此版本僅在 **Apple silicon、macOS 26.6.2** 實際執行測試；Intel 與其他 macOS 版本尚未驗證。
 
 ## 安裝與更新
 
@@ -24,7 +24,7 @@ Cue 會出現在選單列，不會顯示 Dock 圖示。按下 **Option+Space**�
 
 ## 首次開啟
 
-此預覽版只有 ad-hoc 簽章，尚未使用 Developer ID 簽署，也未經 Apple 公證。首次開啟時，macOS 可能顯示無法驗證開發者或無法檢查 App 的提示。
+此版本只有 ad-hoc 簽章，尚未使用 Developer ID 簽署，也未經 Apple 公證。首次開啟時，macOS 可能顯示無法驗證開發者或無法檢查 App 的提示。
 
 確認檔案來自上方的 Cue 版本頁面，且你信任這個版本後，可依 Apple 官方流程操作：
 
@@ -32,7 +32,7 @@ Cue 會出現在選單列，不會顯示 Dock 圖示。按下 **Option+Space**�
 2. 開啟「系統設定」中的「隱私權與安全性」，向下找到 Cue 的提示，按「強制打開」。
 3. 再次出現提示時，確認要執行 Cue，再按「打開」。
 
-以上流程依據 [Apple：在 Mac 上安全地開啟 App](https://support.apple.com/zh-tw/102445)。公司管理的 Mac 可能限制相關選項。若沒有「強制打開」或仍無法開啟，請回報提示內容；此預覽版尚未驗證其他機器的首次安裝。若提示指出 App 已損壞或會損壞電腦，請停止安裝並回報。
+以上流程依據 [Apple：在 Mac 上安全地開啟 App](https://support.apple.com/zh-tw/102445)。公司管理的 Mac 可能限制相關選項。若沒有「強制打開」或仍無法開啟，請回報提示內容；此版本尚未驗證其他機器的首次安裝。若提示指出 App 已損壞或會損壞電腦，請停止安裝並回報。
 
 ## 開始使用
 

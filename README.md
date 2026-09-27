@@ -24,9 +24,9 @@ The repository and release downloads are public. **Version 0.1.1 users can updat
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
-The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Runtime testing for this preview has been performed only on **macOS 26.6.2 on Apple silicon**; Intel and other macOS versions remain unverified.
+The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Runtime testing for this release has been performed only on **macOS 26.6.2 on Apple silicon**; Intel and other macOS versions remain unverified.
 
-The preview has an **ad-hoc signature**, without Developer ID signing or Apple notarization. macOS may block its first launch. If you trust this release, follow the [first-launch instructions](docs/installation.md#首次開啟) using System Settings. Building from source is optional; downloading and installing the app does not require Xcode or Terminal.
+The app has an **ad-hoc signature**, without Developer ID signing or Apple notarization. macOS may block its first launch. If you trust this release, follow the [first-launch instructions](docs/installation.md#首次開啟) using System Settings. Building from source is optional; downloading and installing the app does not require Xcode or Terminal.
 
 ## Features
 
@@ -34,7 +34,7 @@ The interface supports **English and Traditional Chinese (正體中文)**, inclu
 
 The blue app icon appears in Finder and **About Cue**. The matching menu bar icon supports light and dark appearances and shows a small dot when an update is available. **Command+,** brings Settings to the front with keyboard focus, including when Settings was already open or minimized.
 
-The prototype discovers applications under `/Applications`, `/System/Applications`, and `~/Applications`, including nested folders. Results show application names and icons. Ranking prefers exact, prefix, word-prefix, substring, then subsequence matches. The global shortcut uses the system hot-key API and does not require Accessibility permission.
+Cue discovers applications under `/Applications`, `/System/Applications`, and `~/Applications`, including nested folders. Results show application names and icons. Ranking prefers exact, prefix, word-prefix, substring, then subsequence matches. The global shortcut uses the system hot-key API and does not require Accessibility permission.
 
 ## Build and run
 
@@ -47,7 +47,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 open .build/xcode/Build/Products/Release/Cue.app
 ```
 
-Source builds require a Swift 6 toolchain. Xcode must have completed its first-run setup and license acceptance. The app is not sandboxed; the preview packaging process below uses ad-hoc signing.
+Source builds require a Swift 6 toolchain. Xcode must have completed its first-run setup and license acceptance. The app is not sandboxed; the release packaging process below uses ad-hoc signing.
 
 Alternatively, use the local app build script:
 
@@ -64,7 +64,7 @@ Use **Check for Updates…** from the menu bar or **Command+, → Updates**. Aut
 
 Sparkle verifies signed update archives and the signed HTTPS appcast against the public key embedded in Cue. Checks contact GitHub; no usage analytics or system profile is sent. Updates run independently of launcher input. Sparkle's license is included in the app bundle and in [Resources/Sparkle-LICENSE.txt](Resources/Sparkle-LICENSE.txt).
 
-## Package a preview release
+## Package a release
 
 ```sh
 ./scripts/release.sh

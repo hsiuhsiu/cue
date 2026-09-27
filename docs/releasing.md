@@ -4,6 +4,11 @@ Cue uses universal, ad hoc-signed apps in DMGs. Sparkle verifies update archives
 and the appcast with Cue's pinned Ed25519 key. This does not provide Developer
 ID signing or Apple notarization. Source and downloads are public.
 
+Publish normal GitHub releases and mark the newest release as **Latest** by
+default. Use GitHub's **Pre-release** option only when the user explicitly
+requests a prerelease. Describe signing and platform-testing limitations in
+the release notes and installation guide regardless of the release label.
+
 ## Signing key
 
 The Cue update key is stored in the maintainer's login Keychain under the
@@ -68,7 +73,7 @@ gh release create v0.2.0 \
   .build/releases/0.2.0/Cue-0.2.0-universal.dmg \
   .build/releases/0.2.0/appcast.xml \
   .build/releases/0.2.0/SHA256SUMS.txt \
-  --repo hsiuhsiu/cue --verify-tag --prerelease --latest=false \
+  --repo hsiuhsiu/cue --verify-tag --latest \
   --title "Cue 0.2.0 — Traditional Chinese and new artwork / 正體中文與全新圖示" \
   --notes-file docs/releases/v0.2.0.md
 ```
