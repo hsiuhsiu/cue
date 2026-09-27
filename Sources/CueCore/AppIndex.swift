@@ -11,11 +11,20 @@ public enum AppIndex {
 
     /// Run this filesystem work away from the main actor. Earlier roots win when
     /// multiple copies of an application share a bundle identifier.
+    /// Application names follow the system language, independently of Cue's UI language.
     public static func scan(
         roots: [URL] = defaultRoots,
-        excludingBundleIdentifier: String? = "com.yyhsiu.cue"
+        excludingBundleIdentifier: String? = "com.yyhsiu.cue",
+        preferredLanguages: [String]? = nil
     ) -> [IndexedApplication] {
         let fileManager = FileManager()
+        // Cue's interface language must not rename other apps in search results.
+        // Locale.preferredLanguages and localizedInfoDictionary honor per-app overrides,
+        // so read the system preference once and resolve bundle resources explicitly.
+        let requestedLanguages = preferredLanguages
+            ?? (UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)?["AppleLanguages"] as? [String])
+            ?? []
+        let preferredLanguages = requestedLanguages.isEmpty ? ["en"] : requestedLanguages
         var applications: [IndexedApplication] = []
         var seenPaths = Set<String>()
         var seenBundleIdentifiers = Set<String>()
@@ -38,7 +47,7 @@ public enum AppIndex {
                 seenPaths.insert(canonicalURL.path)
                 applications.append(IndexedApplication(
                     id: canonicalURL.path,
-                    name: displayName(for: bundle, at: canonicalURL),
+                    name: displayName(for: bundle, at: canonicalURL, preferredLanguages: preferredLanguages),
                     url: canonicalURL,
                     bundleIdentifier: bundleIdentifier
                 ))
@@ -99,8 +108,8 @@ public enum AppIndex {
         return urls.sorted { $0.path < $1.path }
     }
 
-    private static func displayName(for bundle: Bundle?, at url: URL) -> String {
-        let localizedInfo = bundle?.localizedInfoDictionary
+    private static func displayName(for bundle: Bundle?, at url: URL, preferredLanguages: [String]) -> String {
+        let localizedInfo = bundle.flatMap { Self.localizedInfo(for: $0, preferredLanguages: preferredLanguages) }
         let info = bundle?.infoDictionary
         for key in ["CFBundleDisplayName", "CFBundleName"] {
             if let name = nonemptyString(localizedInfo?[key] as? String)
@@ -109,6 +118,20 @@ public enum AppIndex {
             }
         }
         return url.deletingPathExtension().lastPathComponent
+    }
+
+    private static func localizedInfo(for bundle: Bundle, preferredLanguages: [String]) -> [String: Any]? {
+        guard let localization = Bundle.preferredLocalizations(
+            from: bundle.localizations, forPreferences: preferredLanguages
+        ).first,
+              let url = bundle.url(
+                forResource: "InfoPlist", withExtension: "strings", subdirectory: nil,
+                localization: localization
+              ),
+              let data = try? Data(contentsOf: url),
+              let info = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+        else { return nil }
+        return info as? [String: Any]
     }
 
     private static func nonemptyString(_ value: String?) -> String? {

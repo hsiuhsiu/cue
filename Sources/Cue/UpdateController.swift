@@ -2,6 +2,12 @@ import AppKit
 import Combine
 import Sparkle
 
+private enum UpdateText {
+    static let unavailable = L10n.string(
+        "update.unavailable", table: "Menu", value: "Updates are unavailable in this build: %@"
+    )
+}
+
 /// Sparkle owns scheduling, persisted update preferences, verification, and installation.
 /// Launcher input never performs update work; scheduled checks only publish a gentle reminder.
 @MainActor
@@ -47,7 +53,7 @@ final class UpdateController: NSObject, ObservableObject, SPUUpdaterDelegate, @p
             // Catch configuration errors without presenting an alert over the launcher.
             try updater.start()
         } catch {
-            startupError = "Updates are unavailable in this build: \(error.localizedDescription)"
+            startupError = L10n.format(UpdateText.unavailable, error.localizedDescription)
             canCheckForUpdates = false
         }
     }

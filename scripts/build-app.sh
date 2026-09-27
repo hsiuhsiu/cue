@@ -42,6 +42,7 @@ for resource in "${icon_resources[@]}"; do
         || { printf 'Missing bundled icon: %s\n' "$resource" >&2; exit 1; }
 done
 
+xcrun swift "$repo_root/scripts/check-localizations.swift" "$staged_app"
 # Keep Sparkle's signed framework and helpers intact; sign only our outer bundle.
 sparkle_framework="$build_directory/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
 diff --no-dereference -qr "$sparkle_framework" "$staged_app/Contents/Frameworks/Sparkle.framework"

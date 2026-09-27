@@ -2,6 +2,31 @@ import AppKit
 import Combine
 import CueCore
 
+private enum MenuText {
+    static let settings = L10n.string("menu.settings", table: "Menu", value: "Settings…")
+    static let checkForUpdates = L10n.string("menu.checkForUpdates", table: "Menu", value: "Check for Updates…")
+    static let updateAvailable = L10n.string("menu.updateAvailable", table: "Menu", value: "Update Available (%@)…")
+    static let updateAccessibility = L10n.string("menu.updateAccessibility", table: "Menu", value: "Cue — update available")
+    static let about = L10n.string("menu.about", table: "Menu", value: "About Cue")
+    static let show = L10n.string("menu.show", table: "Menu", value: "Show Cue")
+    static let quit = L10n.string("menu.quit", table: "Menu", value: "Quit Cue")
+    static let edit = L10n.string("menu.edit", table: "Menu", value: "Edit")
+    static let undo = L10n.string("menu.undo", table: "Menu", value: "Undo")
+    static let cut = L10n.string("menu.cut", table: "Menu", value: "Cut")
+    static let copy = L10n.string("menu.copy", table: "Menu", value: "Copy")
+    static let paste = L10n.string("menu.paste", table: "Menu", value: "Paste")
+    static let selectAll = L10n.string("menu.selectAll", table: "Menu", value: "Select All")
+    static let shortcutUnavailable = L10n.string(
+        "menu.shortcutUnavailable", table: "Menu",
+        value: "%1$@ is unavailable (%2$d). Change it in Settings."
+    )
+    static let shortcutConflict = L10n.string(
+        "menu.shortcutConflict", table: "Menu",
+        value: "%1$@ is unavailable (%2$d). Try another shortcut; your previous shortcut is unchanged."
+    )
+    static let appUnavailable = L10n.string("menu.appUnavailable", table: "Menu", value: "Cue is unavailable.")
+}
+
 @main
 struct CueApp {
     @MainActor
@@ -40,12 +65,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         let status = hotKey.register(shortcut: settings.preferences.shortcut)
         if status != noErr {
-            launcher.model.shortcutError = "\(settings.preferences.shortcut.displayName) is unavailable (\(status)). Change it in Settings."
+            launcher.model.shortcutError = L10n.format(
+                MenuText.shortcutUnavailable, settings.preferences.shortcut.localizedDisplayName, status
+            )
             launcher.show()
         }
         preferencesSubscription = settings.$preferences.sink { [weak self] preferences in
             self?.launcher.apply(preferences)
-            self?.statusItem.button?.toolTip = "Cue — \(preferences.shortcut.displayName)"
+            self?.statusItem.button?.toolTip = "Cue — \(preferences.shortcut.localizedDisplayName)"
         }
         Task { await launcher.model.loadApplications() }
         // Construct the launcher and register its hotkey before starting update work.
@@ -58,11 +85,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             .sink { [weak self] version, canCheck in
                 guard let self else { return }
                 self.updateMenuItems.forEach {
-                    $0.title = version.map { "Update Available (\($0))…" } ?? "Check for Updates…"
+                    $0.title = version.map { L10n.format(MenuText.updateAvailable, $0) } ?? MenuText.checkForUpdates
                     $0.isEnabled = canCheck
                 }
                 self.statusItem.button?.image = version == nil ? self.menuBarIcon : self.menuBarUpdateIcon
-                self.statusItem.button?.setAccessibilityLabel(version == nil ? "Cue" : "Cue — update available")
+                self.statusItem.button?.setAccessibilityLabel(version == nil ? "Cue" : MenuText.updateAccessibility)
             }
         Task { @MainActor [weak self] in self?.updates.start() }
     }
@@ -96,10 +123,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         launcher.dismiss()
         if settingsController == nil {
             settingsController = SettingsWindowController(settings: settings, updates: updates) { [weak self] shortcut in
-                guard let self else { return "Cue is unavailable." }
+                guard let self else { return MenuText.appUnavailable }
                 let status = self.hotKey.register(shortcut: shortcut)
                 guard status == noErr else {
-                    return "\(shortcut.displayName) is unavailable (\(status)). Try another shortcut; your previous shortcut is unchanged."
+                    return L10n.format(MenuText.shortcutConflict, shortcut.localizedDisplayName, status)
                 }
                 self.launcher.model.shortcutError = nil
                 return nil
@@ -109,13 +136,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     private func settingsMenuItem() -> NSMenuItem {
-        let item = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        let item = NSMenuItem(title: MenuText.settings, action: #selector(showSettings), keyEquivalent: ",")
         item.target = self
         return item
     }
 
     private func updateMenuItem() -> NSMenuItem {
-        let item = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        let item = NSMenuItem(title: MenuText.checkForUpdates, action: #selector(checkForUpdates), keyEquivalent: "")
         item.target = self
         item.isEnabled = false
         updateMenuItems.append(item)
@@ -123,7 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     private func aboutMenuItem() -> NSMenuItem {
-        let item = NSMenuItem(title: "About Cue", action: #selector(showAbout), keyEquivalent: "")
+        let item = NSMenuItem(title: MenuText.about, action: #selector(showAbout), keyEquivalent: "")
         item.target = self
         return item
     }
@@ -144,14 +171,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         _ = menuBarUpdateIcon
         statusItem.button?.setAccessibilityLabel("Cue")
         let menu = NSMenu()
-        let show = NSMenuItem(title: "Show Cue", action: #selector(showCue), keyEquivalent: "")
+        let show = NSMenuItem(title: MenuText.show, action: #selector(showCue), keyEquivalent: "")
         show.target = self
         menu.addItem(show)
         menu.addItem(settingsMenuItem())
         menu.addItem(updateMenuItem())
         menu.addItem(.separator())
         menu.addItem(aboutMenuItem())
-        let quit = NSMenuItem(title: "Quit Cue", action: #selector(quitCue), keyEquivalent: "q")
+        let quit = NSMenuItem(title: MenuText.quit, action: #selector(quitCue), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
         statusItem.menu = menu
@@ -165,16 +192,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         appMenu.addItem(settingsMenuItem())
         appMenu.addItem(updateMenuItem())
         appMenu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit Cue", action: #selector(quitCue), keyEquivalent: "q")
+        let quit = NSMenuItem(title: MenuText.quit, action: #selector(quitCue), keyEquivalent: "q")
         quit.target = self
         appMenu.addItem(quit)
         let appItem = NSMenuItem()
         appItem.submenu = appMenu
         menu.addItem(appItem)
-        let editMenu = NSMenu(title: "Edit")
+        let editMenu = NSMenu(title: MenuText.edit)
         for (title, action, key) in [
-            ("Undo", "undo:", "z"), ("Cut", "cut:", "x"),
-            ("Copy", "copy:", "c"), ("Paste", "paste:", "v"), ("Select All", "selectAll:", "a")
+            (MenuText.undo, "undo:", "z"), (MenuText.cut, "cut:", "x"),
+            (MenuText.copy, "copy:", "c"), (MenuText.paste, "paste:", "v"), (MenuText.selectAll, "selectAll:", "a")
         ] {
             editMenu.addItem(withTitle: title, action: Selector(action), keyEquivalent: key)
         }

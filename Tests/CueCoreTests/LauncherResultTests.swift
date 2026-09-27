@@ -21,7 +21,7 @@ final class LauncherResultTests: XCTestCase {
     }
 
     func testTraditionalChineseAliasesFindUpdateCommand() {
-        for query in ["更新索引", "重新索引", "重建索引", "重新掃描", "更新", "索引"] {
+        for query in ["更新索引", "更新應用程式索引", "重新索引", "重建索引", "重新掃描", "更新", "索引"] {
             XCTAssertEqual(LauncherResult.search([], query: query), [.updateIndex], query)
         }
     }

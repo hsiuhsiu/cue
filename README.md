@@ -22,7 +22,7 @@ Cue is a small native macOS application launcher. It runs in the menu bar, opens
 
 The repository and release downloads are public. **Version 0.1.0 users must install 0.1.1 manually once** to gain in-app updates.
 
-The new artwork and launcher settings-shortcut fix are in the current source build; they are not yet included in the published 0.1.1 download.
+The new artwork, launcher settings-focus fix, and Traditional Chinese interface are in the current source build; they are not yet included in the published 0.1.1 download.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
@@ -31,6 +31,8 @@ The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds t
 The preview has an **ad-hoc signature**, without Developer ID signing or Apple notarization. macOS may block its first launch. If you trust this release, follow the [first-launch instructions](docs/installation.md#首次開啟) using System Settings. Building from source is optional; downloading and installing the app does not require Xcode or Terminal.
 
 ## Features
+
+The interface supports **English and Traditional Chinese (正體中文)**, including all settings, menus, search prompts, and Cue's status/error messages. It follows macOS by default. Choose **Settings → Language → App language** to use **Follow System**, **English**, or **正體中文**, then reopen Cue to apply the change. Cue and installed application names remain unchanged. Translations are cached outside the typing path.
 
 The prototype discovers applications under `/Applications`, `/System/Applications`, and `~/Applications`, including nested folders. Results show application names and icons. Ranking prefers exact, prefix, word-prefix, substring, then subsequence matches. The global shortcut uses the system hot-key API and does not require Accessibility permission.
 
@@ -76,9 +78,12 @@ The local release script reads the version from `Resources/Info.plist`, builds a
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-settings.sh
 ./scripts/check-launcher-keyboard.sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift scripts/check-localizations.swift .build/Cue.app
 ```
 
 The settings check exercises the actual `CueSettings` store: bounded change notifications, saving edits, and reloading preferences. It uses an isolated temporary preferences domain and leaves the app’s settings untouched.
+
+It also verifies per-app language overrides, relaunch persistence, restoring the system preference, and preserving existing shortcuts. The localization check compares all English/Traditional Chinese keys and format arguments, language fallback, and resources inside a built app. Omit the app path to check only source tables. Verify both languages in a Release build, including Settings layout, menu items, shortcut recording/canceling, Chinese command search, and Command-comma focus; restore **Follow System** after testing.
 
 The optimized launcher keyboard check exercises the real AppKit view without an app-menu fallback, including Command-comma, modifiers, repeat events, and marked-text composition. It verifies shortcut routing, not application activation, and does not show windows or change user preferences.
 

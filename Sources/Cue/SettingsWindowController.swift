@@ -2,15 +2,46 @@ import AppKit
 import CueCore
 import SwiftUI
 
+private enum SettingsText {
+    static let windowTitle = L10n.string("window.title", table: "Settings", value: "Cue Settings")
+    static let openCue = L10n.string("shortcut.open_cue", table: "Settings", value: "Open Cue")
+    static let invalidShortcut = L10n.string("shortcut.invalid", table: "Settings", value: "Use ⌘, ⌥ or ⌃ with a key. ⌘, is reserved for Settings.")
+    static let shortcutError = L10n.string("shortcut.error", table: "Settings", value: "Shortcut error: %@")
+    static let keyboardShortcut = L10n.string("shortcut.heading", table: "Settings", value: "Keyboard Shortcut")
+    static let shortcutHelp = L10n.string("shortcut.help", table: "Settings", value: "Click the shortcut, then press a key with ⌘, ⌥ or ⌃. Press Esc to cancel.")
+    static let search = L10n.string("search.heading", table: "Settings", value: "Search")
+    static let maximumResults = L10n.string("search.maximum_results", table: "Settings", value: "Maximum results")
+    static let window = L10n.string("window.heading", table: "Settings", value: "Window")
+    static let showCueOn = L10n.string("window.show_on", table: "Settings", value: "Show Cue on")
+    static let pointerDisplay = L10n.string("window.pointer_display", table: "Settings", value: "Display with pointer")
+    static let mainDisplay = L10n.string("window.main_display", table: "Settings", value: "Main display")
+    static let dismissOnFocusLoss = L10n.string("window.dismiss_on_focus_loss", table: "Settings", value: "Dismiss when switching to another app")
+    static let language = L10n.string("language.heading", table: "Settings", value: "Language")
+    static let appLanguage = L10n.string("language.app_language", table: "Settings", value: "App language")
+    static let followSystem = L10n.string("language.follow_system", table: "Settings", value: "Follow System")
+    static let languageRestart = L10n.string("language.restart", table: "Settings", value: "Reopen Cue to apply a language change.")
+    static let version = L10n.string("updates.version", table: "Settings", value: "Version")
+    static let automaticUpdates = L10n.string("updates.automatic_checks", table: "Settings", value: "Automatically check for updates")
+    static let availableVersion = L10n.string("updates.available_version", table: "Settings", value: "Version %@ is available")
+    static let checkForUpdates = L10n.string("updates.check", table: "Settings", value: "Check for Updates…")
+    static let showUpdate = L10n.string("updates.show", table: "Settings", value: "Show Update…")
+    static let updates = L10n.string("updates.heading", table: "Settings", value: "Updates")
+    static let updatesHelp = L10n.string("updates.help", table: "Settings", value: "Checks run in the background without interrupting search. You choose when to install and restart Cue.")
+    static let developmentBuild = L10n.string("updates.development_build", table: "Settings", value: "Development build")
+    static let recorderLabel = L10n.string("recorder.label", table: "Settings", value: "Open Cue keyboard shortcut")
+    static let recorderHelp = L10n.string("recorder.help", table: "Settings", value: "Press to record a new keyboard shortcut. Escape cancels recording.")
+    static let pressShortcut = L10n.string("recorder.prompt", table: "Settings", value: "Press shortcut…")
+}
+
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     init(settings: CueSettings, updates: UpdateController, applyShortcut: @escaping (LauncherShortcut) -> String?) {
-        let contentSize = NSSize(width: 510, height: 560)
+        let contentSize = NSSize(width: 510, height: 660)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: contentSize),
             styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false
         )
-        window.title = "Cue Settings"
+        window.title = SettingsText.windowTitle
         window.contentMinSize = contentSize
         window.isReleasedWhenClosed = false
         window.animationBehavior = .none
@@ -63,12 +94,12 @@ private struct CueSettingsView: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Open Cue") {
+                LabeledContent(SettingsText.openCue) {
                     ShortcutRecorder(
                         shortcut: settings.preferences.shortcut,
                         onCapture: { shortcut in
                             guard shortcut.isValid else {
-                                let message = "Use ⌘, ⌥ or ⌃ with a key. ⌘, is reserved for Settings."
+                                let message = SettingsText.invalidShortcut
                                 shortcutError = message
                                 return message
                             }
@@ -86,44 +117,58 @@ private struct CueSettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                         .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityLabel("Shortcut error: \(shortcutError)")
+                        .accessibilityLabel(L10n.format(SettingsText.shortcutError, shortcutError))
                 }
             } header: {
-                Text("Keyboard Shortcut")
+                Text(SettingsText.keyboardShortcut)
             } footer: {
-                Text("Click the shortcut, then press a key with ⌘, ⌥ or ⌃. Press Esc to cancel.")
+                Text(SettingsText.shortcutHelp)
             }
 
-            Section("Search") {
-                Picker("Maximum results", selection: $settings.preferences.maxResults) {
+            Section(SettingsText.search) {
+                Picker(SettingsText.maximumResults, selection: $settings.preferences.maxResults) {
                     ForEach(LauncherPreferences.resultLimits, id: \.self) { count in
-                        Text("\(count)").tag(count)
+                        Text(verbatim: String(count)).tag(count)
                     }
                 }
             }
 
-            Section("Window") {
-                Picker("Show Cue on", selection: $settings.preferences.display) {
-                    Text("Display with pointer").tag(LauncherPreferences.Display.pointer)
-                    Text("Main display").tag(LauncherPreferences.Display.main)
+            Section(SettingsText.window) {
+                Picker(SettingsText.showCueOn, selection: $settings.preferences.display) {
+                    Text(SettingsText.pointerDisplay).tag(LauncherPreferences.Display.pointer)
+                    Text(SettingsText.mainDisplay).tag(LauncherPreferences.Display.main)
                 }
-                Toggle("Dismiss when switching to another app", isOn: $settings.preferences.dismissOnFocusLoss)
+                Toggle(SettingsText.dismissOnFocusLoss, isOn: $settings.preferences.dismissOnFocusLoss)
             }
 
             Section {
-                LabeledContent("Version", value: appVersion)
-                Toggle("Automatically check for updates", isOn: Binding(
+                Picker(SettingsText.appLanguage, selection: $settings.language) {
+                    Text(SettingsText.followSystem).tag(AppLanguage.system)
+                    Text(verbatim: "English").tag(AppLanguage.english)
+                    Text(verbatim: "正體中文").tag(AppLanguage.traditionalChinese)
+                }
+            } header: {
+                Text(SettingsText.language)
+            } footer: {
+                if settings.languageChangeRequiresRestart {
+                    Text(SettingsText.languageRestart)
+                }
+            }
+
+            Section {
+                LabeledContent(SettingsText.version, value: appVersion)
+                Toggle(SettingsText.automaticUpdates, isOn: Binding(
                     get: { updates.automaticChecksEnabled },
                     set: { updates.setAutomaticChecksEnabled($0) }
                 ))
                 .disabled(updates.startupError != nil)
                 HStack {
                     if let version = updates.availableVersion {
-                        Text("Version \(version) is available")
+                        Text(L10n.format(SettingsText.availableVersion, version))
                             .font(.callout)
                     }
                     Spacer()
-                    Button(updates.availableVersion == nil ? "Check for Updates…" : "Show Update…") {
+                    Button(updates.availableVersion == nil ? SettingsText.checkForUpdates : SettingsText.showUpdate) {
                         updates.checkForUpdates()
                     }
                     .disabled(!updates.canCheckForUpdates)
@@ -135,18 +180,18 @@ private struct CueSettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } header: {
-                Text("Updates")
+                Text(SettingsText.updates)
             } footer: {
-                Text("Checks run in the background without interrupting search. You choose when to install and restart Cue.")
+                Text(SettingsText.updatesHelp)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 510, height: 560)
+        .frame(width: 510, height: 660)
     }
 
     private var appVersion: String {
         guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
-            return "Development build"
+            return SettingsText.developmentBuild
         }
         if let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
             return "\(version) (\(build))"
@@ -167,8 +212,8 @@ private struct ShortcutRecorder: NSViewRepresentable {
         button.font = .monospacedSystemFont(ofSize: 13, weight: .medium)
         button.target = button
         button.action = #selector(ShortcutRecorderButton.beginRecording)
-        button.setAccessibilityLabel("Open Cue keyboard shortcut")
-        button.setAccessibilityHelp("Press to record a new keyboard shortcut. Escape cancels recording.")
+        button.setAccessibilityLabel(SettingsText.recorderLabel)
+        button.setAccessibilityHelp(SettingsText.recorderHelp)
         return button
     }
 
@@ -176,7 +221,7 @@ private struct ShortcutRecorder: NSViewRepresentable {
         button.shortcut = shortcut
         button.onCapture = onCapture
         button.onBegin = onBegin
-        if !button.isRecording { button.title = shortcut.displayName }
+        if !button.isRecording { button.title = shortcut.localizedDisplayName }
     }
 }
 
@@ -196,7 +241,7 @@ private final class ShortcutRecorderButton: NSButton {
         }
         window?.makeFirstResponder(self)
         isRecording = true
-        title = "Press shortcut…"
+        title = SettingsText.pressShortcut
         onBegin?()
     }
 
@@ -245,7 +290,7 @@ private final class ShortcutRecorderButton: NSButton {
 
     fileprivate func finishRecording() {
         isRecording = false
-        title = shortcut.displayName
+        title = shortcut.localizedDisplayName
     }
 
     private static func label(for event: NSEvent) -> String {

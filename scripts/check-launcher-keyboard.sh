@@ -20,6 +20,7 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     -module-cache-path "$check_directory/module-cache" \
     -Xlinker -rpath -Xlinker "$check_directory" \
     "$repo_root/Sources/Cue/AppIconCache.swift" \
+    "$repo_root/Sources/Cue/Localization.swift" \
     "$repo_root/Sources/Cue/LauncherModel.swift" \
     "$repo_root/Sources/Cue/LauncherView.swift" \
     "$repo_root/scripts/check-launcher-keyboard.swift" \

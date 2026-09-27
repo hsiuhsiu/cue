@@ -98,7 +98,7 @@
 			buildConfigurationList = A60000000000000000000001 /* Build configuration list for PBXProject "Cue" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base,);
+			knownRegions = (en, "zh-Hant", Base,);
 			mainGroup = A30000000000000000000001;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (A80000000000000000000001 /* XCLocalSwiftPackageReference "." */, A80000000000000000000004 /* XCRemoteSwiftPackageReference "Sparkle" */,);

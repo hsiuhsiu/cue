@@ -64,6 +64,85 @@ final class AppIndexTests: XCTestCase {
         ])
     }
 
+    func testNamesFollowInjectedSystemLanguageWithoutReusingAnotherLanguage() throws {
+        _ = try makeApplication(
+            "Example.app", displayName: "Unlocalized name",
+            localizations: [
+                "en": ["CFBundleDisplayName": "English name"],
+                "zh-Hant": ["CFBundleDisplayName": "正體中文名稱"],
+            ]
+        )
+
+        // Use the same bundle repeatedly: names follow the supplied system languages,
+        // not Cue's UI language or a cached localizedInfoDictionary from an earlier scan.
+        XCTAssertEqual(
+            AppIndex.scan(roots: [temporaryDirectory], preferredLanguages: ["en"]).map(\.name),
+            ["English name"]
+        )
+        XCTAssertEqual(
+            AppIndex.scan(roots: [temporaryDirectory], preferredLanguages: ["zh-Hant"]).map(\.name),
+            ["正體中文名稱"]
+        )
+        XCTAssertEqual(
+            AppIndex.scan(roots: [temporaryDirectory], preferredLanguages: ["en"]).map(\.name),
+            ["English name"]
+        )
+        XCTAssertEqual(
+            AppIndex.scan(roots: [temporaryDirectory], preferredLanguages: []).map(\.name),
+            ["English name"]
+        )
+    }
+
+    func testTaiwanLanguagePreferenceFindsTraditionalChineseBundleName() throws {
+        _ = try makeApplication(
+            "Example.app", name: "Unlocalized name",
+            localizations: [
+                "en": ["CFBundleName": "English name"],
+                "zh-Hant": ["CFBundleName": "正體中文名稱"],
+            ]
+        )
+
+        XCTAssertEqual(
+            AppIndex.scan(roots: [temporaryDirectory], preferredLanguages: ["zh-TW", "en"]).map(\.name),
+            ["正體中文名稱"]
+        )
+    }
+
+    func testEmptyLocalizedNamesPreserveDisplayNameBundleNameAndFilenameFallbacks() throws {
+        _ = try makeApplication(
+            "A.app", displayName: "Raw display name", name: "Raw bundle name",
+            localizations: ["zh-Hant": ["CFBundleDisplayName": " \n ", "CFBundleName": "本地化名稱"]]
+        )
+        _ = try makeApplication(
+            "B.app", name: "  Raw bundle name  ",
+            localizations: ["zh-Hant": ["CFBundleDisplayName": "", "CFBundleName": "  "]]
+        )
+        _ = try makeApplication(
+            "Fallback.app", displayName: "  ", name: "",
+            localizations: ["zh-Hant": ["CFBundleDisplayName": "  ", "CFBundleName": ""]]
+        )
+
+        XCTAssertEqual(
+            AppIndex.scan(roots: [temporaryDirectory], preferredLanguages: ["zh-Hant"]).map(\.name),
+            ["Raw display name", "Raw bundle name", "Fallback"]
+        )
+    }
+
+    func testMissingLocalizedNameDoesNotUseAnotherLanguage() throws {
+        _ = try makeApplication(
+            "Example.app", displayName: "English fallback",
+            localizations: [
+                "en": ["NSHumanReadableCopyright": "Example"],
+                "zh-Hant": ["CFBundleDisplayName": "正體中文名稱"],
+            ]
+        )
+
+        XCTAssertEqual(
+            AppIndex.scan(roots: [temporaryDirectory], preferredLanguages: ["en"]).map(\.name),
+            ["English fallback"]
+        )
+    }
+
     func testDeduplicatesBundleIdentifiersGivingEarlierRootsPriority() throws {
         let preferred = try makeApplication("First/Z.app", identifier: "test.same", name: "Preferred")
         _ = try makeApplication("Second/A.app", identifier: "test.same", name: "Other copy")
@@ -116,7 +195,8 @@ final class AppIndexTests: XCTestCase {
         _ relativePath: String,
         identifier: String? = nil,
         displayName: String? = nil,
-        name: String? = nil
+        name: String? = nil,
+        localizations: [String: [String: String]] = [:]
     ) throws -> URL {
         let url = temporaryDirectory.appendingPathComponent(relativePath, isDirectory: true)
         let contents = url.appendingPathComponent("Contents", isDirectory: true)
@@ -125,8 +205,15 @@ final class AppIndexTests: XCTestCase {
         info["CFBundleIdentifier"] = identifier
         info["CFBundleDisplayName"] = displayName
         info["CFBundleName"] = name
+        if !localizations.isEmpty { info["CFBundleDevelopmentRegion"] = "en" }
         let data = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
         try data.write(to: contents.appendingPathComponent("Info.plist"))
+        for (language, localizedInfo) in localizations {
+            let directory = contents.appendingPathComponent("Resources/\(language).lproj", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let data = try PropertyListSerialization.data(fromPropertyList: localizedInfo, format: .xml, options: 0)
+            try data.write(to: directory.appendingPathComponent("InfoPlist.strings"))
+        }
         return url.resolvingSymlinksInPath().standardizedFileURL
     }
 

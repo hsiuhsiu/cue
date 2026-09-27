@@ -19,7 +19,7 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
 
     private static let updateIndexAliases = [
         "update app index", "update index", "refresh apps", "refresh index",
-        "reindex", "rebuild index", "更新索引", "重新索引", "重建索引", "重新掃描",
+        "reindex", "rebuild index", "更新索引", "更新應用程式索引", "重新索引", "重建索引", "重新掃描",
     ].map(SearchEngine.normalize)
 
     public static func search(

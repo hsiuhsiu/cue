@@ -136,6 +136,7 @@ verify_app() {
     for resource in "${icon_resources[@]}"; do
         [[ -s "$app/Contents/Resources/$resource" ]] || fail "Missing bundled icon: $resource."
     done
+    xcrun swift "$repo_root/scripts/check-localizations.swift" "$app"
     [[ "$(plutil -extract CFBundleShortVersionString raw -o - "$plist")" == "$version" ]] \
         || fail "Packaged version does not match."
     [[ "$(plutil -extract CFBundleVersion raw -o - "$plist")" == "$build_number" ]] \

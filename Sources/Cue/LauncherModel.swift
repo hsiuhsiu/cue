@@ -1,6 +1,26 @@
 import AppKit
 import CueCore
 
+/// Resolve every launcher label together before interaction, never on the typing path.
+struct LauncherText {
+    static let shared = LauncherText()
+
+    let searchPlaceholder = L10n.string("search.placeholder", table: "Launcher", value: "Search apps and commands…")
+    let searchAccessibility = L10n.string("search.accessibility", table: "Launcher", value: "Search apps and commands")
+    let resultsAccessibility = L10n.string("results.accessibility", table: "Launcher", value: "Search results")
+    let selectOpen = L10n.string("keyboard.selectOpen", table: "Launcher", value: "↑ ↓ Select   ↵ Open")
+    let selectRun = L10n.string("keyboard.selectRun", table: "Launcher", value: "↑ ↓ Select   ↵ Run")
+    let settings = L10n.string("settings.title", table: "Launcher", value: "Settings")
+    let settingsTooltip = L10n.string("settings.tooltip", table: "Launcher", value: "Settings (⌘,)")
+    let findingApplications = L10n.string("index.finding", table: "Launcher", value: "Finding applications…")
+    let updatingIndex = L10n.string("index.updating", table: "Launcher", value: "Updating app index…")
+    let indexUpdated = L10n.string("index.updated", table: "Launcher", value: "Index updated · %ld applications")
+    let noResults = L10n.string("results.empty", table: "Launcher", value: "No results found")
+    let updateIndex = L10n.string("command.updateIndex", table: "Launcher", value: "Update App Index")
+    let command = L10n.string("command.detail", table: "Launcher", value: "Command")
+    let launchError = L10n.string("launch.error", table: "Launcher", value: "Couldn’t open %@: %@")
+}
+
 /// One synchronous update per input event, with a bounded cache for backspacing/reopening.
 @MainActor
 final class LauncherModel {
@@ -14,6 +34,7 @@ final class LauncherModel {
     var onChange: (() -> Void)?
     let icons = AppIconCache()
 
+    private let text = LauncherText.shared
     private var applications: [IndexedApplication] = []
     private var emptyResults: [LauncherResult] = [.updateIndex]
     private var cachedQueries: [String: [LauncherResult]] = [:]
@@ -56,7 +77,7 @@ final class LauncherModel {
         }))
         isIndexing = false
         updateResults(preservingSelection: true)
-        indexStatus = "Index updated · \(applications.count) applications"
+        indexStatus = L10n.format(text.indexUpdated, applications.count)
         onChange?()
     }
 

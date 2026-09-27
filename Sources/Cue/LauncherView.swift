@@ -52,6 +52,7 @@ private final class ResultCell: NSTableCellView {
 final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTableViewDelegate {
     let searchField = NSTextField()
     private let model: LauncherModel
+    private let text = LauncherText.shared
     private let onSubmit: () -> Void
     private let onCancel: () -> Void
     private let onSettings: () -> Void
@@ -62,7 +63,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private let scroll = NSScrollView()
     private let emptyLabel = NSTextField(labelWithString: "")
     private let footer = NSTextField(labelWithString: "Cue")
-    private let keyHint = NSTextField(labelWithString: "↑ ↓ Select   ↵ Open")
+    private let keyHint = NSTextField(labelWithString: LauncherText.shared.selectOpen)
     private let settingsButton = NSButton()
     private let separator = NSBox()
     private let footerSeparator = NSBox()
@@ -88,14 +89,14 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         addSubview(material)
         searchIcon.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
         searchIcon.contentTintColor = .secondaryLabelColor
-        searchField.placeholderString = "Search apps and commands…"
+        searchField.placeholderString = text.searchPlaceholder
         searchField.font = .systemFont(ofSize: 24)
         searchField.isBordered = false
         searchField.drawsBackground = false
         searchField.focusRingType = .none
         searchField.usesSingleLineMode = true
         searchField.delegate = self
-        searchField.setAccessibilityLabel("Search apps and commands")
+        searchField.setAccessibilityLabel(text.searchAccessibility)
         escapeHint.font = .systemFont(ofSize: 11)
         escapeHint.textColor = .tertiaryLabelColor
         separator.boxType = .separator
@@ -111,7 +112,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         table.dataSource = self
         table.target = self
         table.action = #selector(clickedResult)
-        table.setAccessibilityLabel("Search results")
+        table.setAccessibilityLabel(text.resultsAccessibility)
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("result"))
         column.resizingMask = .autoresizingMask
         table.addTableColumn(column)
@@ -127,12 +128,12 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         keyHint.font = .systemFont(ofSize: 11)
         keyHint.textColor = .secondaryLabelColor
         keyHint.alignment = .right
-        settingsButton.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")
+        settingsButton.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: text.settings)
         settingsButton.isBordered = false
         settingsButton.target = self
         settingsButton.action = #selector(openSettings)
-        settingsButton.toolTip = "Settings (⌘,)"
-        settingsButton.setAccessibilityLabel("Settings")
+        settingsButton.toolTip = text.settingsTooltip
+        settingsButton.setAccessibilityLabel(text.settings)
         for view in [searchIcon, searchField, escapeHint, separator, scroll, emptyLabel,
                      footerSeparator, footer, keyHint, settingsButton] { addSubview(view) }
         model.onChange = { [weak self] in self?.render() }
@@ -197,12 +198,12 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         }
         scroll.isHidden = displayedResults.isEmpty
         emptyLabel.isHidden = !displayedResults.isEmpty
-        emptyLabel.stringValue = model.isIndexing ? "Finding applications…" : "No results found"
+        emptyLabel.stringValue = model.isIndexing ? text.findingApplications : text.noResults
         let error = model.launchError ?? model.shortcutError
-        footer.stringValue = error ?? (model.isIndexing ? "Updating app index…" : model.indexStatus ?? "Cue")
+        footer.stringValue = error ?? (model.isIndexing ? text.updatingIndex : model.indexStatus ?? "Cue")
         footer.textColor = error == nil ? .secondaryLabelColor : .systemRed
         footer.toolTip = error
-        keyHint.stringValue = model.selectedResult == .updateIndex ? "↑ ↓ Select   ↵ Run" : "↑ ↓ Select   ↵ Open"
+        keyHint.stringValue = model.selectedResult == .updateIndex ? text.selectRun : text.selectOpen
     }
 
     func scrollToSelection() {
@@ -221,8 +222,8 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         let cell = tableView.makeView(withIdentifier: identifier, owner: nil) as? ResultCell ?? ResultCell()
         cell.identifier = identifier
         let result = displayedResults[row]
-        cell.title.stringValue = result.name
-        cell.detail.stringValue = result == .updateIndex ? "Command · 更新索引" : ""
+        cell.title.stringValue = result == .updateIndex ? text.updateIndex : result.name
+        cell.detail.stringValue = result == .updateIndex ? text.command : ""
         switch result {
         case .application(let application): cell.icon.image = model.icons.image(for: application)
         case .updateIndex:

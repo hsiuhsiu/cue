@@ -1,0 +1,17 @@
+"menu.settings" = "Settings…";
+"menu.checkForUpdates" = "Check for Updates…";
+"menu.updateAvailable" = "Update Available (%@)…";
+"menu.updateAccessibility" = "Cue — update available";
+"menu.about" = "About Cue";
+"menu.show" = "Show Cue";
+"menu.quit" = "Quit Cue";
+"menu.edit" = "Edit";
+"menu.undo" = "Undo";
+"menu.cut" = "Cut";
+"menu.copy" = "Copy";
+"menu.paste" = "Paste";
+"menu.selectAll" = "Select All";
+"menu.shortcutUnavailable" = "%1$@ is unavailable (%2$d). Change it in Settings.";
+"menu.shortcutConflict" = "%1$@ is unavailable (%2$d). Try another shortcut; your previous shortcut is unchanged.";
+"menu.appUnavailable" = "Cue is unavailable.";
+"update.unavailable" = "Updates are unavailable in this build: %@";

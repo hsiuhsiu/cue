@@ -134,7 +134,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
                 guard let self, let error, self.invocation == launchInvocation else { return }
                 self.model.setQuery(query)
                 self.show(resetQuery: false)
-                self.model.launchError = "Couldn’t open \(application.name): \(error.localizedDescription)"
+                self.model.launchError = L10n.format(
+                    LauncherText.shared.launchError, application.name, error.localizedDescription
+                )
             }
         }
     }

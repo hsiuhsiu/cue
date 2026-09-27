@@ -1,0 +1,14 @@
+"search.placeholder" = "搜尋應用程式與指令…";
+"search.accessibility" = "搜尋應用程式與指令";
+"results.accessibility" = "搜尋結果";
+"keyboard.selectOpen" = "↑ ↓ 選取   ↵ 開啟";
+"keyboard.selectRun" = "↑ ↓ 選取   ↵ 執行";
+"settings.title" = "設定";
+"settings.tooltip" = "設定（⌘,）";
+"index.finding" = "正在尋找應用程式…";
+"index.updating" = "正在更新應用程式索引…";
+"index.updated" = "索引已更新 · %ld 個應用程式";
+"results.empty" = "找不到符合的結果";
+"command.updateIndex" = "更新應用程式索引";
+"command.detail" = "指令";
+"launch.error" = "無法開啟 %@：%@";

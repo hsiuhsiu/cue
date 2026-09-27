@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Cue",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "CueCore", targets: ["CueCore"]),
@@ -16,6 +17,7 @@ let package = Package(
         .executableTarget(
             name: "Cue",
             dependencies: ["CueCore", .product(name: "Sparkle", package: "Sparkle")],
+            resources: [.process("Resources")],
             linkerSettings: [.linkedFramework("Carbon")]
         ),
         .testTarget(name: "CueCoreTests", dependencies: ["CueCore"]),

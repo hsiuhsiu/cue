@@ -1,0 +1,14 @@
+"search.placeholder" = "Search apps and commands…";
+"search.accessibility" = "Search apps and commands";
+"results.accessibility" = "Search results";
+"keyboard.selectOpen" = "↑ ↓ Select   ↵ Open";
+"keyboard.selectRun" = "↑ ↓ Select   ↵ Run";
+"settings.title" = "Settings";
+"settings.tooltip" = "Settings (⌘,)";
+"index.finding" = "Finding applications…";
+"index.updating" = "Updating app index…";
+"index.updated" = "Index updated · %ld applications";
+"results.empty" = "No results found";
+"command.updateIndex" = "Update App Index";
+"command.detail" = "Command";
+"launch.error" = "Couldn’t open %@: %@";
