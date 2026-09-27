@@ -6,7 +6,7 @@
 
 <p align="center">Fast, simple, lightweight.</p>
 
-Cue is a small native macOS application launcher. It runs in the menu bar, opens with **Option+Space**, and searches installed applications using an in-memory index.
+Cue is a small native macOS launcher with searchable clipboard history and system commands. It runs in the menu bar, opens with **Option+Space**, and searches installed applications using an in-memory index.
 
 <p>
   <picture>
@@ -18,7 +18,7 @@ Cue is a small native macOS application launcher. It runs in the menu bar, opens
 
 ## Download and install
 
-[Download Cue 0.2.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.2.0/Cue-0.2.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.2.0) · [正體中文安裝說明](docs/installation.md)
+[Download Cue 0.3.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.3.0/Cue-0.3.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.3.0) · [正體中文安裝說明](docs/installation.md)
 
 The repository and release downloads are public.
 
@@ -35,6 +35,30 @@ The interface supports **English and Traditional Chinese (正體中文)**, inclu
 The blue app icon appears in Finder and **About Cue**. The matching menu bar icon supports light and dark appearances and shows a small dot when an update is available. **Command+,** brings Settings to the front with keyboard focus, including when Settings was already open or minimized.
 
 Cue discovers applications under `/Applications`, `/System/Applications`, and `~/Applications`, including nested folders. Results show application names and icons. Ranking prefers exact, prefix, word-prefix, substring, then subsequence matches. The global shortcut uses the system hot-key API and does not require Accessibility permission.
+
+### Compact launcher and numbered results
+
+Cue opens with just an empty input field: no initial results, placeholder, footer, settings button, or Escape hint. Start typing to find apps or commands; **Command+,** still opens Settings. The window grows with the result count and shows at most nine results, with no scrollbars. Refine the query to find another match. The result limit is fixed at nine.
+
+A blue tint, inspired by Cue's icon, carries through the window and selected rows in both light and dark appearances. Larger input text and app names make results easier to read, with balanced spacing around the input.
+
+Every result has a number. **Command+1–9 executes the corresponding result immediately**: it opens an app, runs a command, or copies a clipboard item. These shortcuts act on the current result list and do not require a second Return press.
+
+### Sleep and Lock Screen
+
+Type **`sleep`** or **`睡眠`** to put the Mac to sleep, or **`lock`** / **`鎖定`** to lock its screen. Press **Return** or the displayed **Command+number** to execute immediately. Cue closes first; neither command logs you out or closes your apps. See [system commands](docs/system-actions.md) for implementation and testing limits.
+
+輸入 **`sleep`／`睡眠`** 可讓 Mac 進入睡眠；輸入 **`lock`／`鎖定`** 可鎖定螢幕。按 **Return** 或顯示的 **Command+數字** 即可立即執行，Cue 會先關閉視窗。兩者都不會登出或關閉其他 App；實作與驗證限制見[系統指令說明](docs/system-actions.md)。
+
+### Clipboard History
+
+Type `clipboard` or `剪貼簿` in Cue, select **Clipboard History**, and press Enter. Recording is off initially; choose **Enable Clipboard History** to start saving new text and link copies on this Mac.
+
+Saved history remains visible when its search field is empty. Each record shows its number and copied date and time, and the window adapts to the number of results. It shows the nine most recent matching records with no scrollbars; searching still covers all saved history, and this display limit does not delete older records. Search the history, select an item, and press **Return** to copy it, or use **Command+1–9** to copy a numbered result immediately. Then use **Command+V** in the destination app. Press **Delete/Backspace** to remove the selected item when the search field is empty; otherwise these keys edit the search text. The **Delete** button or **Command+Backspace** also removes a selected item from filtered results.
+
+The page's gear or **Command+,** opens its own recording and retention settings. Retention defaults to **7 days**, with choices from **1 hour** to **No time limit**. History is stored as readable text on this Mac, up to **500 items or 4 MiB**. **Esc** returns from these settings to history, then from history to the launcher.
+
+See the [Clipboard History guide / 剪貼簿記錄說明](docs/clipboard.md) for retention, storage limits, and privacy details, and the [clipboard search benchmark](docs/performance-clipboard.md) for reproducible performance measurements.
 
 ## Build and run
 
@@ -78,6 +102,8 @@ The local release script reads the version from `Resources/Info.plist`, builds a
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-settings.sh
 ./scripts/check-launcher-keyboard.sh
+./scripts/check-clipboard.sh
+./scripts/check-system-actions.sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift scripts/check-localizations.swift .build/Cue.app
 ```
 
@@ -86,6 +112,10 @@ The settings check exercises the actual `CueSettings` store: bounded change noti
 It also verifies per-app language overrides, relaunch persistence, restoring the system preference, and preserving existing shortcuts. The localization check compares all English/Traditional Chinese keys and format arguments, language fallback, and resources inside a built app. Omit the app path to check only source tables. Verify both languages in a Release build, including Settings layout, menu items, shortcut recording/canceling, Chinese command search, and Command-comma focus; restore **Follow System** after testing.
 
 The optimized launcher keyboard check exercises the real AppKit view without an app-menu fallback, including Command-comma, modifiers, repeat events, and marked-text composition. It verifies shortcut routing, not application activation, and does not show windows or change user preferences.
+
+The system-actions check uses injected actions to verify Sleep and Lock Screen through the real controller without sleeping or locking the Mac. Native service details and manual verification limits are documented in [system commands](docs/system-actions.md).
+
+The optimized clipboard check covers capture, filtering, persistence, retention, rapid query/copy/delete interactions, and feature-local keyboard settings. It uses synthetic text on private named pasteboards and isolated preferences; it never reads the system clipboard.
 
 Verify Settings focus in a Release build: with another app active, invoke Cue, type a query, and press Command-comma. Settings must appear in front with an active title bar and keyboard focus, without another click. Repeat with Settings already open behind another app, after closing it, and after minimizing it. Switching away afterward must not pull focus back to Cue.
 
@@ -107,12 +137,13 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 | Command+, | Open Settings from Cue's launcher |
 | Up / Down | Select a result |
 | Enter | Launch the selected application or run the selected command |
+| Command+1–9 | Immediately execute the numbered result; in Clipboard History, copy it and close Cue |
 | Escape | Dismiss Cue |
 | Menu bar → Show Cue / Settings… / Quit Cue | Open the launcher, configure Cue, or exit |
 
 Type `reindex`, `update index`, `refresh apps`, or `更新索引` to find **Update App Index**, then press Enter. Cue scans again in the background, keeps the launcher usable, and shows the updated application count when finished. You can install or remove applications and refresh without restarting Cue.
 
-Press **Command+,** in Cue (or click the gear/menu-bar Settings item) to configure the global shortcut, maximum result count, pointer/main display placement, dismissal on focus loss, language, and update checks. Preferences are saved immediately and persist across restarts; language changes take effect when Cue reopens. If a new shortcut conflicts, Cue keeps the previous working shortcut.
+Press **Command+,** in the launcher (or choose the menu-bar Settings item) to configure the global shortcut, pointer/main display placement, dismissal on focus loss, language, and update checks. Inside Clipboard History, its gear and **Command+,** open clipboard-specific settings instead. Preferences are saved immediately and persist across restarts; language changes take effect when Cue reopens. If a new shortcut conflicts, Cue keeps the previous working shortcut.
 
 Pressing Enter on an app dismisses Cue immediately; launch failures reopen the query with an error. The default placement follows the mouse pointer. The index is built at startup; use Update App Index after installing or removing applications. Show Cue remains available from the menu bar if another app occupies the saved shortcut.
 

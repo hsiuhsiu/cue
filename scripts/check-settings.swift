@@ -13,9 +13,11 @@ struct CheckSettings {
         // Inherited language preferences must not be mistaken for a per-app override.
         defaults.register(defaults: ["AppleLanguages": ["zh-Hant-US"]])
         let inheritedLanguages = defaults.stringArray(forKey: "AppleLanguages")
+        defaults.set(Data(#"{"maxResults":50}"#.utf8), forKey: "launcherPreferences")
         let settings = CueSettings(defaults: defaults, domainName: domain)
         precondition(settings.language == .system)
         precondition(!settings.languageChangeRequiresRestart)
+        precondition(settings.preferences.maxResults == 9, "Legacy result limits must migrate on load")
         var publications = 0
         let subscription = settings.$preferences.sink { _ in
             publications += 1
@@ -24,23 +26,25 @@ struct CheckSettings {
         }
         precondition(publications == 1)
 
-        settings.preferences.maxResults = 10
         settings.preferences.shortcut = LauncherShortcut(
             keyCode: 40, modifiers: [.control, .option], key: "K"
         )
         settings.preferences.display = .main
         settings.preferences.dismissOnFocusLoss = false
-        precondition(publications == 5, "Each valid edit must publish exactly once")
-        precondition(settings.preferences.maxResults == 10)
+        precondition(publications == 4, "Each valid edit must publish exactly once")
+        precondition(settings.preferences.maxResults == 9)
         precondition(settings.preferences.shortcut.displayName == "⌃⌥K")
         precondition(defaults.data(forKey: "launcherPreferences") != nil)
 
         let reloaded = CueSettings(defaults: UserDefaults(suiteName: domain)!, domainName: domain)
         precondition(reloaded.preferences == settings.preferences, "Edited preferences must persist")
 
-        settings.preferences.maxResults = -1
-        precondition(settings.preferences.maxResults == 20)
-        precondition(publications == 7, "An invalid edit must publish one bounded correction")
+        settings.preferences.shortcut = LauncherShortcut(keyCode: 43, modifiers: .command, key: ",")
+        precondition(settings.preferences.shortcut == .default)
+        precondition(publications == 6, "An invalid shortcut must publish one bounded correction")
+        settings.preferences.maxResults = 100
+        precondition(settings.preferences.maxResults == 9)
+        precondition(publications == 8, "An obsolete limit must publish one bounded correction")
         let sanitizedReload = CueSettings(defaults: UserDefaults(suiteName: domain)!, domainName: domain)
         precondition(sanitizedReload.preferences == settings.preferences, "Persist the corrected value")
 
@@ -62,7 +66,7 @@ struct CheckSettings {
                      "Inherited language preference must remain intact")
         precondition(defaults.data(forKey: "launcherPreferences") == savedPreferences,
                      "Changing languages must preserve shortcuts and other settings")
-        precondition(publications == 7, "Language changes must not publish launcher preferences")
+        precondition(publications == 8, "Language changes must not publish launcher preferences")
         for identifier in ["zh-Hant", "zh-Hant-US", "zh-TW", "zh_HK"] {
             precondition(AppLanguage(override: identifier) == .traditionalChinese, identifier)
         }

@@ -11,6 +11,10 @@ private final class LauncherPanel: NSPanel {
         if event.type == .keyDown {
             // Keep the direct-event fallback on the same route as native key equivalents.
             if (contentView as? LauncherView)?.handleSettingsShortcut(event) == true { return }
+            if (contentView as? ClipboardView)?.handleSettingsShortcut(event) == true { return }
+            if (contentView as? LauncherView)?.handleNumberShortcut(event) == true { return }
+            if (contentView as? ClipboardView)?.handleNumberShortcut(event) == true { return }
+            if (contentView as? ClipboardView)?.handleDeleteShortcut(event) == true { return }
             if shortcut.matches(event: event) {
                 if !event.isARepeat { onToggle?() }
                 return
@@ -25,13 +29,34 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     let model = LauncherModel()
     private let panel: LauncherPanel
     private var launcherView: LauncherView!
+    private let clipboard: ClipboardModel
+    private let performSystemAction: @MainActor (SystemAction) async throws -> Void
+    private var showingClipboard = false
+    private lazy var clipboardView: ClipboardView = {
+        let view = ClipboardView(
+            model: clipboard,
+            onCopy: { [weak self] index in
+                guard let self else { return }
+                self.clipboard.copySelected(at: index) { [weak self] in self?.dismiss() }
+            },
+            onBack: { [weak self] in self?.showLauncher() }
+        )
+        view.onPreferredHeightChange = { [weak self] height in
+            guard let self, self.showingClipboard, self.panel.contentView === self.clipboardView else { return }
+            self.resizePanel(to: height)
+        }
+        return view
+    }()
     private var preferences = LauncherPreferences()
     private var invocation = 0
     var onSettings: (() -> Void)?
 
-    override init() {
+    init(clipboard: ClipboardModel,
+         performSystemAction: @escaping @MainActor (SystemAction) async throws -> Void = SystemActions.perform) {
+        self.clipboard = clipboard
+        self.performSystemAction = performSystemAction
         panel = LauncherPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 680, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 56),
             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
         )
         super.init()
@@ -54,6 +79,10 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             onCancel: { [weak self] in self?.dismiss() },
             onSettings: { [weak self] in self?.onSettings?() }
         )
+        launcherView.onPreferredHeightChange = { [weak self] height in
+            guard let self, !self.showingClipboard, self.panel.contentView === self.launcherView else { return }
+            self.resizePanel(to: height)
+        }
         panel.contentView = launcherView
         panel.initialFirstResponder = launcherView.searchField
         panel.contentView?.layoutSubtreeIfNeeded()
@@ -73,7 +102,10 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     func show(resetQuery: Bool = true) {
         if panel.isVisible {
             panel.makeKeyAndOrderFront(nil)
-            panel.makeFirstResponder(launcherView.searchField)
+            // Feature settings own their focus; never target the hidden history field.
+            if !showingClipboard || !clipboardView.isShowingSettings {
+                panel.makeFirstResponder(showingClipboard ? clipboardView.searchField : launcherView.searchField)
+            }
             return
         }
         invocation += 1
@@ -88,7 +120,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             screen = NSScreen.screens.first
         }
         if let frame = screen?.visibleFrame {
-            let size = NSSize(width: min(680, frame.width - 32), height: min(420, frame.height - 32))
+            let size = NSSize(width: min(640, frame.width - 24), height: min(launcherView.preferredHeight, frame.height - 24))
             let origin = NSPoint(
                 x: frame.midX - size.width / 2,
                 y: frame.minY + (frame.height - size.height) * 0.65
@@ -101,10 +133,52 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         panel.makeFirstResponder(launcherView.searchField)
     }
 
+    private func resizePanel(to preferredHeight: CGFloat) {
+        let visibleFrame = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+        let height = min(preferredHeight, (visibleFrame?.height ?? preferredHeight + 24) - 24)
+        guard panel.frame.height != height else { return }
+        var frame = panel.frame
+        // Keep the search field anchored while results grow below it. No animation,
+        // focus handoff, or deferred resize enters the typing path.
+        frame.origin.y = frame.maxY - height
+        frame.size.height = height
+        if let visibleFrame { frame.origin.y = max(frame.origin.y, visibleFrame.minY + 12) }
+        panel.setFrame(frame, display: panel.isVisible, animate: false)
+        panel.contentView?.layoutSubtreeIfNeeded()
+    }
+
     func dismiss() {
         invocation += 1
         panel.orderOut(nil)
+        if showingClipboard {
+            clipboard.close()
+            clipboardView.closeSettings()
+            showingClipboard = false
+            panel.contentView = launcherView
+            panel.initialFirstResponder = launcherView.searchField
+        }
         model.reset()
+        resizePanel(to: launcherView.preferredHeight)
+    }
+
+    private func showClipboard() {
+        showingClipboard = true
+        clipboard.open()
+        panel.contentView = clipboardView
+        panel.initialFirstResponder = clipboardView.searchField
+        resizePanel(to: clipboardView.preferredHeight)
+        panel.makeFirstResponder(clipboardView.searchField)
+    }
+
+    private func showLauncher() {
+        clipboard.close()
+        clipboardView.closeSettings()
+        showingClipboard = false
+        model.reset()
+        panel.contentView = launcherView
+        panel.initialFirstResponder = launcherView.searchField
+        resizePanel(to: launcherView.preferredHeight)
+        panel.makeFirstResponder(launcherView.searchField)
     }
 
     func windowDidResignKey(_ notification: Notification) {
@@ -116,8 +190,34 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         switch result {
         case .updateIndex:
             Task { await model.loadApplications() }
+        case .clipboardHistory:
+            showClipboard()
+        case .sleep:
+            runSystemAction(.sleep)
+        case .lockScreen:
+            runSystemAction(.lockScreen)
         case .application(let application):
             launch(application)
+        }
+    }
+
+    private func runSystemAction(_ action: SystemAction) {
+        let query = model.query
+        // Close immediately; system calls and framework loading stay off typing's
+        // event path. The injected action also lets tests avoid sleeping/locking.
+        dismiss()
+        let actionInvocation = invocation
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.performSystemAction(action)
+            } catch {
+                // Never steal focus back for an old failed request after reopening.
+                guard self.invocation == actionInvocation else { return }
+                self.model.setQuery(query)
+                self.model.launchError = action == .sleep ? LauncherText.shared.sleepError : LauncherText.shared.lockError
+                self.show(resetQuery: false)
+            }
         }
     }
 

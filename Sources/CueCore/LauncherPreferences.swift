@@ -53,7 +53,8 @@ public struct LauncherPreferences: Codable, Equatable, Sendable {
         case main
     }
 
-    public static let resultLimits = [10, 20, 50, 100]
+    /// The complete list fits in the launcher and maps directly to ⌘1–⌘9.
+    public static let maximumVisibleResults = 9
 
     public var shortcut: LauncherShortcut
     public var maxResults: Int
@@ -62,12 +63,14 @@ public struct LauncherPreferences: Codable, Equatable, Sendable {
 
     public init(
         shortcut: LauncherShortcut = .default,
-        maxResults: Int = 20,
+        maxResults: Int = maximumVisibleResults,
         display: Display = .pointer,
         dismissOnFocusLoss: Bool = true
     ) {
         self.shortcut = shortcut.isValid ? shortcut : .default
-        self.maxResults = Self.resultLimits.contains(maxResults) ? maxResults : 20
+        // Keep the persisted field readable so older preferences migrate without
+        // discarding shortcut or display choices, but results now have one fixed cap.
+        self.maxResults = Self.maximumVisibleResults
         self.display = display
         self.dismissOnFocusLoss = dismissOnFocusLoss
     }
@@ -87,7 +90,7 @@ public struct LauncherPreferences: Codable, Equatable, Sendable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             shortcut: (try? values.decode(LauncherShortcut.self, forKey: .shortcut)) ?? .default,
-            maxResults: (try? values.decode(Int.self, forKey: .maxResults)) ?? 20,
+            maxResults: (try? values.decode(Int.self, forKey: .maxResults)) ?? Self.maximumVisibleResults,
             display: (try? values.decode(Display.self, forKey: .display)) ?? .pointer,
             dismissOnFocusLoss: (try? values.decode(Bool.self, forKey: .dismissOnFocusLoss)) ?? true
         )

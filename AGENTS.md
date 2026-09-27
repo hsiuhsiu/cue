@@ -16,6 +16,7 @@
 - Optimize for keyboard-first interaction and low latency.
 - Keep core logic testable outside the UI.
 - Do not prematurely create generic or plugin abstractions.
+- Keep feature-specific settings in that feature's own page or actions (for example, clipboard retention inside Clipboard History). Reserve the main Settings window for Cue-wide options so it stays small and easy to navigate.
 - Do not add networking, telemetry, analytics, or cloud services unless explicitly requested.
 - Run relevant tests and build checks before declaring a task complete.
 - Write release notes in both English and Traditional Chinese (正體中文), covering the same changes, installation steps, and limitations in each language.

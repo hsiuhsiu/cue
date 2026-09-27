@@ -3,12 +3,12 @@ import XCTest
 import CueCore
 
 final class LauncherPreferencesTests: XCTestCase {
-    func testDefaultsPreserveOriginalLauncherBehavior() {
+    func testDefaultsUseNineResultsAndPreserveShortcutAndDisplayBehavior() {
         let preferences = LauncherPreferences()
         XCTAssertEqual(preferences.shortcut.keyCode, 49)
         XCTAssertEqual(preferences.shortcut.modifiers, .option)
         XCTAssertEqual(preferences.shortcut.displayName, "⌥Space")
-        XCTAssertEqual(preferences.maxResults, 20)
+        XCTAssertEqual(preferences.maxResults, 9)
         XCTAssertEqual(preferences.display, .pointer)
         XCTAssertTrue(preferences.dismissOnFocusLoss)
     }
@@ -16,7 +16,7 @@ final class LauncherPreferencesTests: XCTestCase {
     func testCustomPreferencesSurviveRoundTrip() throws {
         let preferences = LauncherPreferences(
             shortcut: LauncherShortcut(keyCode: 40, modifiers: [.control, .option], key: "K"),
-            maxResults: 50, display: .main, dismissOnFocusLoss: false
+            maxResults: 9, display: .main, dismissOnFocusLoss: false
         )
         let encoded = try JSONEncoder().encode(preferences)
         XCTAssertEqual(try JSONDecoder().decode(LauncherPreferences.self, from: encoded), preferences)
@@ -25,7 +25,7 @@ final class LauncherPreferencesTests: XCTestCase {
     func testMissingOrUnknownValuesKeepValidSavedPreferences() throws {
         let data = Data(#"{"maxResults":50,"display":"removedDisplay","dismissOnFocusLoss":false}"#.utf8)
         let preferences = try JSONDecoder().decode(LauncherPreferences.self, from: data)
-        XCTAssertEqual(preferences.maxResults, 50)
+        XCTAssertEqual(preferences.maxResults, 9)
         XCTAssertEqual(preferences.display, .pointer)
         XCTAssertFalse(preferences.dismissOnFocusLoss)
         XCTAssertEqual(preferences.shortcut, .default)
@@ -34,7 +34,7 @@ final class LauncherPreferencesTests: XCTestCase {
     func testMalformedIndividualValuesFallBackWithoutDiscardingOtherSettings() throws {
         let data = Data(#"{"maxResults":-4,"display":"main","dismissOnFocusLoss":"invalid","shortcut":{"keyCode":49,"modifiers":0,"key":"Space"}}"#.utf8)
         let preferences = try JSONDecoder().decode(LauncherPreferences.self, from: data)
-        XCTAssertEqual(preferences.maxResults, 20)
+        XCTAssertEqual(preferences.maxResults, 9)
         XCTAssertEqual(preferences.display, .main)
         XCTAssertTrue(preferences.dismissOnFocusLoss)
         XCTAssertEqual(preferences.shortcut, .default)
@@ -42,16 +42,26 @@ final class LauncherPreferencesTests: XCTestCase {
 
     func testInvalidLimitsAndShortcutsAreSanitizedBeforeUse() {
         var preferences = LauncherPreferences()
-        for limit in [-1, 0, 1, 21, Int.max] {
+        for limit in [-1, 0, 1, 9, 10, 20, 50, 100, Int.max] {
             preferences.maxResults = limit
-            XCTAssertEqual(preferences.sanitized().maxResults, 20)
-        }
-        for limit in LauncherPreferences.resultLimits {
-            preferences.maxResults = limit
-            XCTAssertEqual(preferences.sanitized().maxResults, limit)
+            XCTAssertEqual(preferences.sanitized().maxResults, 9)
         }
         preferences.shortcut = LauncherShortcut(keyCode: 49, modifiers: .shift, key: "Space")
         XCTAssertEqual(preferences.sanitized().shortcut, .default)
+    }
+
+    func testLegacyResultLimitsMigrateWithoutLosingOtherPreferences() throws {
+        for limit in [10, 20, 50, 100] {
+            let data = Data("""
+                {"maxResults":\(limit),"display":"main","dismissOnFocusLoss":false,
+                 "shortcut":{"keyCode":40,"modifiers":6,"key":"K"}}
+                """.utf8)
+            let preferences = try JSONDecoder().decode(LauncherPreferences.self, from: data)
+            XCTAssertEqual(preferences.maxResults, 9)
+            XCTAssertEqual(preferences.display, .main)
+            XCTAssertFalse(preferences.dismissOnFocusLoss)
+            XCTAssertEqual(preferences.shortcut.displayName, "⌃⌥K")
+        }
     }
 
     func testShortcutRequiresARealKeyAndModifierAndPreservesSettingsCommand() {

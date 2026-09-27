@@ -32,7 +32,7 @@ archive verification enabled in production.
 
 1. Set `CFBundleShortVersionString` and increment `CFBundleVersion` in
    `Resources/Info.plist`. Sparkle compares the monotonically increasing build
-   number; for example, 0.2.0 uses build 3 after 0.1.1's build 2. Never reset
+   number; for example, 0.3.0 uses build 4 after 0.2.0's build 3. Never reset
    the build number when changing the displayed version. Write **both English and Traditional Chinese** sections in
    `docs/releases/v<version>.md`, with equivalent changes and limitations.
    Start with one `# Cue <version> — ...` title, then the language sections.
@@ -49,16 +49,24 @@ archive verification enabled in production.
 3. Inspect `.build/releases/<version>/`: `Cue-<version>-universal.dmg`,
    `appcast.xml`, and `SHA256SUMS.txt`. Do not edit the generated signed feed,
    notes, or DMG afterward. SHA-256 is a transfer check, not a publisher identity.
-4. Test an older updater-enabled fixture through download, verification,
+4. Run the optimized launcher, clipboard, settings, localization, and system-action
+   checks. Clipboard checks must use synthetic data and private pasteboards.
+   Sleep/Lock checks inject actions instead of changing the operator's session;
+   report actual sleep/lock as unverified unless deliberately tested. Check the
+   Release interface for blank initial input, all nine numbered shortcuts,
+   clipboard search and deletion, and feature-local settings.
+5. Test an older updater-enabled fixture through download, verification,
    installation and relaunch. Confirm preferences and the automatic-check
    opt-out survive. Check corrupted-download rejection, unavailable updates,
    and typing during background checks. Never weaken production signature or
-   transport settings to make tests pass.
-5. Test actual browser downloads on another Mac when available. Record tested
+   transport settings to make tests pass. If an end-to-end update or platform
+   check is not completed, state that limitation in both release-note languages
+   before signing; do not claim it passed based on packaging checks alone.
+6. Test actual browser downloads on another Mac when available. Record tested
    machines accurately; compiling Intel and targeting macOS 14 does not prove
    runtime compatibility there. Version 0.1.0 needs one manual installation of
-   the current release (0.2.0) because it has no updater; installing 0.1.1
-   first is unnecessary. Version 0.1.1 can use the in-app updater.
+   the current release (0.3.0) because it has no updater; installing 0.1.1
+   first is unnecessary. Version 0.1.1 and later can use the in-app updater.
 
 The script refuses to overwrite an existing version directory. Inspect and
 move aside failed/unpublished attempts before retrying; never silently replace
@@ -67,21 +75,21 @@ an already-published build with different bytes.
 ## Publish assets before the feed
 
 Commit and push the reviewed source. Create and push an annotated version tag
-on that commit. Publish the tested assets and bilingual notes; for 0.2.0:
+on that commit. Publish the tested assets and bilingual notes; for 0.3.0:
 
 ```sh
-git tag -a v0.2.0 -m "Cue 0.2.0 Traditional Chinese and new artwork"
+git tag -a v0.3.0 -m "Cue 0.3.0 Clipboard and system commands"
 git push origin main
-git push origin v0.2.0
-./scripts/github-release-notes.sh --body docs/releases/v0.2.0.md \
-  > .build/github-release-v0.2.0.md
-gh release create v0.2.0 \
-  .build/releases/0.2.0/Cue-0.2.0-universal.dmg \
-  .build/releases/0.2.0/appcast.xml \
-  .build/releases/0.2.0/SHA256SUMS.txt \
+git push origin v0.3.0
+./scripts/github-release-notes.sh --body docs/releases/v0.3.0.md \
+  > .build/github-release-v0.3.0.md
+gh release create v0.3.0 \
+  .build/releases/0.3.0/Cue-0.3.0-universal.dmg \
+  .build/releases/0.3.0/appcast.xml \
+  .build/releases/0.3.0/SHA256SUMS.txt \
   --repo hsiuhsiu/cue --verify-tag --latest \
-  --title "$(./scripts/github-release-notes.sh --title docs/releases/v0.2.0.md)" \
-  --notes-file .build/github-release-v0.2.0.md
+  --title "$(./scripts/github-release-notes.sh --title docs/releases/v0.3.0.md)" \
+  --notes-file .build/github-release-v0.3.0.md
 ```
 
 Never upload the complete titled source file as GitHub's release body. Confirm

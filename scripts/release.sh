@@ -110,6 +110,8 @@ xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \
     CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES "ARCHS=$native_arch" test
 "$repo_root/scripts/check-settings.sh"
 "$repo_root/scripts/check-launcher-keyboard.sh"
+"$repo_root/scripts/check-clipboard.sh"
+"$repo_root/scripts/check-system-actions.sh"
 
 step "Building the universal Release application..."
 xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \

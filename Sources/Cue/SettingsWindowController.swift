@@ -125,14 +125,6 @@ private struct CueSettingsView: View {
                 Text(SettingsText.shortcutHelp)
             }
 
-            Section(SettingsText.search) {
-                Picker(SettingsText.maximumResults, selection: $settings.preferences.maxResults) {
-                    ForEach(LauncherPreferences.resultLimits, id: \.self) { count in
-                        Text(verbatim: String(count)).tag(count)
-                    }
-                }
-            }
-
             Section(SettingsText.window) {
                 Picker(SettingsText.showCueOn, selection: $settings.preferences.display) {
                     Text(SettingsText.pointerDisplay).tag(LauncherPreferences.Display.pointer)

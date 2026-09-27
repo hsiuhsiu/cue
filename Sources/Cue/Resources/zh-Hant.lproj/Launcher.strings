@@ -10,5 +10,10 @@
 "index.updated" = "索引已更新 · %ld 個應用程式";
 "results.empty" = "找不到符合的結果";
 "command.updateIndex" = "更新應用程式索引";
+"command.clipboardHistory" = "剪貼簿記錄";
+"command.sleep" = "睡眠";
+"command.lockScreen" = "鎖定螢幕";
+"command.sleep.error" = "無法讓這台 Mac 進入睡眠。請試用 Apple 選單中的「睡眠」。";
+"command.lockScreen.error" = "無法鎖定這台 Mac。請試用 Apple 選單中的「鎖定螢幕」。";
 "command.detail" = "指令";
 "launch.error" = "無法開啟 %@：%@";

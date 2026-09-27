@@ -17,6 +17,11 @@ struct LauncherText {
     let indexUpdated = L10n.string("index.updated", table: "Launcher", value: "Index updated · %ld applications")
     let noResults = L10n.string("results.empty", table: "Launcher", value: "No results found")
     let updateIndex = L10n.string("command.updateIndex", table: "Launcher", value: "Update App Index")
+    let clipboardHistory = L10n.string("command.clipboardHistory", table: "Launcher", value: "Clipboard History")
+    let sleep = L10n.string("command.sleep", table: "Launcher", value: "Sleep")
+    let lockScreen = L10n.string("command.lockScreen", table: "Launcher", value: "Lock Screen")
+    let sleepError = L10n.string("command.sleep.error", table: "Launcher", value: "Couldn’t put this Mac to sleep. Please try Sleep in the Apple menu.")
+    let lockError = L10n.string("command.lockScreen.error", table: "Launcher", value: "Couldn’t lock this Mac. Please try Lock Screen in the Apple menu.")
     let command = L10n.string("command.detail", table: "Launcher", value: "Command")
     let launchError = L10n.string("launch.error", table: "Launcher", value: "Couldn’t open %@: %@")
 }
@@ -36,9 +41,12 @@ final class LauncherModel {
 
     private let text = LauncherText.shared
     private var applications: [IndexedApplication] = []
-    private var emptyResults: [LauncherResult] = [.updateIndex]
     private var cachedQueries: [String: [LauncherResult]] = [:]
-    private var maxResults = 20
+    private var maxResults = LauncherPreferences.maximumVisibleResults
+
+    init(applications: [IndexedApplication] = []) {
+        self.applications = applications
+    }
 
     var selectedResult: LauncherResult? { results.first { $0.id == selectedID } }
 
@@ -52,8 +60,9 @@ final class LauncherModel {
     }
 
     func setResultLimit(_ value: Int) {
-        guard value != maxResults else { return }
-        maxResults = value
+        let limit = min(max(value, 1), LauncherPreferences.maximumVisibleResults)
+        guard limit != maxResults else { return }
+        maxResults = limit
         cachedQueries.removeAll(keepingCapacity: true)
         updateResults(preservingSelection: true)
         onChange?()
@@ -67,14 +76,8 @@ final class LauncherModel {
         onChange?()
         let discovered = await Task.detached(priority: .userInitiated) { AppIndex.scan() }.value
         applications = discovered
-        emptyResults = LauncherResult.search(discovered, query: "")
         cachedQueries.removeAll(keepingCapacity: true)
         icons.invalidate()
-        // Warm the initial screen before the user asks to show it.
-        icons.prepare(Array(emptyResults.prefix(maxResults).compactMap {
-            if case .application(let application) = $0 { return application }
-            return nil
-        }))
         isIndexing = false
         updateResults(preservingSelection: true)
         indexStatus = L10n.format(text.indexUpdated, applications.count)
@@ -103,8 +106,11 @@ final class LauncherModel {
 
     private func updateResults(preservingSelection: Bool = false) {
         if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            results = Array(emptyResults.prefix(maxResults))
-        } else if let cached = cachedQueries[query] {
+            results = []
+            selectedID = nil
+            return
+        }
+        if let cached = cachedQueries[query] {
             results = cached
         } else {
             results = Array(LauncherResult.search(applications, query: query).prefix(maxResults))

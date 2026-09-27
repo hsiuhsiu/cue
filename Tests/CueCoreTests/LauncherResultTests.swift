@@ -49,12 +49,82 @@ final class LauncherResultTests: XCTestCase {
         XCTAssertEqual(LauncherResult.search(applications.reversed(), query: "index"), results)
     }
 
-    func testEmptyQueryAppendsCommandAfterAlphabeticalApplications() {
-        let applications = [app("Terminal"), app("Safari")]
-        XCTAssertEqual(LauncherResult.search(applications, query: "\n \t"), [
-            .application(applications[1]), .application(applications[0]), .updateIndex,
+    func testEmptyAndWhitespaceQueriesDoNotShowApplicationsOrCommands() {
+        let applications = [app("Terminal"), app("Safari"), app("Clipboard")]
+        for query in ["", " ", "\n \t\r", "\u{00A0}\u{2003}\u{3000}"] {
+            XCTAssertTrue(LauncherResult.search(applications, query: query).isEmpty, query.debugDescription)
+            XCTAssertTrue(LauncherResult.search([], query: query).isEmpty, query.debugDescription)
+        }
+    }
+
+    func testTypingAfterEmptyQueryStillFindsApplicationsAndCommands() {
+        let applications = [app("Terminal"), app("Safari"), app("Clipboard")]
+        XCTAssertTrue(LauncherResult.search(applications, query: "").isEmpty)
+        XCTAssertEqual(LauncherResult.search(applications, query: "saf"), [.application(applications[1])])
+        XCTAssertEqual(LauncherResult.search(applications, query: "clipboard"), [
+            .clipboardHistory, .application(applications[2]),
         ])
-        XCTAssertEqual(LauncherResult.search([], query: ""), [.updateIndex])
+        XCTAssertTrue(LauncherResult.search(applications, query: "\n\t").isEmpty)
+        XCTAssertEqual(LauncherResult.search(applications, query: "index"), [.updateIndex])
+    }
+
+    func testClipboardCommandIsDiscoverableInBothLanguages() {
+        for query in ["clipboard", "CLIPBOARD", "clip", "clipboard history", "paste history", "剪貼簿", "剪貼簿歷史", "剪貼簿記錄", "剪貼簿紀錄", "複製紀錄"] {
+            XCTAssertEqual(LauncherResult.search([], query: query), [.clipboardHistory], query)
+        }
+        let applications = [app("Clipboard")]
+        XCTAssertEqual(LauncherResult.search(applications, query: "clipboard"), [
+            .clipboardHistory, .application(applications[0]),
+        ])
+        XCTAssertFalse(LauncherResult.search([], query: "c").contains(.clipboardHistory))
+        XCTAssertNotEqual(LauncherResult.clipboardHistory.id, LauncherResult.updateIndex.id)
+    }
+
+    func testSleepCommandIsDiscoverableInBothLanguages() {
+        for query in ["sleep", "SLEEP", "sl", "sleep mac", "sleep computer", "睡眠", "讓電腦睡眠", "電腦睡眠", "睡"] {
+            XCTAssertEqual(LauncherResult.search([], query: query), [.sleep], query)
+        }
+        XCTAssertEqual(LauncherResult.search([], query: " \tSlEeP  \n COMPUTER "), [.sleep])
+    }
+
+    func testLockCommandIsDiscoverableInBothLanguages() {
+        for query in ["lock", "LOCK", "lo", "lock screen", "lock mac", "lock computer", "鎖定", "鎖定螢幕", "鎖定畫面", "鎖定電腦", "鎖屏", "鎖"] {
+            XCTAssertEqual(LauncherResult.search([], query: query), [.lockScreen], query)
+        }
+        XCTAssertEqual(LauncherResult.search([], query: " \tLoCk  \n SCREEN "), [.lockScreen])
+    }
+
+    func testPowerCommandsDoNotCrowdSingleLetterOrUnrelatedSearches() {
+        for query in ["s", "l", "m", "c", "sleep display", "sleepy", "unrelated"] {
+            XCTAssertTrue(LauncherResult.search([], query: query).isEmpty, query)
+        }
+        let applications = [app("Safari"), app("Locksmith")]
+        XCTAssertEqual(LauncherResult.search(applications, query: "l"),
+                       SearchEngine.search(applications, query: "l").map(LauncherResult.application))
+    }
+
+    func testSystemCommandsPrecedeApplicationsAndAreNotDuplicatedByAliases() {
+        let applications = [app("Sleep Monitor"), app("Sleep"), app("Locksmith"), app("Lock Screen")]
+        for (query, command) in [("sleep", LauncherResult.sleep), ("lock", LauncherResult.lockScreen)] {
+            let results = LauncherResult.search(applications, query: query)
+            XCTAssertEqual(results, [command] + SearchEngine.search(applications, query: query).map(LauncherResult.application))
+            XCTAssertEqual(results.filter { $0 == command }.count, 1, query)
+        }
+        // Shared aliases keep a stable command order regardless of app order.
+        XCTAssertEqual(LauncherResult.search([], query: "computer"), [.sleep, .lockScreen])
+        XCTAssertEqual(LauncherResult.search([], query: "電腦"), [.sleep, .lockScreen])
+    }
+
+    func testSystemCommandIdentitiesDoNotCollideWithApplicationsOrOtherCommands() {
+        let commands: [LauncherResult] = [.updateIndex, .clipboardHistory, .sleep, .lockScreen]
+        XCTAssertEqual(Set(commands.map(\.id)).count, commands.count)
+        XCTAssertEqual(LauncherResult.sleep.id, "command:sleep")
+        XCTAssertEqual(LauncherResult.sleep.name, "Sleep")
+        XCTAssertEqual(LauncherResult.lockScreen.id, "command:lock-screen")
+        XCTAssertEqual(LauncherResult.lockScreen.name, "Lock Screen")
+        for command in [LauncherResult.sleep, .lockScreen] {
+            XCTAssertNotEqual(LauncherResult.application(app(command.name, id: command.id)).id, command.id)
+        }
     }
 
     func testIdentitiesSeparateCommandsFromApplicationsEvenForMatchingNamesOrIDs() {

@@ -10,5 +10,10 @@
 "index.updated" = "Index updated · %ld applications";
 "results.empty" = "No results found";
 "command.updateIndex" = "Update App Index";
+"command.clipboardHistory" = "Clipboard History";
+"command.sleep" = "Sleep";
+"command.lockScreen" = "Lock Screen";
+"command.sleep.error" = "Couldn’t put this Mac to sleep. Please try Sleep in the Apple menu.";
+"command.lockScreen.error" = "Couldn’t lock this Mac. Please try Lock Screen in the Apple menu.";
 "command.detail" = "Command";
 "launch.error" = "Couldn’t open %@: %@";

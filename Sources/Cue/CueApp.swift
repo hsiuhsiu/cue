@@ -41,6 +41,8 @@ struct CueApp {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var launcher: LauncherPanelController!
+    private var clipboard: ClipboardModel!
+    private var isTerminating = false
     private var hotKey: HotKeyManager!
     private var statusItem: NSStatusItem!
     private let settings = CueSettings()
@@ -54,7 +56,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        launcher = LauncherPanelController()
+        clipboard = ClipboardModel()
+        launcher = LauncherPanelController(clipboard: clipboard)
         launcher.onSettings = { [weak self] in self?.showSettings() }
         configureMenuBar()
         configureEditingMenu()
@@ -94,7 +97,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         Task { @MainActor [weak self] in self?.updates.start() }
     }
 
-    func applicationWillTerminate(_ notification: Notification) { hotKey?.unregister() }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let clipboard else { return .terminateNow }
+        guard !isTerminating else { return .terminateLater }
+        isTerminating = true
+        launcher.dismiss()
+        clipboard.stop()
+        Task {
+            await clipboard.prepareForTermination()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        hotKey?.unregister()
+        clipboard?.stop()
+    }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
