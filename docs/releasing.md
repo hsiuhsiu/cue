@@ -35,6 +35,10 @@ archive verification enabled in production.
    number; for example, 0.2.0 uses build 3 after 0.1.1's build 2. Never reset
    the build number when changing the displayed version. Write **both English and Traditional Chinese** sections in
    `docs/releases/v<version>.md`, with equivalent changes and limitations.
+   Start with one `# Cue <version> — ...` title, then the language sections.
+   The GitHub notes formatter separates this heading from the body so the
+   release page displays the title only once. The release script validates
+   this format before building or signing.
    Update README and installation download links. Finalize the notes before
    running the release script because they become part of the signed feed.
 2. Run `./scripts/release.sh` with full Xcode. It tests, builds both
@@ -69,14 +73,24 @@ on that commit. Publish the tested assets and bilingual notes; for 0.2.0:
 git tag -a v0.2.0 -m "Cue 0.2.0 Traditional Chinese and new artwork"
 git push origin main
 git push origin v0.2.0
+./scripts/github-release-notes.sh --body docs/releases/v0.2.0.md \
+  > .build/github-release-v0.2.0.md
 gh release create v0.2.0 \
   .build/releases/0.2.0/Cue-0.2.0-universal.dmg \
   .build/releases/0.2.0/appcast.xml \
   .build/releases/0.2.0/SHA256SUMS.txt \
   --repo hsiuhsiu/cue --verify-tag --latest \
-  --title "Cue 0.2.0 — Traditional Chinese and new artwork / 正體中文與全新圖示" \
-  --notes-file docs/releases/v0.2.0.md
+  --title "$(./scripts/github-release-notes.sh --title docs/releases/v0.2.0.md)" \
+  --notes-file .build/github-release-v0.2.0.md
 ```
+
+Never upload the complete titled source file as GitHub's release body. Confirm
+the published page shows one release title, followed by the language sections,
+and retains both English and Traditional Chinese content. For presentation-only
+corrections to an existing GitHub release, regenerate its body with the same
+formatter and use `gh release edit --notes-file`. Leave the tagged source,
+signed appcast, DMG, and checksums unchanged; the appcast's embedded notes retain
+their own heading because they also appear outside GitHub.
 
 Download the assets into a fresh directory and run
 `shasum -a 256 -c SHA256SUMS.txt`. Confirm the release tag and files are correct.

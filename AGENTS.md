@@ -19,4 +19,5 @@
 - Do not add networking, telemetry, analytics, or cloud services unless explicitly requested.
 - Run relevant tests and build checks before declaring a task complete.
 - Write release notes in both English and Traditional Chinese (正體中文), covering the same changes, installation steps, and limitations in each language.
+- Use `scripts/github-release-notes.sh` to separate the release-note heading into GitHub's title and the remaining text into its body. Never pass the complete titled Markdown file directly to GitHub's `--notes-file`; verify that the published body has no repeated top-level heading.
 - Publish normal GitHub releases and mark the newest release as Latest by default. Use a prerelease/preview designation only when the user explicitly requests it; ad hoc signing or the lack of Apple notarization does not require a prerelease label.

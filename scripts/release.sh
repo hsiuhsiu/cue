@@ -45,6 +45,8 @@ done
     || fail "Signed-feed verification must not expire."
 release_notes="$repo_root/docs/releases/v$version.md"
 [[ -s "$release_notes" ]] || fail "Add bilingual release notes at $release_notes first."
+# GitHub owns the page title; reject ambiguous notes before building or signing.
+"$repo_root/scripts/github-release-notes.sh" --body "$release_notes" >/dev/null
 
 release_root="$repo_root/.build/releases"
 output_directory="$release_root/$version"

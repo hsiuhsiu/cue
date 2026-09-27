@@ -20,7 +20,7 @@ Cue is a small native macOS application launcher. It runs in the menu bar, opens
 
 [Download Cue 0.2.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.2.0/Cue-0.2.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.2.0) · [正體中文安裝說明](docs/installation.md)
 
-The repository and release downloads are public. **Version 0.1.1 users can update from within Cue. Version 0.1.0 users must install 0.2.0 manually once** to gain in-app updates; installing 0.1.1 first is unnecessary.
+The repository and release downloads are public.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
