@@ -24,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var updates: UpdateController!
     private var updateSubscription: AnyCancellable?
     private var updateMenuItems: [NSMenuItem] = []
+    private lazy var menuBarIcon = Self.menuBarImage(named: "MenuBarIconTemplate")
+    private lazy var menuBarUpdateIcon = Self.menuBarImage(named: "MenuBarIconUpdateTemplate")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -54,14 +56,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         updateSubscription = updates.$availableVersion.combineLatest(updates.$canCheckForUpdates)
             .sink { [weak self] version, canCheck in
-                self?.updateMenuItems.forEach {
+                guard let self else { return }
+                self.updateMenuItems.forEach {
                     $0.title = version.map { "Update Available (\($0))…" } ?? "Check for Updates…"
                     $0.isEnabled = canCheck
                 }
-                self?.statusItem.button?.image = NSImage(
-                    systemSymbolName: version == nil ? "command.square" : "arrow.down.circle",
-                    accessibilityDescription: version == nil ? "Cue" : "Cue — update available"
-                )
+                self.statusItem.button?.image = version == nil ? self.menuBarIcon : self.menuBarUpdateIcon
+                self.statusItem.button?.setAccessibilityLabel(version == nil ? "Cue" : "Cue — update available")
             }
         Task { @MainActor [weak self] in self?.updates.start() }
     }
@@ -77,6 +78,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func showCue() { launcher.show() }
     @objc private func quitCue() { NSApp.terminate(nil) }
     @objc private func checkForUpdates() { updates.checkForUpdates() }
+
+    @objc private func showAbout() {
+        launcher.dismiss()
+        NSApp.activate()
+        NSApp.orderFrontStandardAboutPanel(nil)
+    }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(checkForUpdates) {
@@ -115,9 +122,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return item
     }
 
+    private func aboutMenuItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "About Cue", action: #selector(showAbout), keyEquivalent: "")
+        item.target = self
+        return item
+    }
+
+    private static func menuBarImage(named name: String) -> NSImage {
+        let image = NSImage(named: NSImage.Name(name))
+            ?? NSImage(systemSymbolName: "command.square", accessibilityDescription: "Cue")
+            ?? NSImage(size: NSSize(width: 18, height: 18))
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        return image
+    }
+
     private func configureMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "command.square", accessibilityDescription: "Cue")
+        statusItem.button?.image = menuBarIcon
+        // Load both tiny template assets once, before any user interaction.
+        _ = menuBarUpdateIcon
+        statusItem.button?.setAccessibilityLabel("Cue")
         let menu = NSMenu()
         let show = NSMenuItem(title: "Show Cue", action: #selector(showCue), keyEquivalent: "")
         show.target = self
@@ -125,6 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         menu.addItem(settingsMenuItem())
         menu.addItem(updateMenuItem())
         menu.addItem(.separator())
+        menu.addItem(aboutMenuItem())
         let quit = NSMenuItem(title: "Quit Cue", action: #selector(quitCue), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
@@ -134,6 +160,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private func configureEditingMenu() {
         let menu = NSMenu()
         let appMenu = NSMenu()
+        appMenu.addItem(aboutMenuItem())
+        appMenu.addItem(.separator())
         appMenu.addItem(settingsMenuItem())
         appMenu.addItem(updateMenuItem())
         appMenu.addItem(.separator())

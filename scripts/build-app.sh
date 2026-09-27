@@ -12,6 +12,15 @@ case "$configuration" in
     *) echo "Usage: $0 [debug|release]" >&2; exit 2 ;;
 esac
 
+icon_resources=(
+    AppIcon.icns MenuBarIconTemplate.png MenuBarIconTemplate@2x.png
+    MenuBarIconUpdateTemplate.png MenuBarIconUpdateTemplate@2x.png
+)
+for resource in "${icon_resources[@]}"; do
+    [[ -s "$repo_root/Resources/$resource" ]] \
+        || { printf 'Missing icon resource: %s\n' "$resource" >&2; exit 1; }
+done
+
 # Prefer the installed Xcode toolchain; an explicit selection always wins.
 if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
     export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
@@ -26,6 +35,12 @@ temporary_directory="$(mktemp -d "$repo_root/.build/.cue-app.XXXXXX")"
 trap 'rm -rf "$temporary_directory"' EXIT
 staged_app="$temporary_directory/Cue.app"
 ditto "$build_directory/Build/Products/$xcode_configuration/Cue.app" "$staged_app"
+[[ "$(plutil -extract CFBundleIconFile raw -o - "$staged_app/Contents/Info.plist")" == AppIcon ]] \
+    || { printf 'The built app is missing its AppIcon reference.\n' >&2; exit 1; }
+for resource in "${icon_resources[@]}"; do
+    [[ -s "$staged_app/Contents/Resources/$resource" ]] \
+        || { printf 'Missing bundled icon: %s\n' "$resource" >&2; exit 1; }
+done
 
 # Keep Sparkle's signed framework and helpers intact; sign only our outer bundle.
 sparkle_framework="$build_directory/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"

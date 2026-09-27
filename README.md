@@ -1,12 +1,28 @@
-# Cue
+<p align="center">
+  <img src="docs/branding/cue-icon.png" alt="Cue app icon" width="144" height="144">
+</p>
+
+<h1 align="center">Cue</h1>
+
+<p align="center">Fast, simple, lightweight.</p>
 
 Cue is a small native macOS application launcher. It runs in the menu bar, opens with **Option+Space**, and searches installed applications using an in-memory index.
+
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/branding/menu-bar-dark.png">
+    <img src="docs/branding/menu-bar-light.png" alt="Cue menu bar icon" width="20" height="20">
+  </picture>
+  Look for Cue in the macOS menu bar. A small dot on its icon means an update is available.
+</p>
 
 ## Download and install
 
 [Download Cue 0.1.1 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.1.1/Cue-0.1.1-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.1.1) · [正體中文安裝說明](docs/installation.md)
 
 The repository and release downloads are public. **Version 0.1.0 users must install 0.1.1 manually once** to gain in-app updates.
+
+The new artwork and launcher settings-shortcut fix are in the current source build; they are not yet included in the published 0.1.1 download.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 

@@ -24,6 +24,13 @@ minimum_os="$(plutil -extract LSMinimumSystemVersion raw -o - "$source_plist")"
     || fail "Invalid LSMinimumSystemVersion: '$minimum_os'."
 [[ "$(plutil -extract CFBundleIdentifier raw -o - "$source_plist")" == com.yyhsiu.cue ]] \
     || fail "Unexpected bundle identifier."
+icon_resources=(
+    AppIcon.icns MenuBarIconTemplate.png MenuBarIconTemplate@2x.png
+    MenuBarIconUpdateTemplate.png MenuBarIconUpdateTemplate@2x.png
+)
+for resource in "${icon_resources[@]}"; do
+    [[ -s "$repo_root/Resources/$resource" ]] || fail "Missing icon resource: $resource."
+done
 feed_url="https://raw.githubusercontent.com/hsiuhsiu/cue/main/appcast.xml"
 key_account="com.yyhsiu.cue"
 public_key="$(plutil -extract SUPublicEDKey raw -o - "$source_plist")"
@@ -120,10 +127,15 @@ verify_app() {
     local app="$1"
     local plist="$app/Contents/Info.plist"
     local executable="$app/Contents/MacOS/Cue"
-    local architectures architecture binary_minimum
+    local architectures architecture binary_minimum resource
     [[ -f "$executable" && -x "$executable" ]] || fail "Missing Cue executable in $app."
     [[ "$(plutil -extract CFBundleIdentifier raw -o - "$plist")" == com.yyhsiu.cue ]] \
         || fail "Packaged bundle identifier does not match."
+    [[ "$(plutil -extract CFBundleIconFile raw -o - "$plist")" == AppIcon ]] \
+        || fail "Packaged app is missing its AppIcon reference."
+    for resource in "${icon_resources[@]}"; do
+        [[ -s "$app/Contents/Resources/$resource" ]] || fail "Missing bundled icon: $resource."
+    done
     [[ "$(plutil -extract CFBundleShortVersionString raw -o - "$plist")" == "$version" ]] \
         || fail "Packaged version does not match."
     [[ "$(plutil -extract CFBundleVersion raw -o - "$plist")" == "$build_number" ]] \

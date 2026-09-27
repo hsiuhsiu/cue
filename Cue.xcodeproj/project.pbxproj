@@ -10,6 +10,11 @@
 		A90000000000000000000002 /* CueCore in Frameworks */ = {isa = PBXBuildFile; productRef = A80000000000000000000003 /* CueCore */; };
 		A90000000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A80000000000000000000005 /* Sparkle */; };
 		A90000000000000000000005 /* Sparkle-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = A40000000000000000000004 /* Sparkle-LICENSE.txt */; };
+		A90000000000000000000006 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A40000000000000000000005 /* AppIcon.icns */; };
+		A90000000000000000000007 /* MenuBarIconTemplate.png in Resources */ = {isa = PBXBuildFile; fileRef = A40000000000000000000006 /* MenuBarIconTemplate.png */; };
+		A90000000000000000000008 /* MenuBarIconTemplate@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = A40000000000000000000007 /* MenuBarIconTemplate@2x.png */; };
+		A90000000000000000000009 /* MenuBarIconUpdateTemplate.png in Resources */ = {isa = PBXBuildFile; fileRef = A40000000000000000000008 /* MenuBarIconUpdateTemplate.png */; };
+		A90000000000000000000010 /* MenuBarIconUpdateTemplate@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = A40000000000000000000009 /* MenuBarIconUpdateTemplate@2x.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -17,6 +22,11 @@
 		A40000000000000000000002 /* CueCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CueCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A40000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A40000000000000000000004 /* Sparkle-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Sparkle-LICENSE.txt"; sourceTree = "<group>"; };
+		A40000000000000000000005 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		A40000000000000000000006 /* MenuBarIconTemplate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MenuBarIconTemplate.png; sourceTree = "<group>"; };
+		A40000000000000000000007 /* MenuBarIconTemplate@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "MenuBarIconTemplate@2x.png"; sourceTree = "<group>"; };
+		A40000000000000000000008 /* MenuBarIconUpdateTemplate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MenuBarIconUpdateTemplate.png; sourceTree = "<group>"; };
+		A40000000000000000000009 /* MenuBarIconUpdateTemplate@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "MenuBarIconUpdateTemplate@2x.png"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -41,7 +51,7 @@
 			sourceTree = "<group>";
 		};
 		A30000000000000000000002 /* Products */ = {isa = PBXGroup; children = (A40000000000000000000001 /* Cue.app */, A40000000000000000000002 /* CueCoreTests.xctest */,); name = Products; sourceTree = "<group>"; };
-		A30000000000000000000003 /* Resources */ = {isa = PBXGroup; children = (A40000000000000000000003 /* Info.plist */, A40000000000000000000004 /* Sparkle-LICENSE.txt */,); path = Resources; sourceTree = "<group>"; };
+		A30000000000000000000003 /* Resources */ = {isa = PBXGroup; children = (A40000000000000000000003 /* Info.plist */, A40000000000000000000004 /* Sparkle-LICENSE.txt */, A40000000000000000000005 /* AppIcon.icns */, A40000000000000000000006 /* MenuBarIconTemplate.png */, A40000000000000000000007 /* MenuBarIconTemplate@2x.png */, A40000000000000000000008 /* MenuBarIconUpdateTemplate.png */, A40000000000000000000009 /* MenuBarIconUpdateTemplate@2x.png */,); path = Resources; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -101,7 +111,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A50000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A90000000000000000000005 /* Sparkle-LICENSE.txt in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
+		A50000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A90000000000000000000005 /* Sparkle-LICENSE.txt in Resources */, A90000000000000000000006 /* AppIcon.icns in Resources */, A90000000000000000000007 /* MenuBarIconTemplate.png in Resources */, A90000000000000000000008 /* MenuBarIconTemplate@2x.png in Resources */, A90000000000000000000009 /* MenuBarIconUpdateTemplate.png in Resources */, A90000000000000000000010 /* MenuBarIconUpdateTemplate@2x.png in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
 		A50000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
