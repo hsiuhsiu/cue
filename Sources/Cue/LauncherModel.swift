@@ -43,15 +43,49 @@ final class LauncherModel {
     private var applications: [IndexedApplication] = []
     private var cachedQueries: [String: [LauncherResult]] = [:]
     private var maxResults = LauncherPreferences.maximumVisibleResults
+    private var usage: SearchUsageSnapshot
+    private var pendingUsage: SearchUsageSnapshot?
+    private let usageStore: SearchUsageStore?
+    private var usageOperations: Task<Void, Never>?
+    private var usageStarted = false
+    private var isStopping = false
 
-    init(applications: [IndexedApplication] = []) {
+    init(applications: [IndexedApplication] = [], usage: SearchUsageSnapshot = .empty,
+         usageStore: SearchUsageStore? = nil) {
         self.applications = applications
+        self.usage = usage
+        self.usageStore = usageStore
     }
 
     var selectedResult: LauncherResult? { results.first { $0.id == selectedID } }
 
+    /// Start after the launcher and hotkey are ready. Tests without a store never touch disk.
+    func startUsageTracking() {
+        guard !usageStarted, !isStopping else { return }
+        usageStarted = true
+        enqueueUsage { store in await store.load() }
+    }
+
+    /// Accept background updates without moving the currently visible rows or their shortcuts.
+    /// A fresh query or invocation adopts the newest snapshot and invalidates cached rankings.
+    func updateUsage(_ snapshot: SearchUsageSnapshot) {
+        pendingUsage = snapshot
+    }
+
+    func recordSuccessfulAction(resultID: String, query: String, at date: Date = Date()) {
+        guard !isStopping else { return }
+        enqueueUsage { store in await store.record(resultID: resultID, query: query, at: date) }
+    }
+
+    func prepareForTermination() async {
+        isStopping = true
+        await usageOperations?.value
+        if let usageStore { try? await usageStore.flush() }
+    }
+
     func setQuery(_ value: String) {
         guard value != query else { return }
+        adoptPendingUsage()
         query = value
         launchError = nil
         indexStatus = nil
@@ -68,8 +102,9 @@ final class LauncherModel {
         onChange?()
     }
 
-    func loadApplications() async {
-        guard !isIndexing else { return }
+    @discardableResult
+    func loadApplications() async -> Bool {
+        guard !isIndexing else { return false }
         isIndexing = true
         indexStatus = nil
         launchError = nil
@@ -82,9 +117,11 @@ final class LauncherModel {
         updateResults(preservingSelection: true)
         indexStatus = L10n.format(text.indexUpdated, applications.count)
         onChange?()
+        return true
     }
 
     func reset() {
+        adoptPendingUsage()
         query = ""
         launchError = nil
         indexStatus = nil
@@ -113,12 +150,30 @@ final class LauncherModel {
         if let cached = cachedQueries[query] {
             results = cached
         } else {
-            results = Array(LauncherResult.search(applications, query: query).prefix(maxResults))
+            results = Array(LauncherResult.search(applications, query: query, usage: usage).prefix(maxResults))
             if cachedQueries.count >= 64 { cachedQueries.removeAll(keepingCapacity: true) }
             cachedQueries[query] = results
         }
         if !preservingSelection || !results.contains(where: { $0.id == selectedID }) {
             selectedID = results.first?.id
+        }
+    }
+
+    private func adoptPendingUsage() {
+        guard let pendingUsage else { return }
+        usage = pendingUsage
+        self.pendingUsage = nil
+        cachedQueries.removeAll(keepingCapacity: true)
+    }
+
+    private func enqueueUsage(_ operation: @escaping @Sendable (SearchUsageStore) async -> SearchUsageSnapshot) {
+        guard let usageStore else { return }
+        let previous = usageOperations
+        usageOperations = Task { [weak self] in
+            // Preserve event order even if a launch completes while the first disk load is pending.
+            await previous?.value
+            let snapshot = await operation(usageStore)
+            self?.updateUsage(snapshot)
         }
     }
 }

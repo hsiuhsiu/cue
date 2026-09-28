@@ -1,32 +1,46 @@
 import Foundation
 
-/// Stateless, deterministic ranking over the already indexed application names.
+/// Deterministic ranking over indexed names and optional in-memory usage scores.
 public enum SearchEngine {
     public static func search(
         _ applications: [IndexedApplication],
-        query: String
+        query: String,
+        usage: SearchUsageSnapshot = .empty
     ) -> [IndexedApplication] {
-        search(applications, normalizedQuery: normalize(query))
+        search(applications, normalizedQuery: normalize(query), usage: usage)
     }
 
     static func search(
         _ applications: [IndexedApplication],
-        normalizedQuery query: String
+        normalizedQuery query: String,
+        usage: SearchUsageSnapshot = .empty
     ) -> [IndexedApplication] {
         if query.isEmpty {
             return applications.sorted(by: alphabeticallyPrecedes)
         }
 
         let queryCharacters = Array(query.filter { !$0.isWhitespace })
-        return applications.compactMap { application -> (IndexedApplication, Rank)? in
+        let scorer = usage.scorer(normalizedQuery: query)
+        let hasUsage = !usage.isEmpty
+        // Sort scalar indices/scores, not IndexedApplication's strings and arrays.
+        // Dense matches otherwise copy and retain that large value on every swap.
+        var candidates: [Candidate] = []
+        candidates.reserveCapacity(applications.count)
+        for index in applications.indices {
+            let application = applications[index]
             guard let rank = rank(application, query: query, characters: queryCharacters) else {
-                return nil
+                continue
             }
-            return (application, rank)
-        }.sorted { left, right in
-            if left.1 != right.1 { return left.1 < right.1 }
-            return alphabeticallyPrecedes(left.0, right.0)
-        }.map(\.0)
+            candidates.append(Candidate(index: index, rank: rank,
+                signal: hasUsage ? scorer.signal(for: application.searchUsageID) : .zero))
+        }
+        candidates.sort { left, right in
+            if left.rank.category != right.rank.category { return left.rank.category < right.rank.category }
+            if left.signal != right.signal { return left.signal > right.signal }
+            if left.rank != right.rank { return left.rank < right.rank }
+            return alphabeticallyPrecedes(applications[left.index], applications[right.index])
+        }
+        return candidates.map { applications[$0.index] }
     }
 
     static func normalize(_ value: String) -> String {
@@ -56,6 +70,12 @@ public enum SearchEngine {
             (left.category, left.penalty, left.position, left.length)
                 < (right.category, right.penalty, right.position, right.length)
         }
+    }
+
+    private struct Candidate {
+        let index: Int
+        let rank: Rank
+        let signal: SearchUsageSnapshot.Signal
     }
 
     private static func rank(

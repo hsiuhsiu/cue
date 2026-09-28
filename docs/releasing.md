@@ -32,7 +32,7 @@ archive verification enabled in production.
 
 1. Set `CFBundleShortVersionString` and increment `CFBundleVersion` in
    `Resources/Info.plist`. Sparkle compares the monotonically increasing build
-   number; for example, 0.3.0 uses build 4 after 0.2.0's build 3. Never reset
+   number; for example, 0.4.0 uses build 5 after 0.3.0's build 4. Never reset
    the build number when changing the displayed version. Write **both English and Traditional Chinese** sections in
    `docs/releases/v<version>.md`, with equivalent changes and limitations.
    Start with one `# Cue <version> — ...` title, then the language sections.
@@ -49,7 +49,7 @@ archive verification enabled in production.
 3. Inspect `.build/releases/<version>/`: `Cue-<version>-universal.dmg`,
    `appcast.xml`, and `SHA256SUMS.txt`. Do not edit the generated signed feed,
    notes, or DMG afterward. SHA-256 is a transfer check, not a publisher identity.
-4. Run the optimized launcher, clipboard, settings, localization, and system-action
+4. Run the optimized launcher, adaptive-search, clipboard, settings, localization, and system-action
    checks. Clipboard checks must use synthetic data and private pasteboards.
    Run `scripts/check-login-item.sh` with its injected service; it must not change
    the operator's login items. For manual login testing, install Cue in a stable
@@ -69,7 +69,7 @@ archive verification enabled in production.
 6. Test actual browser downloads on another Mac when available. Record tested
    machines accurately; compiling Intel and targeting macOS 14 does not prove
    runtime compatibility there. Version 0.1.0 needs one manual installation of
-   the current release (0.3.0) because it has no updater; installing 0.1.1
+   the current release because it has no updater; installing 0.1.1
    first is unnecessary. Version 0.1.1 and later can use the in-app updater.
 
 The script refuses to overwrite an existing version directory. Inspect and
@@ -79,21 +79,21 @@ an already-published build with different bytes.
 ## Publish assets before the feed
 
 Commit and push the reviewed source. Create and push an annotated version tag
-on that commit. Publish the tested assets and bilingual notes; for 0.3.0:
+on that commit. Publish the tested assets and bilingual notes; for 0.4.0:
 
 ```sh
-git tag -a v0.3.0 -m "Cue 0.3.0 Clipboard and system commands"
+git tag -a v0.4.0 -m "Cue 0.4.0 Personalized search and launch at login"
 git push origin main
-git push origin v0.3.0
-./scripts/github-release-notes.sh --body docs/releases/v0.3.0.md \
-  > .build/github-release-v0.3.0.md
-gh release create v0.3.0 \
-  .build/releases/0.3.0/Cue-0.3.0-universal.dmg \
-  .build/releases/0.3.0/appcast.xml \
-  .build/releases/0.3.0/SHA256SUMS.txt \
+git push origin v0.4.0
+./scripts/github-release-notes.sh --body docs/releases/v0.4.0.md \
+  > .build/github-release-v0.4.0.md
+gh release create v0.4.0 \
+  .build/releases/0.4.0/Cue-0.4.0-universal.dmg \
+  .build/releases/0.4.0/appcast.xml \
+  .build/releases/0.4.0/SHA256SUMS.txt \
   --repo hsiuhsiu/cue --verify-tag --latest \
-  --title "$(./scripts/github-release-notes.sh --title docs/releases/v0.3.0.md)" \
-  --notes-file .build/github-release-v0.3.0.md
+  --title "$(./scripts/github-release-notes.sh --title docs/releases/v0.4.0.md)" \
+  --notes-file .build/github-release-v0.4.0.md
 ```
 
 Never upload the complete titled source file as GitHub's release body. Confirm

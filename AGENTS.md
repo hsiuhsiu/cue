@@ -16,6 +16,7 @@
 - Optimize for keyboard-first interaction and low latency.
 - Keep core logic testable outside the UI.
 - Do not prematurely create generic or plugin abstractions.
+- Future product ideas are recorded in `docs/future-directions.md`. Treat them as context for later decisions, not authorization to implement them or add dependencies before requested.
 - Keep feature-specific settings in that feature's own page or actions (for example, clipboard retention inside Clipboard History). Reserve the main Settings window for Cue-wide options so it stays small and easy to navigate.
 - Do not add networking, telemetry, analytics, or cloud services unless explicitly requested.
 - Run relevant tests and build checks before declaring a task complete.

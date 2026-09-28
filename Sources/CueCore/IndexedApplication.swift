@@ -12,6 +12,7 @@ public struct IndexedApplication: Identifiable, Hashable, Sendable {
     let wordStarts: [Int]
     let wordSuffixes: [String]
     let initials: [Character]
+    let searchUsageID: String
 
     public init(
         id: String? = nil,
@@ -23,6 +24,7 @@ public struct IndexedApplication: Identifiable, Hashable, Sendable {
         self.name = name
         self.url = url
         self.bundleIdentifier = bundleIdentifier
+        self.searchUsageID = "app:" + self.id
 
         let searchableName = SearchEngine.normalize(name)
         let characters = Array(searchableName)

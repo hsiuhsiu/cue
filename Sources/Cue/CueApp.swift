@@ -58,7 +58,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         clipboard = ClipboardModel()
-        launcher = LauncherPanelController(clipboard: clipboard)
+        let usageURL = URL.homeDirectory.appendingPathComponent("Library/Application Support", isDirectory: true)
+            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.yyhsiu.cue", isDirectory: true)
+            .appendingPathComponent("Search/usage.json")
+        let model = LauncherModel(usageStore: SearchUsageStore(fileURL: usageURL))
+        launcher = LauncherPanelController(clipboard: clipboard, model: model)
         launcher.onSettings = { [weak self] in self?.showSettings() }
         configureMenuBar()
         configureEditingMenu()
@@ -79,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self?.statusItem.button?.toolTip = "Cue — \(preferences.shortcut.localizedDisplayName)"
         }
         Task { await launcher.model.loadApplications() }
+        launcher.model.startUsageTracking()
         // Construct the launcher and register its hotkey before starting update work.
         updates = UpdateController()
         updates.onPresentUpdate = { [weak self] in
@@ -105,7 +110,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         launcher.dismiss()
         clipboard.stop()
         Task {
-            await clipboard.prepareForTermination()
+            async let clipboardFinished: Void = clipboard.prepareForTermination()
+            async let usageFinished: Void = launcher.model.prepareForTermination()
+            _ = await (clipboardFinished, usageFinished)
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

@@ -26,11 +26,12 @@ private final class LauncherPanel: NSPanel {
 
 @MainActor
 final class LauncherPanelController: NSObject, NSWindowDelegate {
-    let model = LauncherModel()
+    let model: LauncherModel
     private let panel: LauncherPanel
     private var launcherView: LauncherView!
     private let clipboard: ClipboardModel
     private let performSystemAction: @MainActor (SystemAction) async throws -> Void
+    private let openApplication: @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void
     private var showingClipboard = false
     private lazy var clipboardView: ClipboardView = {
         let view = ClipboardView(
@@ -52,9 +53,13 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     var onSettings: (() -> Void)?
 
     init(clipboard: ClipboardModel,
-         performSystemAction: @escaping @MainActor (SystemAction) async throws -> Void = SystemActions.perform) {
+         model: LauncherModel = LauncherModel(),
+         performSystemAction: @escaping @MainActor (SystemAction) async throws -> Void = SystemActions.perform,
+         openApplication: @escaping @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemApplication) {
         self.clipboard = clipboard
+        self.model = model
         self.performSystemAction = performSystemAction
+        self.openApplication = openApplication
         panel = LauncherPanel(
             contentRect: NSRect(x: 0, y: 0, width: 640, height: 56),
             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
@@ -189,9 +194,17 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         guard let result = model.selectedResult else { return }
         switch result {
         case .updateIndex:
-            Task { await model.loadApplications() }
+            guard !model.isIndexing else { return }
+            let query = model.query
+            Task {
+                if await model.loadApplications() {
+                    model.recordSuccessfulAction(resultID: result.id, query: query)
+                }
+            }
         case .clipboardHistory:
+            let query = model.query
             showClipboard()
+            model.recordSuccessfulAction(resultID: result.id, query: query)
         case .sleep:
             runSystemAction(.sleep)
         case .lockScreen:
@@ -203,6 +216,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     private func runSystemAction(_ action: SystemAction) {
         let query = model.query
+        let resultID = action == .sleep ? LauncherResult.sleep.id : LauncherResult.lockScreen.id
         // Close immediately; system calls and framework loading stay off typing's
         // event path. The injected action also lets tests avoid sleeping/locking.
         dismiss()
@@ -211,6 +225,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             guard let self else { return }
             do {
                 try await self.performSystemAction(action)
+                self.model.recordSuccessfulAction(resultID: resultID, query: query)
             } catch {
                 // Never steal focus back for an old failed request after reopening.
                 guard self.invocation == actionInvocation else { return }
@@ -226,18 +241,30 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         // Acknowledge Enter immediately, independent of another app's startup time.
         dismiss()
         let launchInvocation = invocation
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = true
-        NSWorkspace.shared.openApplication(at: application.url, configuration: configuration) {
-            [weak self] _, error in
-            Task { @MainActor in
-                guard let self, let error, self.invocation == launchInvocation else { return }
+        let resultID = LauncherResult.application(application).id
+        openApplication(application) { [weak self] error in
+            guard let self else { return }
+            if let error {
+                guard self.invocation == launchInvocation else { return }
                 self.model.setQuery(query)
                 self.show(resetQuery: false)
                 self.model.launchError = L10n.format(
                     LauncherText.shared.launchError, application.name, error.localizedDescription
                 )
+            } else {
+                // A completed launch still counts if the user has already begun another search.
+                self.model.recordSuccessfulAction(resultID: resultID, query: query)
             }
+        }
+    }
+
+    private static func openSystemApplication(
+        _ application: IndexedApplication, completion: @escaping @MainActor (Error?) -> Void
+    ) {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: application.url, configuration: configuration) { _, error in
+            Task { @MainActor in completion(error) }
         }
     }
 }
