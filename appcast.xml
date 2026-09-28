@@ -4,30 +4,69 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>Cue</title>
         <item>
-            <title>0.5.0</title>
-            <pubDate>Sun, 27 Sep 2026 22:34:45 -0700</pubDate>
-            <sparkle:version>6</sparkle:version>
-            <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+            <title>0.6.0</title>
+            <pubDate>Mon, 28 Sep 2026 08:58:31 -0700</pubDate>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# Cue 0.5.0 — Offline control and Chinese conversion / 網路控制與簡繁互轉
+            <description sparkle:format="markdown"><![CDATA[# Cue 0.6.0 — Emoji and web tools / Emoji 與網頁工具
 
 ## English
 
-Cue 0.5.0 adds control over network access, offline Chinese conversion for selected text, Screen Off, and clearer command icons.
+Cue 0.6.0 adds offline emoji search, Google search with your choice of browser,
+and local clipboard link cleaning.
 
-- **Global network control:** open **Command+, → Network → Allow network access**. Turning it off disables both automatic and manual update checks, blocks new downloads, requests cancellation of active updater work, and closes update-offer/download-progress windows. Automatic checking appears off and locked while networking is disabled; its previous preference is remembered for when you allow networking again. Search, Clipboard History, system commands, and Chinese conversion keep working. This is Cue's own network policy, not a firewall for other apps or macOS services; already-sent or buffered network data cannot be recalled, and an installation already underway cannot be undone by this switch.
-- **Defaults for your installation:** source builds start with networking **off**; the official DMG starts with it **on**. An explicit choice saved in Settings always wins, including after switching between distributions. Old automatic-update settings alone cannot enable networking in a source build. First-time source dependency downloads happen in the build tools, separately from the running app's permission.
-- **Selected-text Chinese conversion:** select text in an editable field, invoke Cue, enter **`st`** for Traditional Chinese with Taiwan vocabulary or **`ts`** for Simplified Chinese with mainland China vocabulary, then press Return. Cue replaces the selection in the original app; use that app's Command+Z to undo. Both directions use bundled OpenCC dictionaries and retain full functionality with networking off. Text is never sent to a conversion service. Search **`chinese settings`** to customize the aliases; Command-comma also opens these settings when a conversion command is selected.
-- **Screen Off:** search **`screen off`**, **`display off`**, or **`關閉螢幕`** to turn off the display while the Mac keeps running. Password requirements follow macOS Lock Screen settings; use the separate Lock Screen command when you want to lock the session.
-- **Clearer commands and focus:** white command tiles with blue outlines distinguish clipboard, conversion, indexing, sleep, lock, and screen-off actions. Icons are prepared in the background and cached. Invoking Cue now activates its input correctly while retaining the original app for text replacement.
+- **Emoji search:** type **`emoji`** or **`表情符號`** to open a dedicated page.
+  Search English or Traditional Chinese keywords, select with the arrow keys
+  and Return, double-click, choose **Copy**, or press **Command+1–9** to copy an emoji and close Cue.
+  Paste with Command+V in the destination app; Cue does not paste automatically.
+  Esc returns to the launcher. The catalog is bundled, works offline from first
+  use, and shows at most nine matches without a scrollbar.
+- **Google search:** when a nonempty main-launcher query has no local app or
+  command match after the first index loads, Cue offers Google search.
+  **Command+Return** searches the current text in your default browser even
+  when local results exist. **Command+K** shows browser actions for that text;
+  ordinary Return still runs the selected local result. Typing and input-method
+  composition do not send searches or fetch suggestions.
+- **Your browsers:** search **`google settings`** to add or remove up to eight
+  browser choices alongside the system default. Only browsers you choose enter
+  the list, each Mac keeps its own choices, and the result artwork shows the
+  browser's icon. A missing browser reports an error instead of silently using
+  another. Command-comma on a Google action opens these feature settings.
+- **Link cleaner:** copy one HTTP(S) link, then run **`clean link`**,
+  **`link cleaner`**, **`清理連結`**, or **`清理網址`**. Cue removes known tracking
+  parameters, preserving other parameters, fragments, and their encoding.
+  Recognized signed links stay unchanged; ambiguous semicolon fields are
+  retained. The result reports the removed count or why the clipboard remains
+  unchanged. Cleaning runs locally, does not expand short links or redirects,
+  open a browser, or paste automatically. A detected newer copy prevents a
+  pending cleanup from replacing it.
+- **Clear network and privacy controls:** Cue's global network switch continues
+  to govern its own requests, including updates. Explicit Google searches use
+  an independent **Enable Google search** switch, on by default, so they can
+  still hand off to your browser when Cue's own networking is off. Turn that
+  feature switch off to block the handoff too. The browser and Google receive
+  only submitted queries and apply their own settings. Emoji search and link
+  cleaning stay offline. Google queries, Emoji page searches/selections, and
+  cleaned clipboard URLs are not saved in Cue's search-learning history.
+
+See the [Emoji](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/emoji.md),
+[Google search](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/web-search.md), and
+[link cleaner](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/link-cleaner.md) guides.
 
 ### Install or upgrade
 
-[Download Cue 0.5.0](https://github.com/hsiuhsiu/cue/releases/download/v0.5.0/Cue-0.5.0-universal.dmg) · [Checksums](https://github.com/hsiuhsiu/cue/releases/download/v0.5.0/SHA256SUMS.txt)
+[Download Cue 0.6.0](https://github.com/hsiuhsiu/cue/releases/download/v0.6.0/Cue-0.6.0-universal.dmg) · [Checksums](https://github.com/hsiuhsiu/cue/releases/download/v0.6.0/SHA256SUMS.txt)
 
-Choose **Check for Updates… → Install and Relaunch** in Cue, or quit Cue, open the DMG, and drag **Cue.app** into **Applications**, replacing the old copy. Open the installed app; its default shortcut is **Option+Space**. Settings, clipboard history, and search learning are preserved. Updating requires a writable installed location, not the read-only DMG. You decide when to install; automatic downloads and unattended installation are disabled. Published builds normally check once a day when network access and automatic checks are both enabled.
+With Cue's network access enabled, choose **Check for Updates… → Install and
+Relaunch**. Or quit Cue, open the DMG, and drag **Cue.app** into **Applications**,
+replacing the old copy. Open the installed app; its default shortcut is
+**Option+Space**. Settings, clipboard history, and search learning are preserved.
+Updating requires a writable installed location, not the read-only DMG.
+Automatic downloads and unattended installation remain disabled.
 
-To build your own offline-by-default copy, install full **Xcode with Swift 6 or later**, open it once, and complete its license and setup. Quit Cue, then run:
+To compile your own copy, install full **Xcode with Swift 6 or later**, open it
+once to finish its license and setup, quit Cue, then run:
 
 ```sh
 git clone https://github.com/hsiuhsiu/cue.git
@@ -36,31 +75,78 @@ cd cue
 open "$HOME/Applications/Cue.app"
 ```
 
-The first build downloads the pinned Sparkle dependency; ordinary builds use the Chinese dictionaries already in the repository. The optimized app is permanently installed at `~/Applications/Cue.app`. For later source updates, quit Cue and run `git pull --ff-only` followed by `./scripts/install-app.sh`. Existing explicit network choices are preserved. If you enable networking and install an offered update, it replaces your build with the published app. See the [source guide](https://github.com/hsiuhsiu/cue/blob/v0.5.0/docs/building.md) and [network policy](https://github.com/hsiuhsiu/cue/blob/v0.5.0/docs/network-policy.md).
+The optimized app stays installed at `~/Applications/Cue.app`. The first build
+downloads the pinned Sparkle dependency; Chinese dictionaries and the emoji
+catalog are already bundled. To update a source build, quit Cue and run
+`git pull --ff-only` followed by `./scripts/install-app.sh`. Source builds default
+to Cue's own networking and automatic update checks **off**; official DMGs
+default to **on**. Explicit saved choices are preserved. Browser search has its
+own enabled-by-default switch in both builds. Installing an update offered by
+Cue replaces a source build with the published app. See the
+[source guide](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/building.md) and
+[network policy](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/network-policy.md).
 
-The app is ad hoc-signed, **without Developer ID signing or Apple notarization**. Follow the app-specific [first-launch instructions](https://github.com/hsiuhsiu/cue/blob/v0.5.0/docs/installation.md) if macOS blocks it. Chinese text replacement requires **Accessibility** permission for the installed copy of Cue. Rebuilding or updating can invalidate an older grant; remove the old Cue entry and add the current app if the switch appears enabled but access fails. See the [conversion guide](https://github.com/hsiuhsiu/cue/blob/v0.5.0/docs/chinese-conversion.md).
+The app is ad hoc-signed, **without Developer ID signing or Apple notarization**.
+If macOS blocks its first launch, follow the app-specific
+[installation instructions](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/installation.md).
+Chinese text replacement still needs Accessibility permission for the installed
+copy; rebuilding or updating can invalidate an older grant.
 
-Conversion requires an editor that exposes editable selected text to Accessibility. Password fields, read-only pages, unsupported editors, and selections over 256 KiB are rejected. Conversion follows dictionary rules rather than context, and pasted text may lose rich formatting. Cue restores the clipboard when it can safely confirm the replacement; other clipboard managers can observe the temporary data.
-
-Validation covers optimized core and app-level checks, isolated network-policy/update transitions, packaging defaults, localization, and signed universal artifacts. TextEdit's `st` replacement and Undo/Redo were tested with a physical launcher shortcut during development; physical `ts` use and other editors remain unverified. System-action tests inject substitutes without sleeping, locking, or turning off the test Mac. Logout/reboot startup and a public update installation on a second Mac remain unverified. The app targets **macOS 14+**, with Apple silicon and Intel binaries; runtime verification uses **Apple silicon / macOS 27.0 / Xcode 27**.
+The universal app targets **macOS 14+**, with Apple silicon and Intel binaries.
+Runtime verification is on **Apple silicon / macOS 27.0 / Xcode 27**; Intel,
+other macOS versions, and a public update installation on a second Mac remain
+unverified. System-action checks use substitutes; actual sleep, lock, display-off,
+and logout/reboot startup cycles have not been verified for this release.
 
 ## 正體中文
 
-Cue 0.5.0 加入全域網路控制、針對選取文字的離線簡繁互轉、關閉螢幕，以及更清楚的指令圖示。
+Cue 0.6.0 加入離線 Emoji 搜尋、可選擇瀏覽器的 Google 搜尋，以及本機剪貼簿
+連結清理。
 
-- **全域網路控制：**開啟 **Command+, → 網路 → 允許使用網路**。關閉後，自動與手動檢查更新都會停用，阻止新下載、要求取消進行中的更新工作，並關閉更新提示與下載進度視窗。自動檢查會顯示為關閉且無法操作，但保留原本的選擇，重新允許網路後才可恢復。搜尋、剪貼簿記錄、系統指令與簡繁轉換仍可使用。這是 Cue 自己的網路政策，不是管理其他 App 或 macOS 服務的防火牆；已送出或進入網路緩衝區的資料無法收回，也無法藉此撤銷已開始的更新安裝。
-- **依安裝方式選擇預設值：**自行編譯版預設**關閉**網路，正式 DMG 預設**開啟**。曾在設定明確選擇的值優先，即使換用另一種版本也會保留。舊版的自動更新設定不會自行開啟來源版的網路。首次建置下載相依套件由開發工具進行，與執行中 App 的網路許可分開。
-- **選取文字簡繁互轉：**在可編輯欄位選取文字、叫出 Cue，輸入 **`st`** 轉為正體中文與台灣用詞，或 **`ts`** 轉為簡體中文與中國大陸用詞，再按 Return。Cue 會在原 App 取代選取內容，可用原 App 的 Command+Z 復原。兩個方向都使用內附 OpenCC 詞庫，關閉網路仍保留完整功能，不會把文字送到轉換服務。搜尋 **`簡繁設定`** 可自訂別名；選到轉換指令時，Command+逗號也會開啟該功能的設定。
-- **關閉螢幕：**搜尋 **`screen off`**、**`display off`** 或 **`關閉螢幕`**，讓螢幕休眠而 Mac 繼續運作。喚醒時的密碼要求依 macOS 鎖定畫面設定；若目的是鎖定工作階段，請使用獨立的「鎖定螢幕」指令。
-- **更清楚的指令與焦點：**白底藍色線條的圖示區分剪貼簿、轉換、索引、睡眠、鎖定與關閉螢幕。圖示在背景產生並快取。叫出 Cue 時會正確取得輸入焦點，同時保留原 App 資訊，供文字取代使用。
+- **Emoji 搜尋：**輸入 **`emoji`** 或 **`表情符號`** 開啟專用頁面。用英文或
+  正體中文關鍵字搜尋，以方向鍵選取後按 Return、按兩下結果、按**拷貝**，或按 **Command+1–9**，
+  即可拷貝 emoji 並收起 Cue。到目標 App 按 Command+V 貼上，Cue 不會自動
+  貼入；Esc 返回主搜尋。目錄隨 App 內附，首次使用也離線，最多顯示九個
+  符合結果、不顯示捲軸。
+- **Google 搜尋：**初次索引完成後，主搜尋的非空白文字若沒有符合的 App 或
+  指令，就會提供 Google 搜尋。即使已有本機結果，也可用 **Command+Return**
+  在預設瀏覽器搜尋目前文字；**Command+K** 顯示這段文字的瀏覽器動作。
+  一般 Return 仍執行選取的本機結果。打字或輸入法組字時不會傳送搜尋或取得
+  搜尋建議。
+- **選擇自己的瀏覽器：**輸入 **`Google 搜尋設定`**，可在系統預設之外自行
+  加入、移除最多八個瀏覽器。只有明確選擇的 App 會進入清單，每台 Mac 各自
+  保留選擇，結果圖示也會標示對應瀏覽器。若已加入的瀏覽器不存在，會顯示
+  錯誤，不會悄悄換用其他瀏覽器；選到 Google 動作時，Command+逗號可開啟
+  這個功能的設定。
+- **連結清理：**複製一個 HTTP(S) 網址，執行 **`clean link`**、**`link cleaner`**、
+  **`清理連結`**或 **`清理網址`**，即可移除已知追蹤參數，保留其他參數、
+  網址片段及原有編碼。已識別的簽章網址不修改，解析方式不明確的分號欄位
+  也會保留。結果顯示移除數量或剪貼簿保持原樣的原因。清理在本機進行，
+  不展開短網址或重新導向、不開啟瀏覽器、不自動貼上；若等待期間偵測到
+  較新的拷貝，就不覆蓋它。
+- **明確的網路與隱私控制：**全域網路開關持續管理 Cue 自己的請求，包括更新。
+  明確執行的 Google 搜尋使用獨立、預設開啟的**啟用 Google 搜尋**開關；因此
+  Cue 自行連網關閉時，仍可主動交給瀏覽器搜尋。若也要阻止此交接，請關閉
+  該功能開關。瀏覽器及 Google 只接收已送出的查詢，依各自設定處理。
+  Emoji 搜尋與連結清理維持離線。Google 字詞、Emoji 頁面搜尋／選取結果，
+  以及清理的剪貼簿網址，都不會存入 Cue 的搜尋學習記錄。
+
+詳見 [Emoji](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/emoji.md)、
+[Google 搜尋](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/web-search.md)與
+[連結清理](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/link-cleaner.md)說明。
 
 ### 安裝或升級
 
-[下載 Cue 0.5.0](https://github.com/hsiuhsiu/cue/releases/download/v0.5.0/Cue-0.5.0-universal.dmg) · [檢查碼](https://github.com/hsiuhsiu/cue/releases/download/v0.5.0/SHA256SUMS.txt)
+[下載 Cue 0.6.0](https://github.com/hsiuhsiu/cue/releases/download/v0.6.0/Cue-0.6.0-universal.dmg) · [檢查碼](https://github.com/hsiuhsiu/cue/releases/download/v0.6.0/SHA256SUMS.txt)
 
-從 Cue 選擇**檢查更新⋯ → 安裝與重新啟動**；或先結束 Cue，開啟 DMG，將 **Cue.app** 拖進**應用程式**取代舊版本，再開啟已安裝的 App。預設快速鍵為 **Option+Space**。設定、剪貼簿記錄與搜尋學習資料會保留。更新需要已安裝且可寫入的位置，不能直接從唯讀 DMG 執行。安裝時間由你決定，自動下載及無人操作安裝均已停用。正式版在允許網路且開啟自動檢查時，通常每日檢查一次。
+允許 Cue 使用網路後，選擇**檢查更新⋯ → 安裝與重新啟動**；或先結束 Cue，
+開啟 DMG，將 **Cue.app** 拖進**應用程式**取代舊版，再開啟安裝好的 App。
+預設快速鍵為 **Option+Space**，設定、剪貼簿記錄與搜尋學習資料都會保留。
+更新需要可寫入的安裝位置，不能直接在唯讀 DMG 中執行。自動下載及無人操作
+安裝仍維持停用。
 
-自行建置預設離線的版本，需要內含 **Swift 6 以上的完整 Xcode**，並先開啟完成授權與設定。先結束 Cue，再執行：
+自行編譯需要內含 **Swift 6 以上的完整 Xcode**，先開啟完成授權與設定、結束 Cue，
+再執行：
 
 ```sh
 git clone https://github.com/hsiuhsiu/cue.git
@@ -69,18 +155,28 @@ cd cue
 open "$HOME/Applications/Cue.app"
 ```
 
-首次建置會下載固定版本的 Sparkle 相依套件；一般建置直接使用儲存庫內附的中文詞庫。最佳化 App 會固定安裝至 `~/Applications/Cue.app`。日後更新來源版時，先結束 Cue，再執行 `git pull --ff-only` 與 `./scripts/install-app.sh`。既有的明確網路選擇會保留。若允許網路並安裝 Cue 提供的更新，會換成已發布的 App。詳見[原始碼指引](https://github.com/hsiuhsiu/cue/blob/v0.5.0/docs/building.md)與[網路政策](https://github.com/hsiuhsiu/cue/blob/v0.5.0/docs/network-policy.md)。
+最佳化 App 會固定安裝至 `~/Applications/Cue.app`。首次建置下載固定版本的
+Sparkle；中文詞庫與 emoji 目錄已經內附。來源版更新時，先結束 Cue，執行
+`git pull --ff-only` 與 `./scripts/install-app.sh`。自行建置版預設**關閉** Cue
+自行連網與自動檢查更新，正式 DMG 預設**開啟**；明確儲存的選擇會保留。
+兩種版本的瀏覽器搜尋皆有獨立、預設開啟的開關。若從 Cue 安裝提供的更新，
+會將來源版換成發布版。詳見[原始碼指引](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/building.md)
+及[網路政策](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/network-policy.md)。
 
-App 使用 ad hoc 簽章，**沒有 Developer ID 簽署，也尚未經 Apple 公證**。若 macOS 阻擋，請依針對 Cue 的[首次開啟說明](https://github.com/hsiuhsiu/cue/blob/v0.5.0/docs/installation.md)操作。跨 App 取代文字需要為目前安裝的 Cue 開啟**輔助使用**權限。重新建置或更新可能讓舊授權失效；若開關已開啟卻無法使用，請移除舊 Cue 項目，再加入目前的 App。詳見[轉換指引](https://github.com/hsiuhsiu/cue/blob/v0.5.0/docs/chinese-conversion.md)。
+App 使用 ad hoc 簽章，**沒有 Developer ID 簽署，也未經 Apple 公證**。若 macOS
+阻擋首次開啟，請依針對 Cue 的[安裝說明](https://github.com/hsiuhsiu/cue/blob/v0.6.0/docs/installation.md)
+操作。簡繁文字取代仍需要為目前安裝的 Cue 開啟輔助使用權限；重新建置或更新
+可能使舊授權失效。
 
-轉換需要編輯器透過輔助使用提供可編輯的選取文字。密碼欄位、唯讀頁面、不支援的編輯器及超過 256 KiB 的選取內容不適用。轉換採字詞規則，不理解上下文；貼入文字可能失去富文字格式。Cue 在能安全確認取代結果時會還原剪貼簿，其他剪貼簿管理程式仍可能觀察到暫存內容。
-
-驗證包含最佳化的核心與 App 層檢查、隔離的網路政策及更新切換測試、封裝預設值、翻譯與已簽署通用版產物。開發期間已用實體啟動快速鍵，在 TextEdit 驗證 `st` 取代及復原／重做；`ts` 實體操作與其他編輯器仍未驗證。系統指令測試使用替代動作，未實際讓測試 Mac 睡眠、鎖定或關閉螢幕。登入後啟動的登出／重開機循環，以及另一台 Mac 從公開來源更新安裝，仍未驗證。App 建置目標為 **macOS 14+**，內含 Apple silicon 與 Intel 執行檔；實際執行驗證環境為 **Apple silicon／macOS 27.0／Xcode 27**。
+通用版目標為 **macOS 14+**，包含 Apple silicon 與 Intel 執行檔。實際執行驗證
+環境為 **Apple silicon／macOS 27.0／Xcode 27**；Intel、其他 macOS 版本，以及
+另一台 Mac 從公開來源更新安裝，仍未驗證。系統指令檢查使用替代動作；本次
+發布尚未實際驗證睡眠、鎖定、關閉顯示器及登出／重開機後啟動的完整循環。
 ]]></description>
-            <enclosure url="https://github.com/hsiuhsiu/cue/releases/download/v0.5.0/Cue-0.5.0-universal.dmg" length="5928502" type="application/octet-stream" sparkle:edSignature="zkEQVpuZ8bSkd+5CrF3+lUEm6GRPCF14eckAQ8xNEU64SNR97GWRHzk7eBYxYRgaDBgcC6RxciP+MnCKiaCICA=="></enclosure>
+            <enclosure url="https://github.com/hsiuhsiu/cue/releases/download/v0.6.0/Cue-0.6.0-universal.dmg" length="6423589" type="application/octet-stream" sparkle:edSignature="vUKe7OdJ2DzhsU+2otvsdlVKAhH1g0GQRyfHtvjhH2NXaEq3XdnUGxADGV8jNNYIjfmiU0RGtx+m/DJy+0iHCA=="></enclosure>
         </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: 5o3xWhsVUYbTyXuVD9FLHmsPq26IkI0oci2KY7n+h8LnzvskyQRvF5e8HcWSiwgd6WLKW8gJkzDgIJRD85jUCg==
-length: 12222
+edSignature: V7fQ3mUAIlqHrCrKNF4BWxHWpUXmPxzwXXcQbqWQBTlYA0/SheqKKFMcliudAhYbQOehEiFv0Zd9vO9OQaCGBQ==
+length: 11679
 -->
