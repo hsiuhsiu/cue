@@ -19,6 +19,8 @@ struct CheckLauncherKeyboard {
         let model = LauncherModel(applications: applications)
         var settingsActions = 0
         var otherActions = 0
+        var webActions: [String] = []
+        var searchActions = 0
         var submittedIDs: [String] = []
         let view = LauncherView(
             model: model,
@@ -26,8 +28,10 @@ struct CheckLauncherKeyboard {
                 otherActions += 1
                 if let id = model.selectedResult?.id { submittedIDs.append(id) }
             },
-            onCancel: { otherActions += 1 },
-            onSettings: { settingsActions += 1 }
+            onCancel: { if !model.closeSearchActions() { otherActions += 1 } },
+            onSettings: { settingsActions += 1 },
+            onWebSearch: { webActions.append(model.query) },
+            onSearchActions: { searchActions += 1; model.toggleSearchActions() }
         )
         let window = NSPanel(
             contentRect: view.frame,
@@ -233,11 +237,198 @@ struct CheckLauncherKeyboard {
                "Returning from results must clear the launcher completely")
         expect(!application.isActive && !window.isVisible, "Numbered execution checks must remain offscreen and inactive")
 
+        // Web-search callbacks record the untouched query. These checks never
+        // create a URL, open a browser, or change Cue's network preference.
+        expect(webActions.isEmpty, "Existing launcher shortcuts must not invoke web search")
+        for query in ["", " \t\n", "\u{00A0}\u{2003}\u{3000}"] {
+            model.setQuery(query)
+            expect(route(key("\r", keyCode: 36)), "Command-Return with blank input must be consumed")
+            expect(webActions.isEmpty, "Command-Return with blank input must not invoke a search")
+        }
+        model.setQuery("  Shortcut  Fixture  ")
+        let webQuery = model.query
+        let selectedBeforeWeb = model.selectedID
+        let otherActionsBeforeWeb = otherActions
+        let settingsBeforeWeb = settingsActions
+        let webEvents: [(String, NSEvent)] = [
+            ("Command-Return", key("\r", keyCode: 36)),
+            ("Command-keypad Enter", key("\u{0003}", keyCode: 76)),
+            ("Command-Return with Caps Lock", key("\r", modifiers: [.command, .capsLock], keyCode: 36)),
+            ("Command-keypad Enter with Caps Lock", key("\u{0003}", modifiers: [.command, .capsLock], keyCode: 76)),
+        ]
+        for (name, event) in webEvents {
+            let before = webActions.count
+            expect(route(event), "\(name) must route through the real view's key-equivalent handler")
+            expect(webActions.count == before + 1 && webActions.last == webQuery,
+                   "\(name) must invoke web search exactly once with the original query")
+            expect(model.query == webQuery && model.selectedID == selectedBeforeWeb,
+                   "\(name) must preserve the query and selected local result")
+        }
+        let searchesBeforeRepeat = webActions.count
+        for event in [key("\r", keyCode: 36, repeated: true), key("\u{0003}", keyCode: 76, repeated: true)] {
+            expect(route(event), "A held web-search shortcut must be consumed")
+            expect(webActions.count == searchesBeforeRepeat, "A held web-search shortcut must never submit again")
+        }
+        for modifiers in nearMisses {
+            for code in [UInt16(36), UInt16(76)] {
+                expect(!view.handleWebSearchShortcut(key("\r", modifiers: modifiers, keyCode: code)),
+                       "Plain Return and additional modifier combinations must remain available to normal routing")
+            }
+        }
+        expect(!view.handleWebSearchShortcut(key("\r", keyCode: 0)),
+               "A Return character on an unrelated physical key must not trigger web search")
+        let returnKeyUp = NSEvent.keyEvent(with: .keyUp, location: .zero, modifierFlags: .command,
+                                          timestamp: 0, windowNumber: window.windowNumber, context: nil,
+                                          characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)!
+        expect(!view.handleWebSearchShortcut(returnKeyUp), "Releasing Command-Return must not submit again")
+        expect(webActions.count == searchesBeforeRepeat, "Near matches and released keys must not invoke web search")
+        expect(otherActions == otherActionsBeforeWeb && settingsActions == settingsBeforeWeb,
+               "Web-search shortcuts must never submit the selected local result, cancel, or open Settings")
+
+        window.makeFirstResponder(view.searchField)
+        if let editor = view.searchField.currentEditor() as? NSTextView {
+            let selectedBeforeReturn = model.selectedResult?.id
+            let submissionsBeforeReturn = submittedIDs.count
+            expect(view.control(view.searchField, textView: editor, doCommandBy: #selector(NSResponder.insertNewline(_:))),
+                   "An ordinary Return must still route through the native field-editor submit command")
+            expect(submittedIDs.count == submissionsBeforeReturn + 1 && submittedIDs.last == selectedBeforeReturn,
+                   "An ordinary Return must execute the selected local result exactly once")
+            expect(webActions.count == searchesBeforeRepeat, "An ordinary Return must not invoke the explicit web-search action")
+
+            editor.setMarkedText("注音", selectedRange: NSRange(location: 2, length: 0),
+                                 replacementRange: NSRange(location: NSNotFound, length: 0))
+            expect(editor.hasMarkedText(), "Web-search IME fixture must contain marked text")
+            let markedString = editor.string
+            let markedRange = editor.markedRange()
+            let selectedRange = editor.selectedRange()
+            let queryDuringComposition = model.query
+            for code in [UInt16(36), UInt16(76)] {
+                expect(!view.handleWebSearchShortcut(key("\r", keyCode: code)),
+                       "Command-Return must not trigger web search while IME text is provisional")
+                _ = route(key("\r", keyCode: code))
+                expect(webActions.count == searchesBeforeRepeat && editor.hasMarkedText(),
+                       "Real key-equivalent routing must preserve composition without submitting web search")
+            }
+            expect(editor.string == markedString && editor.markedRange() == markedRange
+                   && editor.selectedRange() == selectedRange && model.query == queryDuringComposition,
+                   "Web-search shortcut routing must not alter marked text, selection, or the query")
+            expect(!view.control(view.searchField, textView: editor, doCommandBy: #selector(NSResponder.insertNewline(_:))),
+                   "Return during composition must remain available to the input method")
+            expect(submittedIDs.count == submissionsBeforeReturn + 1,
+                   "Return during composition must not launch the selected local result")
+            editor.unmarkText()
+        } else {
+            expect(false, "AppKit must create a field editor for web-search and ordinary Return checks")
+        }
+        model.reset()
+        expect(!application.isActive && !window.isVisible, "Web-search checks must remain offscreen and inactive")
+
+        // Browser choices are a local action list. Opening or navigating it must
+        // neither submit text nor lose the local query when Escape closes it.
+        let browsers = [
+            WebSearchBrowser(bundleIdentifier: "test.browser.first", name: "First Browser"),
+            WebSearchBrowser(bundleIdentifier: "test.browser.second", name: "Second Browser")
+        ]
+        model.setResultLimit(9)
+        model.setWebSearchPreferences(enabled: true, browsers: browsers)
+        for query in ["", " \t\n", "\u{00A0}\u{2003}\u{3000}"] {
+            model.setQuery(query)
+            expect(route(key("k", keyCode: 40)), "Command-K with blank input must be consumed")
+            expect(searchActions == 0 && !model.isShowingSearchActions && model.results.isEmpty,
+                   "Command-K must keep blank input completely empty")
+        }
+        model.setQuery("Shortcut Fixture")
+        let localResults = model.results
+        let beforeChoicesWebActions = webActions.count
+        let beforeChoicesOtherActions = otherActions
+        let beforeChoicesSettings = settingsActions
+        expect(route(key("k", keyCode: 40)), "Command-K must open browser choices through real key-equivalent routing")
+        expect(searchActions == 1 && model.isShowingSearchActions
+               && model.results == [.googleSearch] + browsers.map { .googleSearchIn($0) },
+               "Command-K must show only the default and explicitly added browsers even when apps match")
+        expect(model.query == "Shortcut Fixture", "Opening browser choices must preserve the original query")
+        expect(route(key("k", keyCode: 40, repeated: true)), "A held Command-K must be consumed")
+        expect(searchActions == 1 && model.isShowingSearchActions, "A held Command-K must not toggle repeatedly")
+        let beforeBrowserNumber = submittedIDs.count
+        expect(route(key("2", keyCode: 19)), "Curated browser choices must retain numbered execution")
+        expect(submittedIDs.count == beforeBrowserNumber + 1
+               && submittedIDs.last == LauncherResult.googleSearchIn(browsers[0]).id,
+               "Command-2 must execute exactly the first curated browser choice")
+        expect(view.control(view.searchField, textView: NSTextView(), doCommandBy: #selector(NSResponder.cancelOperation(_:))),
+               "Escape must route through the action list's cancel callback")
+        expect(!model.isShowingSearchActions && model.results == localResults && model.query == "Shortcut Fixture"
+               && otherActions == beforeChoicesOtherActions + 1,
+               "Escape must restore local results without dismissing or changing the query")
+        model.setResultLimit(1)
+        model.setQuery("unmatched browser-choice fixture")
+        expect(model.results == [.googleSearch], "Ordinary fallback must honor the user's reduced result limit")
+        expect(route(key("k", keyCode: 40)) && model.results == [.googleSearch] + browsers.map { .googleSearchIn($0) },
+               "Explicit Command-K must expose every curated browser even with the app result limit set to one")
+        _ = model.closeSearchActions()
+        model.setResultLimit(9)
+        model.setQuery("Shortcut Fixture")
+        for (label, event) in [
+            ("Caps Lock", key("K", modifiers: [.command, .capsLock], keyCode: 40)),
+            ("input-method characters", key("注", keyCode: 40))
+        ] {
+            let before = searchActions
+            expect(route(event) && searchActions == before + 1 && model.isShowingSearchActions,
+                   "Command-K with \(label) must open the choices once")
+            expect(route(key("k", keyCode: 40)) && searchActions == before + 2 && !model.isShowingSearchActions,
+                   "A second Command-K must return to local results")
+        }
+        let beforeNearChoiceKeys = searchActions
+        for modifiers in nearMisses {
+            expect(!view.handleSearchActionsShortcut(key("k", modifiers: modifiers, keyCode: 40)),
+                   "Plain K and additional modifier combinations must remain available to normal routing")
+        }
+        expect(!view.handleSearchActionsShortcut(key("k", keyCode: 0)),
+               "A K character on an unrelated physical key must not open browser choices")
+        let choiceKeyUp = NSEvent.keyEvent(with: .keyUp, location: .zero, modifierFlags: .command,
+                                          timestamp: 0, windowNumber: window.windowNumber, context: nil,
+                                          characters: "k", charactersIgnoringModifiers: "k", isARepeat: false, keyCode: 40)!
+        expect(!view.handleSearchActionsShortcut(choiceKeyUp) && searchActions == beforeNearChoiceKeys,
+               "Near matches and released Command-K keys must not change browser choices")
+        expect(webActions.count == beforeChoicesWebActions && settingsActions == beforeChoicesSettings,
+               "Opening, closing, or numbering browser choices must not invoke the default-search or Settings callbacks")
+        model.setWebSearchPreferences(enabled: false, browsers: browsers)
+        expect(route(key("k", keyCode: 40)) && model.isShowingSearchActions,
+               "Disabled search remains discoverable so its own settings are reachable")
+        expect(model.results == [.googleSearch] + browsers.map { .googleSearchIn($0) }
+               && !model.allowsWebSearch && webActions.count == beforeChoicesWebActions,
+               "Discovering disabled browser choices must not execute a search")
+        _ = model.closeSearchActions()
+        model.setWebSearchPreferences(enabled: true, browsers: browsers)
+        window.makeFirstResponder(view.searchField)
+        if let editor = view.searchField.currentEditor() as? NSTextView {
+            editor.setMarkedText("注音", selectedRange: NSRange(location: 2, length: 0),
+                                 replacementRange: NSRange(location: NSNotFound, length: 0))
+            let before = searchActions
+            let text = editor.string
+            let range = editor.markedRange()
+            let selection = editor.selectedRange()
+            let query = model.query
+            expect(editor.hasMarkedText() && !view.handleSearchActionsShortcut(key("k", keyCode: 40)),
+                   "Command-K must not replace results during provisional IME composition")
+            _ = route(key("k", keyCode: 40))
+            expect(searchActions == before && !model.isShowingSearchActions && editor.hasMarkedText()
+                   && editor.string == text && editor.markedRange() == range && editor.selectedRange() == selection
+                   && model.query == query, "Real Command-K routing must preserve marked text, selection, and query")
+            editor.unmarkText()
+        } else {
+            expect(false, "AppKit must create a field editor for browser-choice IME checks")
+        }
+        _ = view.control(view.searchField, textView: NSTextView(), doCommandBy: #selector(NSResponder.cancelOperation(_:)))
+        expect(otherActions == beforeChoicesOtherActions + 2, "Escape outside browser choices must retain normal dismissal")
+        model.reset()
+        expect(model.results.isEmpty && !model.isShowingSearchActions, "Reset must clear browser choices as well as local results")
+        expect(!application.isActive && !window.isVisible, "Browser-choice checks must remain offscreen and inactive")
+
         if !failures.isEmpty {
             for failure in failures { print("FAIL: \(failure)") }
             print("Launcher keyboard regression failed: \(failures.count) failures / \(checks) checks.")
             exit(1)
         }
-        print("Launcher keyboard regression passed: \(checks) checks; blank opening, immediate numbered execution, Settings, modifiers, repeats, normal editing, and marked text.")
+        print("Launcher keyboard regression passed: \(checks) checks; blank opening, numbered execution, explicit web search, curated browser choices, Escape, Settings, modifiers, repeats, normal Return, editing, and marked text.")
     }
 }

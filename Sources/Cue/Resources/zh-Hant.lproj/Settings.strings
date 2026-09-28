@@ -1,6 +1,6 @@
 "window.title" = "Cue 設定";
 "shortcut.open_cue" = "叫出 Cue";
-"shortcut.invalid" = "請搭配 ⌘、⌥ 或 ⌃ 按下另一個按鍵。⌘, 保留用於開啟設定。";
+"shortcut.invalid" = "請搭配 ⌘、⌥ 或 ⌃ 按下另一個按鍵。⌘, 用於設定；⌘Return、⌘Enter 與 ⌘K 保留用於 Google 搜尋。";
 "shortcut.error" = "快速鍵錯誤：%@";
 "shortcut.heading" = "快速鍵";
 "shortcut.help" = "點一下快速鍵，再搭配 ⌘、⌥ 或 ⌃ 按下另一個按鍵。按 Esc 取消。";
@@ -35,6 +35,6 @@
 "startup.unknown" = "macOS 無法確認 Cue 的登入狀態。請在系統設定中檢查登入項目。";
 "startup.error" = "無法更新登入時啟動設定：%@";
 "network.heading" = "網路";
-"network.allow" = "允許使用網路";
-"network.help" = "管理 Cue 所有網路功能。簡繁轉換、搜尋與剪貼簿記錄皆可完整離線使用。";
+"network.allow" = "允許 Cue 自行連網";
+"network.help" = "管理 Cue 本身的網路存取，包括更新。手動瀏覽器搜尋可在「Google 搜尋設定」中另外管理。";
 "network.updates_disabled" = "網路使用已關閉，無法檢查或下載更新。";

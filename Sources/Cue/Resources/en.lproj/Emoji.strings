@@ -1,0 +1,14 @@
+"title" = "Emoji";
+"back" = "Back to launcher (Esc)";
+"search" = "Search emoji…";
+"results" = "Emoji results";
+"loading" = "Loading emoji…";
+"empty" = "No matching emoji. Try another word.";
+"copy" = "Copy";
+"copy.help" = "Copy selected emoji (Return)";
+"copying" = "Copying…";
+"retry" = "Retry";
+"error.load" = "Couldn’t load emoji. Please try again.";
+"error.copy" = "Couldn’t copy this emoji. Please try again.";
+"error.access" = "Clipboard access is blocked. Allow Cue in System Settings, then try again.";
+"names.language" = "en";

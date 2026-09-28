@@ -49,6 +49,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private let settings = CueSettings()
     private let networkPolicy = NetworkPolicy()
     private var settingsController: SettingsWindowController?
+    private let webSearchPreferences = WebSearchPreferences()
+    private var webSearchSettingsController: WebSearchSettingsController?
     private let conversionPreferences = ChineseConversionPreferences()
     private var conversionSettingsController: ChineseConversionSettingsController?
     private lazy var loginItem = LoginItemController()
@@ -66,9 +68,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             .appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.yyhsiu.cue", isDirectory: true)
             .appendingPathComponent("Search/usage.json")
         let model = LauncherModel(usageStore: SearchUsageStore(fileURL: usageURL),
-                                  conversionAliases: conversionPreferences.aliases)
-        launcher = LauncherPanelController(clipboard: clipboard, model: model)
+                                  conversionAliases: conversionPreferences.aliases,
+                                  awaitingInitialIndex: true)
+        launcher = LauncherPanelController(clipboard: clipboard, model: model, webSearchPreferences: webSearchPreferences)
         launcher.onSettings = { [weak self] in self?.showSettings() }
+        launcher.onWebSearchSettings = { [weak self] in self?.showWebSearchSettings() }
         launcher.onConversionSettings = { [weak self] in self?.showConversionSettings() }
         conversionPreferences.onChange = { [weak model] aliases in model?.setConversionAliases(aliases) }
         configureMenuBar()
@@ -91,6 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         Task { await launcher.model.loadApplications() }
         launcher.model.startUsageTracking()
+        launcher.prepareEmojiSearch()
         // Construct the launcher and register its hotkey before starting update work.
         updates = UpdateController(networkPolicy: networkPolicy)
         updates.onPresentUpdate = { [weak self] in
@@ -147,7 +152,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if settingsController?.window?.isVisible != true,
-           conversionSettingsController?.window?.isVisible != true { launcher.show() }
+           conversionSettingsController?.window?.isVisible != true,
+           webSearchSettingsController?.window?.isVisible != true { launcher.show() }
         return false
     }
 
@@ -183,6 +189,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             }
         }
         settingsController?.show()
+    }
+
+    private func showWebSearchSettings() {
+        launcher.dismiss(returnFocus: false)
+        if webSearchSettingsController == nil {
+            webSearchSettingsController = WebSearchSettingsController(preferences: webSearchPreferences)
+        }
+        webSearchSettingsController?.show()
     }
 
     private func showConversionSettings() {

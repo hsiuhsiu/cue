@@ -6,10 +6,15 @@ import CueCore
 enum CommandIcon: CaseIterable, Sendable {
     case updateIndex, clipboardHistory, sleep, lockScreen, screenOff
     case convertToTraditional, convertToSimplified, chineseConversionSettings
+    case googleSearch, webSearchSettings, cleanLink, emojiSearch
 
     init?(_ result: LauncherResult) {
         switch result {
         case .application: return nil
+        case .cleanLink: self = .cleanLink
+        case .emojiSearch: self = .emojiSearch
+        case .googleSearch, .googleSearchIn: self = .googleSearch
+        case .webSearchSettings: self = .webSearchSettings
         case .updateIndex: self = .updateIndex
         case .clipboardHistory: self = .clipboardHistory
         case .sleep: self = .sleep
@@ -23,6 +28,10 @@ enum CommandIcon: CaseIterable, Sendable {
 
     var resultID: String {
         switch self {
+        case .cleanLink: LauncherResult.cleanLink.id
+        case .emojiSearch: LauncherResult.emojiSearch.id
+        case .googleSearch: LauncherResult.googleSearch.id
+        case .webSearchSettings: LauncherResult.webSearchSettings.id
         case .updateIndex: LauncherResult.updateIndex.id
         case .clipboardHistory: LauncherResult.clipboardHistory.id
         case .sleep: LauncherResult.sleep.id
@@ -121,6 +130,37 @@ enum CommandIcon: CaseIterable, Sendable {
         }
 
         switch self {
+        case .webSearchSettings:
+            c.strokeEllipse(in: CGRect(x: 5.5, y: 12, width: 10, height: 10))
+            line([CGPoint(x: 14, y: 13.5), CGPoint(x: 17, y: 10.5)])
+            c.setLineWidth(1.1)
+            gear(center: CGPoint(x: 20.5, y: 7.5))
+        case .emojiSearch:
+            c.strokeEllipse(in: CGRect(x: 6, y: 6, width: 16, height: 16))
+            c.fillEllipse(in: CGRect(x: 10, y: 15, width: 1.8, height: 1.8))
+            c.fillEllipse(in: CGRect(x: 16.2, y: 15, width: 1.8, height: 1.8))
+            c.move(to: CGPoint(x: 10, y: 12))
+            c.addCurve(to: CGPoint(x: 18, y: 12), control1: CGPoint(x: 11, y: 8), control2: CGPoint(x: 17, y: 8))
+            c.strokePath()
+        case .cleanLink:
+            // Interlocking chain links and a small cleaning sparkle.
+            c.saveGState()
+            c.translateBy(x: 12, y: 13)
+            c.rotate(by: .pi / 4)
+            rounded(CGRect(x: -8, y: -3, width: 10, height: 6), radius: 3)
+            rounded(CGRect(x: -2, y: -3, width: 10, height: 6), radius: 3)
+            c.restoreGState()
+            c.addLines(between: [
+                CGPoint(x: 21, y: 23.5), CGPoint(x: 21.8, y: 21.3),
+                CGPoint(x: 24, y: 20.5), CGPoint(x: 21.8, y: 19.7),
+                CGPoint(x: 21, y: 17.5), CGPoint(x: 20.2, y: 19.7),
+                CGPoint(x: 18, y: 20.5), CGPoint(x: 20.2, y: 21.3),
+            ])
+            c.closePath()
+            c.fillPath()
+        case .googleSearch:
+            c.strokeEllipse(in: CGRect(x: 6.5, y: 10.5, width: 11, height: 11))
+            line([CGPoint(x: 16, y: 12), CGPoint(x: 22, y: 6)])
         case .sleep:
             moon(in: CGRect(x: 6.5, y: 6.5, width: 15, height: 15))
         case .lockScreen:

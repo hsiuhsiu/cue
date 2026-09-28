@@ -1,6 +1,6 @@
 "window.title" = "Cue Settings";
 "shortcut.open_cue" = "Open Cue";
-"shortcut.invalid" = "Use ⌘, ⌥ or ⌃ with a key. ⌘, is reserved for Settings.";
+"shortcut.invalid" = "Use ⌘, ⌥ or ⌃ with a key. ⌘, opens Settings; ⌘Return, ⌘Enter, and ⌘K are reserved for Google search.";
 "shortcut.error" = "Shortcut error: %@";
 "shortcut.heading" = "Keyboard Shortcut";
 "shortcut.help" = "Click the shortcut, then press a key with ⌘, ⌥ or ⌃. Press Esc to cancel.";
@@ -35,6 +35,6 @@
 "startup.unknown" = "macOS could not confirm Cue's login status. Check Login Items in System Settings.";
 "startup.error" = "Could not update launch at login: %@";
 "network.heading" = "Network";
-"network.allow" = "Allow network access";
-"network.help" = "Controls all of Cue's network features. Chinese conversion, search, and Clipboard History work fully offline.";
+"network.allow" = "Allow Cue to access the network";
+"network.help" = "Controls Cue’s own network access, including updates. Manual browser searches are managed separately in Google Search Settings.";
 "network.updates_disabled" = "Network access is off. Update checks and downloads are disabled.";

@@ -78,4 +78,43 @@ final class LauncherPreferencesTests: XCTestCase {
             "⌃⌥⇧⌘K"
         )
     }
+
+    func testQueryActionShortcutsAreReservedButExtraModifiersRemainAvailable() {
+        let actionKeys: [(UInt32, String)] = [(36, "Return"), (76, "Enter"), (40, "K")]
+        let additionalModifiers: [LauncherShortcut.Modifiers] = [.shift, .option, .control]
+        for (keyCode, key) in actionKeys {
+            let reserved = LauncherShortcut(keyCode: keyCode, modifiers: .command, key: key)
+            XCTAssertFalse(reserved.isValid)
+            XCTAssertEqual(LauncherPreferences(shortcut: reserved).shortcut, .default)
+
+            var edited = LauncherPreferences(display: .main, dismissOnFocusLoss: false)
+            edited.shortcut = reserved
+            let sanitized = edited.sanitized()
+            XCTAssertEqual(sanitized.shortcut, .default)
+            XCTAssertEqual(sanitized.display, .main)
+            XCTAssertFalse(sanitized.dismissOnFocusLoss)
+
+            for modifier in additionalModifiers {
+                let shortcut = LauncherShortcut(keyCode: keyCode, modifiers: [.command, modifier], key: key)
+                XCTAssertTrue(shortcut.isValid)
+                XCTAssertEqual(LauncherPreferences(shortcut: shortcut).shortcut, shortcut)
+            }
+        }
+    }
+
+    func testLegacySavedQueryActionShortcutsAreSanitizedWithoutLosingOtherPreferences() throws {
+        for (keyCode, key) in [(36, "Return"), (76, "Enter"), (40, "K")] {
+            let data = Data("""
+                {"maxResults":9,"display":"main","dismissOnFocusLoss":false,
+                 "shortcut":{"keyCode":\(keyCode),"modifiers":1,"key":"\(key)"}}
+                """.utf8)
+            let preferences = try JSONDecoder().decode(LauncherPreferences.self, from: data)
+            XCTAssertEqual(preferences.shortcut, .default)
+            XCTAssertEqual(preferences.maxResults, 9)
+            XCTAssertEqual(preferences.display, .main)
+            XCTAssertFalse(preferences.dismissOnFocusLoss)
+            XCTAssertEqual(try JSONDecoder().decode(LauncherPreferences.self, from: JSONEncoder().encode(preferences)),
+                           preferences)
+        }
+    }
 }

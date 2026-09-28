@@ -1,0 +1,14 @@
+"title" = "表情符號";
+"back" = "返回啟動器（Esc）";
+"search" = "搜尋表情符號⋯";
+"results" = "表情符號搜尋結果";
+"loading" = "正在載入表情符號⋯";
+"empty" = "找不到符合的表情符號，請試試其他關鍵字。";
+"copy" = "拷貝";
+"copy.help" = "拷貝選取的表情符號（Return）";
+"copying" = "正在拷貝⋯";
+"retry" = "重試";
+"error.load" = "無法載入表情符號，請再試一次。";
+"error.copy" = "無法拷貝這個表情符號，請再試一次。";
+"error.access" = "剪貼簿存取遭到封鎖，請在「系統設定」中允許 Cue 後再試一次。";
+"names.language" = "zh-Hant";

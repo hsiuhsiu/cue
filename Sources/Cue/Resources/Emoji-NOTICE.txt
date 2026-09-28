@@ -1,0 +1,19 @@
+Cue offline emoji catalog
+
+Derived from Unicode Emoji 15.0 and CLDR 42 English/Traditional Chinese data.
+Copyright © 1991-2022 Unicode, Inc. All rights reserved.
+Unicode data license: see Unicode-LICENSE.txt in this bundle.
+
+Emoji repertoire: https://www.unicode.org/Public/emoji/15.0/emoji-test.txt
+CLDR release: https://cldr.unicode.org/downloads/cldr-42
+CLDR commit: f800890ea86482c2eb5f73224897f4a8bc0b653a
+Annotations: common/annotations and common/annotationsDerived, en and zh_Hant.
+
+Cue modifications: combine names and keywords into a compact local catalog;
+keep only the 3,655 fully-qualified Emoji 15.0 entries; add a Traditional
+Chinese name for black bird (黑鳥) missing in CLDR 42; add common English
+and Taiwan search aliases for happy, celebration, Taiwan, and heart shapes. No emoji
+artwork is included: macOS renders each Unicode sequence using its fonts.
+
+Reproduction and source hashes: scripts/prepare-emoji-data.py and
+docs/emoji-data.md in https://github.com/hsiuhsiu/cue.

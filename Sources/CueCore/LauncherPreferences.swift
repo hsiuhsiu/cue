@@ -42,8 +42,9 @@ public struct LauncherShortcut: Codable, Equatable, Sendable {
             && modifiers.subtracting(supported).isEmpty
             && !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && key.count <= 24
-            // Keep the Settings shortcut available inside Cue.
-            && !(keyCode == 43 && modifiers == .command)
+            // Keep Settings, query actions, and explicit Google search available inside Cue.
+            // Return and keypad Enter use different physical key codes.
+            && !(modifiers == .command && (keyCode == 43 || keyCode == 40 || keyCode == 36 || keyCode == 76))
     }
 }
 

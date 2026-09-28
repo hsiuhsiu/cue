@@ -22,6 +22,7 @@ private final class ResultCell: NSTableCellView {
     let detail = NSTextField(labelWithString: "")
     let number = NSTextField(labelWithString: "")
     let icon = NSImageView()
+    var preferredDetailWidth: CGFloat = 86
     private var titleHeight: CGFloat = 0
     private var detailHeight: CGFloat = 0
     private var numberHeight: CGFloat = 0
@@ -56,7 +57,7 @@ private final class ResultCell: NSTableCellView {
     override func layout() {
         super.layout()
         icon.frame = NSRect(x: 8, y: (bounds.height - 28) / 2, width: 28, height: 28)
-        let detailWidth: CGFloat = detail.stringValue.isEmpty ? 0 : 86
+        let detailWidth: CGFloat = detail.stringValue.isEmpty ? 0 : preferredDetailWidth
         title.frame = NSRect(x: 46, y: (bounds.height - titleHeight) / 2,
                              width: max(0, bounds.width - 102 - detailWidth), height: titleHeight)
         detail.frame = NSRect(x: bounds.width - detailWidth - 56, y: (bounds.height - detailHeight) / 2,
@@ -76,6 +77,8 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private let onSubmit: () -> Void
     private let onCancel: () -> Void
     private let onSettings: () -> Void
+    private let onWebSearch: () -> Void
+    private let onSearchActions: () -> Void
     private let material = LauncherBackdrop()
     private let table = ResultsTable()
     private let scroll = NSScrollView()
@@ -85,6 +88,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private var inputLineHeight: CGFloat = 0
     private var displayedResults: [LauncherResult] = []
     private var displayedQuery = ""
+    private var displayedAllowsWebSearch = false
     private var isQueryEmpty = true
     private var isUpdating = false
     private var lastPreferredHeight: CGFloat = 56
@@ -99,11 +103,15 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     }
 
     init(model: LauncherModel, onSubmit: @escaping () -> Void,
-         onCancel: @escaping () -> Void, onSettings: @escaping () -> Void) {
+         onCancel: @escaping () -> Void, onSettings: @escaping () -> Void,
+         onWebSearch: @escaping () -> Void = {},
+         onSearchActions: @escaping () -> Void = {}) {
         self.model = model
         self.onSubmit = onSubmit
         self.onCancel = onCancel
         self.onSettings = onSettings
+        self.onWebSearch = onWebSearch
+        self.onSearchActions = onSearchActions
         super.init(frame: NSRect(x: 0, y: 0, width: 640, height: 56))
         wantsLayer = true
         layer?.cornerRadius = 16
@@ -164,8 +172,29 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         // Command keys take this path before window.sendEvent, including when Cue is inactive.
         if handleSettingsShortcut(event) { return true }
+        if handleSearchActionsShortcut(event) { return true }
+        if handleWebSearchShortcut(event) { return true }
         if handleNumberShortcut(event) { return true }
         return super.performKeyEquivalent(with: event)
+    }
+
+    func handleSearchActionsShortcut(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+              event.keyCode == UInt16(kVK_ANSI_K),
+              (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return false }
+        if !event.isARepeat && !model.query.allSatisfy(\.isWhitespace) { onSearchActions() }
+        return true
+    }
+
+    func handleWebSearchShortcut(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+              event.keyCode == UInt16(kVK_Return) || event.keyCode == UInt16(kVK_ANSI_KeypadEnter),
+              (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return false }
+        // Never submit provisional IME text or repeat a browser handoff when held.
+        if !event.isARepeat && !model.query.allSatisfy(\.isWhitespace) { onWebSearch() }
+        return true
     }
 
     func handleNumberShortcut(_ event: NSEvent) -> Bool {
@@ -213,7 +242,9 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         if searchField.stringValue != model.query { searchField.stringValue = model.query }
         let visibleResults = isQueryEmpty ? [] : model.results
         let resultsChanged = displayedResults != visibleResults
-        if resultsChanged {
+        let availabilityChanged = displayedAllowsWebSearch != model.allowsWebSearch
+        displayedAllowsWebSearch = model.allowsWebSearch
+        if resultsChanged || (availabilityChanged && visibleResults.contains(where: \.isWebSearch)) {
             displayedResults = visibleResults
             table.reloadData()
         }
@@ -231,6 +262,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         emptyLabel.stringValue = model.isIndexing ? text.findingApplications : text.noResults
         let error = model.launchError ?? model.shortcutError
         let message = error ?? model.actionStatus ?? (model.isIndexing ? text.updatingIndex : (isQueryEmpty ? nil : model.indexStatus))
+            ?? (model.isShowingSearchActions ? text.searchActions : nil)
         status.stringValue = message ?? ""
         status.isHidden = message == nil
         status.textColor = error == nil ? .secondaryLabelColor : .systemRed
@@ -260,13 +292,33 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         cell.identifier = identifier
         let result = displayedResults[row]
         cell.number.stringValue = ResultShortcut.label(for: row)
+        cell.title.textColor = .labelColor
+        cell.toolTip = nil
+        cell.preferredDetailWidth = result.isWebSearch ? 140 : 86
         switch result {
         case .application(let application):
             cell.title.stringValue = application.name
             cell.detail.stringValue = ""
             cell.icon.image = model.icons.image(for: application)
+        case .googleSearch, .googleSearchIn:
+            cell.title.stringValue = text.googleSearch
+            let browserName: String
+            if case .googleSearchIn(let browser) = result { browserName = browser.name }
+            else { browserName = text.defaultBrowser }
+            cell.detail.stringValue = model.allowsWebSearch ? browserName : text.webSearchOff
+            cell.title.textColor = model.allowsWebSearch ? .labelColor : .secondaryLabelColor
+            cell.toolTip = model.allowsWebSearch ? text.browserChoices : text.webSearchDisabled
+        case .webSearchSettings:
+            cell.title.stringValue = text.webSearchSettings
+            cell.detail.stringValue = text.command
         case .updateIndex:
             cell.title.stringValue = text.updateIndex
+            cell.detail.stringValue = text.command
+        case .cleanLink:
+            cell.title.stringValue = text.cleanLink
+            cell.detail.stringValue = text.cleanLinkDetail
+        case .emojiSearch:
+            cell.title.stringValue = text.emojiSearch
             cell.detail.stringValue = text.command
         case .clipboardHistory:
             cell.title.stringValue = text.clipboardHistory
@@ -290,7 +342,8 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
             cell.title.stringValue = text.chineseConversionSettings
             cell.detail.stringValue = text.command
         }
-        if let command = CommandIcon(result) { cell.icon.image = model.icons.image(for: command) }
+        if result.isWebSearch { cell.icon.image = model.icons.image(forWebSearch: result) }
+        else if let command = CommandIcon(result) { cell.icon.image = model.icons.image(for: command) }
         return cell
     }
 
@@ -300,21 +353,29 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     }
 
     private func updateIcon(_ loadedID: String) {
-        guard let row = displayedResults.firstIndex(where: {
-            if case .application(let app) = $0 { return app.id == loadedID }
-            return $0.id == loadedID
-        }),
-              let cell = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? ResultCell else { return }
-        let result = displayedResults[row]
-        if case .application(let application) = result {
-            cell.icon.image = model.icons.image(for: application)
-        } else if let command = CommandIcon(result) {
-            cell.icon.image = model.icons.image(for: command)
+        // Badge callbacks update existing cells; generic artwork also refreshes
+        // browser rows still waiting for their first badge or using the fallback.
+        for (row, result) in displayedResults.enumerated() {
+            let matches: Bool
+            if case .application(let app) = result { matches = app.id == loadedID }
+            else if result.isWebSearch {
+                matches = result.id == loadedID || loadedID == LauncherResult.googleSearch.id
+            } else { matches = CommandIcon(result)?.resultID == loadedID }
+            guard matches,
+                  let cell = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? ResultCell else { continue }
+            if case .application(let application) = result {
+                cell.icon.image = model.icons.image(for: application)
+            } else if result.isWebSearch {
+                cell.icon.image = model.icons.image(forWebSearch: result)
+            } else if let command = CommandIcon(result) {
+                cell.icon.image = model.icons.image(for: command)
+            }
         }
     }
 
     @objc private func clickedResult() {
-        guard table.clickedRow >= 0 else { return }
+        guard table.clickedRow >= 0,
+              (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }
         onSubmit()
     }
 

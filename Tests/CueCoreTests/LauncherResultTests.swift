@@ -141,7 +141,7 @@ final class LauncherResultTests: XCTestCase {
     func testSystemCommandIdentitiesDoNotCollideWithApplicationsOrOtherCommands() {
         let commands: [LauncherResult] = [
             .updateIndex, .clipboardHistory, .sleep, .lockScreen, .screenOff,
-            .convertToTraditional, .convertToSimplified, .chineseConversionSettings,
+            .convertToTraditional, .convertToSimplified, .chineseConversionSettings, .webSearchSettings, .cleanLink, .emojiSearch,
         ]
         XCTAssertEqual(Set(commands.map(\.id)).count, commands.count)
         XCTAssertEqual(LauncherResult.sleep.id, "command:sleep")
@@ -285,5 +285,174 @@ final class LauncherResultTests: XCTestCase {
         XCTAssertNotEqual(result.id, LauncherResult.updateIndex.id)
         XCTAssertNotEqual(LauncherResult.application(app("command:update-index")).id, LauncherResult.updateIndex.id)
         XCTAssertEqual(Set(LauncherResult.search([application], query: "index")).count, 2)
+    }
+
+    func testGoogleFallbackIsOptInAndOnlyAppearsWithoutLocalMatches() {
+        let applications = [app("Safari"), app("Terminal")]
+        let query = "What is the weather in Taipei?"
+        XCTAssertTrue(LauncherResult.search(applications, query: query).isEmpty)
+        XCTAssertTrue(LauncherResult.search(applications, query: query, includeGoogleFallback: false).isEmpty)
+        XCTAssertEqual(LauncherResult.search(applications, query: query, includeGoogleFallback: true), [.googleSearch])
+        XCTAssertEqual(LauncherResult.search([], query: query, includeGoogleFallback: true), [.googleSearch])
+    }
+
+    func testGoogleFallbackKeepsEmptyInputEmpty() {
+        let applications = [app("Safari")]
+        for query in ["", " ", "\n \t\r", "\u{00A0}\u{2003}\u{3000}"] {
+            XCTAssertTrue(LauncherResult.search(applications, query: query, includeGoogleFallback: true).isEmpty,
+                          query.debugDescription)
+            XCTAssertTrue(LauncherResult.search([], query: query, includeGoogleFallback: true).isEmpty,
+                          query.debugDescription)
+        }
+    }
+
+    func testGoogleFallbackPreservesExactPrefixInitialsAndFuzzyAppMatches() {
+        let applications = [app("Safari"), app("Safari Technology Preview"), app("Visual Studio Code")]
+        for query in ["Safari", "saf", "vsc", "sfri", "a"] {
+            let local = LauncherResult.search(applications, query: query)
+            XCTAssertFalse(local.isEmpty, query)
+            XCTAssertEqual(LauncherResult.search(applications, query: query, includeGoogleFallback: true), local, query)
+            XCTAssertFalse(local.contains(.googleSearch), query)
+        }
+    }
+
+    func testGoogleFallbackPreservesCommandsAndCustomExactAliases() throws {
+        let aliases = try ChineseConversionAliases(traditional: "sleep", simplified: "q")
+        let applications = [app("Sleep Monitor"), app("Quick Note")]
+        for query in ["sleep", "q", "clipboard", "screen", "繁簡轉換"] {
+            let local = LauncherResult.search(applications, query: query, conversionAliases: aliases)
+            XCTAssertFalse(local.isEmpty, query)
+            XCTAssertEqual(LauncherResult.search(applications, query: query, conversionAliases: aliases,
+                                                includeGoogleFallback: true), local, query)
+        }
+    }
+
+    func testGoogleFallbackHandlesSingleCharactersWithoutCrowdingAppMatches() {
+        let applications = [app("Safari")]
+        XCTAssertEqual(LauncherResult.search(applications, query: "z", includeGoogleFallback: true), [.googleSearch])
+        XCTAssertEqual(LauncherResult.search(applications, query: "  Z  ", includeGoogleFallback: true), [.googleSearch])
+        XCTAssertEqual(LauncherResult.search(applications, query: "s", includeGoogleFallback: true),
+                       [.application(applications[0])])
+        XCTAssertEqual(LauncherResult.search([], query: "睡", includeGoogleFallback: true), [.sleep])
+        XCTAssertEqual(LauncherResult.search([], query: "貓", includeGoogleFallback: true), [.googleSearch])
+    }
+
+    func testGoogleFallbackDoesNotAffectLearnedLocalOrdering() {
+        let applications = [app("Safari Preview"), app("Safari Technology Preview")]
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var usage = SearchUsage()
+        usage.record(resultID: LauncherResult.application(applications[1]).id, query: "saf", at: now)
+        usage.record(resultID: LauncherResult.screenOff.id, query: "screen", at: now)
+        // Even a recorded web action must never displace a matching local result.
+        usage.record(resultID: LauncherResult.googleSearch.id, query: "saf", at: now)
+        let snapshot = usage.snapshot(at: now)
+        XCTAssertEqual(LauncherResult.search(applications, query: "saf", usage: snapshot, includeGoogleFallback: true),
+                       [.application(applications[1]), .application(applications[0])])
+        XCTAssertEqual(LauncherResult.search(applications, query: "screen", usage: snapshot, includeGoogleFallback: true),
+                       [.screenOff, .lockScreen])
+        XCTAssertEqual(LauncherResult.search(applications, query: "unmatched question", usage: snapshot,
+                                            includeGoogleFallback: true), [.googleSearch])
+    }
+
+    func testGoogleActionHasStableIdentityDistinctFromApplications() {
+        XCTAssertEqual(LauncherResult.googleSearch.id, "action:google-search")
+        XCTAssertEqual(LauncherResult.googleSearch.name, "Search Google")
+        let application = app("Search Google", id: LauncherResult.googleSearch.id)
+        XCTAssertNotEqual(LauncherResult.application(application).id, LauncherResult.googleSearch.id)
+        XCTAssertEqual(LauncherResult.search([application], query: "Search Google", includeGoogleFallback: true),
+                       [.application(application)])
+    }
+
+    func testBrowserSearchActionsHaveStableDistinctIdentities() {
+        let first = WebSearchBrowser(bundleIdentifier: "com.example.first", name: "First Browser")
+        let renamed = WebSearchBrowser(bundleIdentifier: first.bundleIdentifier, name: "First Browser Renamed")
+        let second = WebSearchBrowser(bundleIdentifier: "com.example.second", name: first.name)
+        let firstResult = LauncherResult.googleSearchIn(first)
+        XCTAssertEqual(firstResult.id, "action:google-search:com.example.first")
+        XCTAssertEqual(firstResult.name, "Search Google in First Browser")
+        XCTAssertEqual(LauncherResult.googleSearchIn(renamed).id, firstResult.id)
+        XCTAssertNotEqual(LauncherResult.googleSearchIn(second).id, firstResult.id)
+
+        let results: [LauncherResult] = [
+            .googleSearch, firstResult, .googleSearchIn(second), .webSearchSettings,
+            .application(app(firstResult.name, id: firstResult.id)),
+        ]
+        XCTAssertEqual(Set(results.map(\.id)).count, results.count)
+        XCTAssertEqual(LauncherResult.webSearchSettings.id, "command:web-search-settings")
+        XCTAssertEqual(LauncherResult.webSearchSettings.name, "Google Search Settings")
+    }
+
+    func testEmojiCommandIsDiscoverableWithoutFillingTheBlankLauncher() {
+        for query in ["emoji", "emoji finder", "Emoji Search", "表情符號", "表情", "繪文字", "  ＥＭＯＪＩ  "] {
+            XCTAssertEqual(LauncherResult.search([], query: query, includeGoogleFallback: true), [.emojiSearch], query)
+        }
+        XCTAssertEqual(LauncherResult.search([], query: ""), [])
+        XCTAssertEqual(LauncherResult.search([], query: "e"), [])
+        XCTAssertEqual(LauncherResult.search([], query: "emojix", includeGoogleFallback: true), [.googleSearch])
+        for query in ["search", "finder", "搜尋"] {
+            XCTAssertFalse(LauncherResult.search([], query: query).contains(.emojiSearch), query)
+        }
+    }
+
+    func testOnlyWebSearchActionsAreExcludedFromOrdinaryCommandUsage() {
+        let browser = WebSearchBrowser(bundleIdentifier: "com.example.browser", name: "Browser")
+        XCTAssertTrue(LauncherResult.googleSearch.isWebSearch)
+        XCTAssertTrue(LauncherResult.googleSearchIn(browser).isWebSearch)
+        let localResults: [LauncherResult] = [
+            .application(app("Search Google")), .updateIndex, .clipboardHistory, .sleep, .lockScreen,
+            .screenOff, .convertToTraditional, .convertToSimplified, .chineseConversionSettings, .webSearchSettings, .cleanLink, .emojiSearch,
+        ]
+        for result in localResults {
+            XCTAssertFalse(result.isWebSearch, result.name)
+        }
+    }
+
+    func testWebSearchSettingsAreDiscoverableWithExplicitSettingsIntent() {
+        for query in [
+            "google settings", "google search settings", "browser settings", "web search settings",
+            "google setting", "Google 搜尋設定", "搜尋瀏覽器設定", "瀏覽器設定",
+            "Google 搜索设置", "搜索浏览器设置", "浏览器设置",
+            "  ＧＯＯＧＬＥ　ＳＥＴＴＩＮＧＳ  ",
+        ] {
+            XCTAssertEqual(LauncherResult.search([], query: query, includeGoogleFallback: true), [.webSearchSettings], query)
+        }
+        for query in ["settings", "setting", "設定", "设置"] {
+            XCTAssertEqual(LauncherResult.search([], query: query).filter { $0 == .webSearchSettings }.count, 1, query)
+        }
+    }
+
+    func testWebSearchSettingsDoNotCrowdOrdinaryQueriesOrBrowserApplications() {
+        for query in ["google", "google search", "web search", "browser", "Google 搜尋", "瀏覽器", "搜尋"] {
+            XCTAssertTrue(LauncherResult.search([], query: query).isEmpty, query)
+            XCTAssertEqual(LauncherResult.search([], query: query, includeGoogleFallback: true), [.googleSearch], query)
+        }
+        let applications = [app("Google Chrome"), app("Browser")]
+        XCTAssertEqual(LauncherResult.search(applications, query: "google", includeGoogleFallback: true),
+                       [.application(applications[0])])
+        XCTAssertEqual(LauncherResult.search(applications, query: "browser", includeGoogleFallback: true),
+                       [.application(applications[1])])
+        XCTAssertEqual(LauncherResult.search([], query: "google settings help", includeGoogleFallback: true), [.googleSearch])
+    }
+
+    func testLinkCleanerIsDiscoverableInBothLanguagesWithoutReadingInputData() {
+        for query in ["clean link", "link cleaner", "clean url", "remove tracking", "清理連結", "清理網址", "連結清理", "移除追蹤", "clean", "清理"] {
+            XCTAssertEqual(LauncherResult.search([], query: query), [.cleanLink], query)
+        }
+        XCTAssertEqual(LauncherResult.search([], query: "  ＣＬＥＡＮ   ＬＩＮＫ  "), [.cleanLink])
+        XCTAssertTrue(LauncherResult.search([], query: "c").isEmpty)
+        XCTAssertEqual(LauncherResult.cleanLink.id, "command:clean-link")
+        XCTAssertEqual(LauncherResult.cleanLink.name, "Clean Link")
+        XCTAssertFalse(LauncherResult.cleanLink.isWebSearch)
+        XCTAssertNotEqual(LauncherResult.application(app("Clean Link", id: "command:clean-link")).id,
+                          LauncherResult.cleanLink.id)
+    }
+
+    func testLinkCleanerCommandPrecedesMatchingApplicationsAndPreservesGoogleFallback() {
+        let applications = [app("Clean Link"), app("CleanMyMac")]
+        XCTAssertEqual(LauncherResult.search(applications, query: "clean", includeGoogleFallback: true),
+                       [.cleanLink] + SearchEngine.search(applications, query: "clean").map(LauncherResult.application))
+        let query = "https://example.com/?utm_source=a"
+        XCTAssertEqual(LauncherResult.search(applications, query: query, includeGoogleFallback: true), [.googleSearch])
+        XCTAssertTrue(LauncherResult.search(applications, query: "").isEmpty)
     }
 }

@@ -113,6 +113,9 @@ xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \
 "$repo_root/scripts/check-login-item.sh"
 "$repo_root/scripts/check-launcher-keyboard.sh"
 "$repo_root/scripts/check-command-icons.sh"
+"$repo_root/scripts/check-web-search.sh"
+"$repo_root/scripts/check-link-cleaner.sh"
+"$repo_root/scripts/check-emoji.sh"
 "$repo_root/scripts/check-adaptive-search.sh"
 "$repo_root/scripts/check-clipboard.sh"
 "$repo_root/scripts/check-system-actions.sh"
@@ -158,9 +161,9 @@ verify_app() {
         [[ -s "$app/Contents/Resources/$resource" ]] || fail "Missing bundled icon: $resource."
     done
     xcrun swift "$repo_root/scripts/check-localizations.swift" "$app"
-    for resource in ChineseConversion.cuecc OpenCC-LICENSE.txt OpenCC-NOTICE.txt; do
+    for resource in ChineseConversion.cuecc OpenCC-LICENSE.txt OpenCC-NOTICE.txt EmojiCatalog.json Unicode-LICENSE.txt Emoji-NOTICE.txt; do
         cmp "$repo_root/Sources/Cue/Resources/$resource" "$app/Contents/Resources/$resource" \
-            || fail "Missing or changed Chinese conversion resource: $resource."
+            || fail "Missing or changed bundled resource: $resource."
     done
     [[ "$(plutil -extract CFBundleShortVersionString raw -o - "$plist")" == "$version" ]] \
         || fail "Packaged version does not match."

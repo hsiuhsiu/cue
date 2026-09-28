@@ -2,9 +2,12 @@
 
 ## English
 
-Cue 0.5.0 adds a global network-access control in Settings. Turning it off
-blocks both automatic and manual update checks. App discovery, search learning,
-Clipboard History, system commands, and Chinese conversion remain available.
+Cue has a global network-access control in Settings. Turning it off
+blocks both automatic and manual update checks. It governs requests made by Cue
+itself. Since Cue 0.6.0, explicit Google browser searches use a
+separate feature-local switch.
+App discovery, local app/command search and learning, Clipboard History, system
+commands, Chinese conversion, link cleaning, and emoji search remain available.
 
 ### Defaults and saved choices
 
@@ -17,10 +20,14 @@ Clipboard History, system commands, and Chinese conversion remain available.
 - Automatic update checking is a separate preference. Disabling network access
   pauses its activity without forgetting that preference; enabling access again
   permits the saved update schedule to resume.
+- Browser search is independently **on by default** for source and published
+  builds. Its saved choice lives in **Google Search Settings** and does not
+  follow the global networking switch. Turn it off to prevent Cue from handing
+  Google queries to an external browser.
 
 ### What uses the network
 
-The only direct network feature in this version is the Sparkle updater. With
+The Sparkle updater makes direct network requests. With
 access allowed, it fetches Cue's signed update feed from GitHub and downloads
 a release from GitHub when you choose to install it. Remote release-note
 downloads are disabled; release notes are included in the signed feed.
@@ -30,7 +37,26 @@ text to the updater. Sparkle's optional system-profile reporting is disabled.
 Normal HTTP requests still expose connection information such as your IP address
 and a user-agent string to the server; allowing updates is not anonymous access.
 
-On an offline startup, Cue does not construct or start Sparkle. Turning access
+Cue also offers explicit Google search in the default
+browser or browsers the user adds. After the first app index is ready, a
+nonempty query with no local match shows those actions; Return, a click, or
+Command+1–9 executes one. Command+Return searches in the default browser even
+if local matches exist; Command+K shows the browser actions for the current text.
+Cue makes no Google requests or suggestions while typing. Only executing the
+action hands the query to the browser, which sends it to Google. Cue does not
+persist Google query text in its search-learning history; the browser and Google
+apply their own history, account, and privacy settings. Empty input and input
+method composition do not submit a search. See [Google search](web-search.md).
+
+Google search checks its own browser-search setting immediately before handoff.
+The global switch may stay off because Cue does not make the browser's request.
+Turning browser search off in **Google Search Settings** prevents new handoffs;
+the results display a disabled reason instead of opening a browser. Neither
+switch can cancel navigation already accepted by another browser or remove data
+already sent to Google. Search **`google settings`** or press Command-comma on a
+Google result to open this feature's settings.
+
+With Cue's own network access off at startup, it does not construct or start Sparkle. Turning access
 off while an update is active blocks new checks and updater actions, stops Cue's
 update timer, requests cancellation of active feed/download work, and closes
 update-offer and download-progress windows. Cancellation is asynchronous inside Sparkle: data already
@@ -47,24 +73,51 @@ offline mode. Dictionaries load from the app bundle on a background executor.
 See [conversion data and verification](chinese-conversion-data.md) for the pinned
 data, algorithm, and accuracy limits of dictionary conversion.
 
+### Link cleaning stays fully offline
+
+Cue cleans a single HTTP or HTTPS link in the clipboard
+only when you run the link-cleaning command. It removes known tracking query
+parameters locally and writes the result back to the clipboard; it makes no
+network request, DNS lookup, browser handoff, or automatic paste. It does not
+expand short links or follow redirects. Recognized signed URLs remain unchanged,
+and clipboard URL text is not saved in Cue's search-learning history. The same
+cleaning rules apply whether either network/browser-search switch is on or off.
+See [link cleaner behavior](link-cleaner.md).
+
+### Emoji search stays fully offline
+
+Emoji and their English/Traditional Chinese names and keywords are bundled with
+Cue. Searching needs no service, first-use download, or network permission. The
+feature copies only the emoji you explicitly choose; it does not paste into
+another app. Emoji search text and result selections are not saved in Cue's
+search-learning history. If Clipboard History recording is enabled, the copied
+emoji follows its normal recording rules. See [Emoji search](emoji.md).
+
 ### Scope
 
 This control covers Cue's own network features, including updater workers.
 It does not disable networking for another app you launch, macOS services,
 mounted network filesystems, or clipboard providers. Cue uses the shared macOS
 clipboard; Universal Clipboard and other clipboard managers follow their own
-settings. Opening a link in a browser also hands control to that browser.
+settings. Explicitly handing a Google query to a browser uses the separate
+browser-search preference, not `NetworkPolicy.allowsNetwork`. Once a link is
+handed over, that browser controls its own network activity. Merely launching
+a browser application from local app results remains an app-launch action;
+these switches are not a firewall for that app. Any future network API request
+made by Cue, such as translation or exchange rates, must use the global gate.
 
 Developer tools are separate: cloning the repository, fetching the pinned
 Sparkle package on the first build, and publishing a release require network
-access. Ordinary builds use the checked-in Chinese dictionary resource.
-Regenerating that resource is a maintainer operation that first obtains the
-pinned OpenCC source; the running app never performs that download.
+access. Ordinary builds use the checked-in Chinese dictionary and emoji catalog.
+Regenerating those resources is a maintainer operation using pinned OpenCC or
+Unicode/CLDR source data; the running app never downloads these resources.
 
 ## 正體中文
 
-Cue 0.5.0 在設定中加入全域網路存取開關。關閉後，自動與手動檢查更新都會停用；
-App 索引、搜尋學習、剪貼簿記錄、系統指令及簡繁轉換仍可使用。
+Cue 在設定中提供全域網路存取開關，管理 Cue 自己發出的請求。關閉後，
+自動與手動檢查更新都會停用。自 Cue 0.6.0 起提供的 Google 瀏覽器搜尋使用獨立
+功能開關。App 索引、本機 App／指令搜尋與學習、剪貼簿記錄、系統指令、
+簡繁轉換、連結清理與 emoji 搜尋仍可使用。
 
 ### 預設值與已儲存的選擇
 
@@ -73,10 +126,13 @@ App 索引、搜尋學習、剪貼簿記錄、系統指令及簡繁轉換仍可�
 - 在設定中明確選擇後，會儲存在本機，並優先於版本的預設值；替換 App 不會重設。
 - 自動檢查更新是另一個設定。關閉網路時會暫停其活動，但保留原本的選擇；重新
   允許網路後，才可依儲存的設定恢復排程。
+- 瀏覽器搜尋在自行建置與發布版都**預設開啟**，選擇儲存在 **Google 搜尋設定**，
+  不跟隨全域網路開關。若也要阻止 Cue 將 Google 字詞交給其他瀏覽器，請關閉
+  這項獨立設定。
 
 ### 哪些功能會連線
 
-這個版本唯一直接使用網路的功能是 Sparkle 更新程式。允許網路時，會從 GitHub
+Sparkle 更新程式會直接使用網路。允許網路時，會從 GitHub
 取得已簽署的 Cue 更新列表，並在你選擇安裝後下載 GitHub 上的正式版本。
 更新說明包含在已簽署的列表內，另行下載遠端更新說明的功能已停用。
 
@@ -84,7 +140,22 @@ Cue 不會將搜尋字詞、使用記錄、剪貼簿內容或選取文字傳給�
 的選用系統資料回報也已關閉。不過，一般 HTTP 連線仍會讓伺服器取得 IP 位址、
 User-Agent 等連線資訊；允許檢查更新並不代表匿名連線。
 
-網路關閉時啟動 Cue，不會建立或啟動 Sparkle。如果更新工作已經開始，關閉網路
+Cue 也提供在預設或自行加入瀏覽器執行的 Google 搜尋。初次 App 索引
+完成後，若非空白查詢沒有本機結果，就會顯示這些動作；按 Return、點選或
+Command+1–9 才會執行。即使已有本機結果，也可用 Command+Return 在預設瀏覽器
+搜尋，或按 Command+K 顯示目前文字的瀏覽器動作。
+打字時不會向 Google 發送請求或取得搜尋建議；只有執行動作時，才將查詢交給
+瀏覽器送至 Google。Cue 不會將 Google 搜尋字詞存入搜尋學習記錄；瀏覽器與
+Google 依各自的歷史記錄、帳號及隱私設定處理。空白輸入與輸入法組字期間都
+不會送出搜尋。詳見 [Google 搜尋](web-search.md)。
+
+Google 搜尋在交給瀏覽器前會再次檢查自己的瀏覽器搜尋開關。全域開關可以維持
+關閉，因為瀏覽器的請求並非由 Cue 發出。在 **Google 搜尋設定**關閉瀏覽器搜尋，
+才會阻止新的交接，結果會顯示停用原因而不開啟瀏覽器。兩個開關都不能取消已
+由其他瀏覽器接手的導覽，或移除已送至 Google 的資料。輸入 **`google settings`**，
+或選到 Google 結果時按 Command-comma，即可開啟功能設定。
+
+關閉 Cue 自行連網時啟動 App，不會建立或啟動 Sparkle。如果更新工作已經開始，關閉網路
 會阻止新的檢查及更新操作、停止 Cue 的更新計時器、要求取消正在進行的列表或
 安裝檔下載，並關閉新版通知及下載進度視窗。Sparkle 內部的取消是非同步操作，已傳送或已進入
 網路緩衝區的資料無法收回。這是 App 的連線政策，不是封包層級的防火牆，也不能
@@ -97,29 +168,54 @@ User-Agent 等連線資訊；允許檢查更新並不代表匿名連線。
 詞庫由背景執行工作從 App 內讀取。固定版本的資料、演算法、驗證與字詞轉換的
 準確度限制，請見[轉換資料說明](chinese-conversion-data.md)。
 
+### 連結清理維持完整離線功能
+
+Cue 只在執行清理指令時，才處理剪貼簿中的單一 HTTP 或 HTTPS 連結。
+在本機移除已知的網址追蹤參數後寫回剪貼簿，不發出網路請求、查詢 DNS、交給
+瀏覽器或自動貼上，也不展開短網址或跟隨重新導向。已識別的簽署網址維持原樣，
+剪貼簿網址也不會存入 Cue 的搜尋學習記錄。無論網路與瀏覽器搜尋開關開啟或
+關閉，清理規則都相同。詳見[連結清理行為](link-cleaner.md)。
+
+### Emoji 搜尋維持完整離線功能
+
+Emoji 及其英文／正體中文名稱與關鍵字隨 Cue 內附，不需服務、首次下載或網路
+許可。此功能只拷貝你明確選擇的 emoji，不會貼入其他 App。Emoji 搜尋文字與
+選取結果不會存入 Cue 的搜尋學習記錄；若已啟用剪貼簿記錄，拷貝的 emoji 依
+一般記錄規則處理。詳見 [Emoji 搜尋](emoji.md)。
+
 ### 適用範圍
 
 開關管理 Cue 自己的網路功能及更新工作，不會關閉其他已啟動 App、macOS 服務、
 網路磁碟或剪貼簿提供者的網路。Cue 使用 macOS 共用剪貼簿；通用剪貼簿與其他
-剪貼簿管理程式仍依各自設定運作。若在瀏覽器開啟連結，也由該瀏覽器接手處理。
+剪貼簿管理程式仍依各自設定運作。明確將 Google 查詢交給瀏覽器的動作遵守
+獨立的瀏覽器搜尋偏好，不受 `NetworkPolicy.allowsNetwork` 控制；交接後的
+網路活動由瀏覽器自行管理。單純從本機 App 結果開啟瀏覽器仍屬於啟動 App，
+這些開關不是該 App 的防火牆。未來若由 Cue 自己發出翻譯、匯率等 API 請求，
+仍必須遵守全域網路開關。
 
 開發工具另計：取得 Git 儲存庫、首次建置下載固定版本的 Sparkle，以及發布版本
-都需要網路。一般建置直接使用儲存庫內附的中文詞庫；重新產生詞庫是維護者的
-工作，須先取得固定版本的 OpenCC 原始碼，執行中的 Cue 不會進行這項下載。
+都需要網路。一般建置直接使用儲存庫內附的中文詞庫與 emoji 目錄；重新產生
+資料是維護者的工作，使用固定版本的 OpenCC 或 Unicode／CLDR 來源。
+執行中的 Cue 不會下載這些資料。
 
 ## Implementation contract / 實作約定
 
-`NetworkPolicy.allowsNetwork` is the shared runtime gate. The source
+`NetworkPolicy.allowsNetwork` is the shared runtime gate for Cue-owned requests,
+including dependencies and background workers. Explicit external browser search
+uses the feature's separate saved preference, enabled by default. Never turn an
+internal API call into a silent browser handoff to bypass the global gate. The source
 `Resources/Info.plist` sets `CueNetworkAccessAllowedByDefault` to `false`; the
 release packaging step sets it to `true` only in the staged app. Missing values
 fail closed. An explicit saved user choice overrides this build metadata.
 
-`NetworkPolicy.allowsNetwork` 是共用的執行時檢查。原始碼中的
+`NetworkPolicy.allowsNetwork` 是 Cue 自有請求共用的執行時檢查，包含相依套件及
+背景工作。明確操作的外部瀏覽器搜尋使用功能內獨立、預設開啟的已儲存偏好；
+不可把內部 API 呼叫悄悄換成瀏覽器交接來繞過全域開關。原始碼中的
 `Resources/Info.plist` 將 `CueNetworkAccessAllowedByDefault` 設為 `false`，
 發布封裝流程只在暫存的 App 內改成 `true`；缺少值時預設關閉。已儲存的明確
 使用者選擇優先於這項建置資料。
 
-## Verification / 驗證
+## 0.5.0 verification / 0.5.0 驗證
 
 The optimized policy harness passes 324 checks using isolated preferences. The
 updater harness passes 68 checks covering offline startup, daily scheduling,

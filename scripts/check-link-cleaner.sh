@@ -1,14 +1,11 @@
 #!/bin/bash
 set -euo pipefail
-
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-check_directory="$(mktemp -d "${TMPDIR:-/tmp}/cue-system-actions.XXXXXX")"
+check_directory="$(mktemp -d "${TMPDIR:-/tmp}/cue-link-cleaner.XXXXXX")"
 trap 'rm -rf "$check_directory"' EXIT
-
 if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
     export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 fi
-
 xcrun swiftc -swift-version 6 -O -parse-as-library \
     -emit-module -emit-library -module-name CueCore \
     "$repo_root"/Sources/CueCore/*.swift \
@@ -41,7 +38,6 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/EmojiView.swift" \
     "$repo_root/Sources/Cue/LauncherPanelController.swift" \
     "$repo_root/Sources/Cue/NetworkPolicy.swift" \
-    "$repo_root/scripts/check-system-actions.swift" \
-    -o "$check_directory/check-system-actions"
-
-"$check_directory/check-system-actions"
+    "$repo_root/scripts/check-link-cleaner.swift" \
+    -o "$check_directory/check-link-cleaner"
+"$check_directory/check-link-cleaner"

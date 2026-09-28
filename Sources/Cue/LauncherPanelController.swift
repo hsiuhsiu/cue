@@ -11,9 +11,13 @@ private final class LauncherPanel: NSPanel {
         if event.type == .keyDown {
             // Keep the direct-event fallback on the same route as native key equivalents.
             if (contentView as? LauncherView)?.handleSettingsShortcut(event) == true { return }
+            if (contentView as? LauncherView)?.handleSearchActionsShortcut(event) == true { return }
+            if (contentView as? LauncherView)?.handleWebSearchShortcut(event) == true { return }
             if (contentView as? ClipboardView)?.handleSettingsShortcut(event) == true { return }
+            if (contentView as? EmojiView)?.handleSettingsShortcut(event) == true { return }
             if (contentView as? LauncherView)?.handleNumberShortcut(event) == true { return }
             if (contentView as? ClipboardView)?.handleNumberShortcut(event) == true { return }
+            if (contentView as? EmojiView)?.handleNumberShortcut(event) == true { return }
             if (contentView as? ClipboardView)?.handleDeleteShortcut(event) == true { return }
             if shortcut.matches(event: event) {
                 if !event.isARepeat { onToggle?() }
@@ -30,8 +34,18 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private let panel: LauncherPanel
     private var launcherView: LauncherView!
     private let clipboard: ClipboardModel
+    private let emoji: EmojiModel
     private let performSystemAction: @MainActor (SystemAction) async throws -> Void
     private let openApplication: @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void
+    private let openWebURL: @MainActor (URL, URL?, @escaping @MainActor (Error?) -> Void) -> Void
+    private let webSearchPreferences: WebSearchPreferences
+    private let resolveBrowser: @Sendable (String) -> URL?
+    private var webSearchTask: Task<Void, Never>?
+    private var webSearchRequest = 0
+    private let linkCleaner: any LinkCleaning
+    private var linkCleaningTask: Task<Void, Never>?
+    private var linkCleaningRequest = 0
+    private var linkCleaningStatus: String?
     private let selectedText: any SelectedTextAccessing
     private let convertText: @Sendable (String, ChineseConversionTarget) async throws -> String
     private let frontmostProcess: @MainActor () -> Int32?
@@ -40,7 +54,20 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private var conversionTask: Task<Void, Never>?
     private var conversionRequest = 0
     private var showingClipboard = false
+    private var showingEmoji = false
     private var isDismissing = false
+    private lazy var emojiView: EmojiView = {
+        let view = EmojiView(model: emoji, onCopy: { [weak self] index in
+            guard let self else { return }
+            self.emoji.copySelected(at: index) { [weak self] in self?.dismiss() }
+        }, onBack: { [weak self] in self?.showLauncher() })
+        view.onSettings = { [weak self] in self?.onSettings?() }
+        view.onPreferredHeightChange = { [weak self] height in
+            guard let self, self.showingEmoji, self.panel.contentView === self.emojiView else { return }
+            self.resizePanel(to: height)
+        }
+        return view
+    }()
     private lazy var clipboardView: ClipboardView = {
         let view = ClipboardView(
             model: clipboard,
@@ -60,11 +87,19 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private var invocation = 0
     var onSettings: (() -> Void)?
     var onConversionSettings: (() -> Void)?
+    var onWebSearchSettings: (() -> Void)?
 
     init(clipboard: ClipboardModel,
          model: LauncherModel = LauncherModel(),
+         emoji: EmojiModel? = nil,
          performSystemAction: @escaping @MainActor (SystemAction) async throws -> Void = SystemActions.perform,
          openApplication: @escaping @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemApplication,
+         webSearchPreferences: WebSearchPreferences? = nil,
+         openWebURL: @escaping @MainActor (URL, URL?, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemWebURL,
+         resolveBrowser: @escaping @Sendable (String) -> URL? = {
+             NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0)
+         },
+         linkCleaner: (any LinkCleaning)? = nil,
          selectedText: (any SelectedTextAccessing)? = nil,
          convertText: @escaping @Sendable (String, ChineseConversionTarget) async throws -> String = { text, target in
              try await ChineseConversionEngine.shared.convert(text, to: target)
@@ -74,9 +109,14 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
          },
          restoreSource: @escaping @MainActor (Int32) -> Bool = LauncherPanelController.activateSource) {
         self.clipboard = clipboard
+        self.emoji = emoji ?? EmojiModel()
         self.model = model
         self.performSystemAction = performSystemAction
         self.openApplication = openApplication
+        self.openWebURL = openWebURL
+        self.webSearchPreferences = webSearchPreferences ?? WebSearchPreferences()
+        self.resolveBrowser = resolveBrowser
+        self.linkCleaner = linkCleaner ?? LinkCleaningService()
         self.selectedText = selectedText ?? SelectedTextService(
             beforePaste: { await clipboard.beginTransientClipboardUse() },
             afterPaste: { await clipboard.endTransientClipboardUse() }
@@ -105,8 +145,13 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         launcherView = LauncherView(
             model: model,
             onSubmit: { [weak self] in self?.runSelected() },
-            onCancel: { [weak self] in self?.dismiss() },
-            onSettings: { [weak self] in self?.openContextSettings() }
+            onCancel: { [weak self] in
+                guard let self else { return }
+                if !self.model.closeSearchActions() { self.dismiss() }
+            },
+            onSettings: { [weak self] in self?.openContextSettings() },
+            onWebSearch: { [weak self] in self?.searchGoogle() },
+            onSearchActions: { [weak self] in self?.model.toggleSearchActions() }
         )
         launcherView.onPreferredHeightChange = { [weak self] height in
             guard let self, !self.showingClipboard, self.panel.contentView === self.launcherView else { return }
@@ -115,7 +160,16 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         panel.contentView = launcherView
         panel.initialFirstResponder = launcherView.searchField
         panel.contentView?.layoutSubtreeIfNeeded()
-        model.onQueryChange = { [weak self] in self?.cancelConversion() }
+        model.onQueryChange = { [weak self] in
+            self?.cancelConversion()
+            self?.cancelWebSearch()
+            self?.cancelLinkCleaning()
+        }
+        refreshWebSearchPreferences()
+        self.webSearchPreferences.onChange = { [weak self] in
+            self?.cancelWebSearch()
+            self?.refreshWebSearchPreferences()
+        }
     }
 
     func apply(_ preferences: LauncherPreferences) {
@@ -168,14 +222,23 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         guard panel.isVisible, !isDismissing else { return }
         panel.makeKeyAndOrderFront(nil)
         // Feature settings own their focus; never target the hidden history field.
-        if !showingClipboard || !clipboardView.isShowingSettings {
+        if showingEmoji {
+            panel.makeFirstResponder(emojiView.searchField)
+        } else if !showingClipboard || !clipboardView.isShowingSettings {
             panel.makeFirstResponder(showingClipboard ? clipboardView.searchField : launcherView.searchField)
         }
     }
 
+    /// Warm the local catalog after the launcher and global hotkey are ready.
+    func prepareEmojiSearch() { emoji.prepare() }
+
     /// Establish an invocation independently of window presentation. This only
     /// samples the source PID; accessibility and conversion stay deferred.
     func prepareInvocation(resetQuery: Bool = true) {
+        emoji.cancelPendingCopy()
+        cancelLinkCleaning()
+        model.icons.refreshBrowserIcons()
+        cancelWebSearch()
         cancelConversion()
         let frontmost = frontmostProcess()
         sourceProcessID = frontmost == ProcessInfo.processInfo.processIdentifier ? nil : frontmost
@@ -204,6 +267,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         let returnToSource = returnFocus && panel.isVisible
             && frontmostProcess() == ProcessInfo.processInfo.processIdentifier
         let source = sourceProcessID
+        cancelWebSearch()
+        cancelLinkCleaning()
         if shouldCancel { cancelConversion() }
         invocation += 1
         panel.orderOut(nil)
@@ -211,6 +276,12 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             clipboard.close()
             clipboardView.closeSettings()
             showingClipboard = false
+            panel.contentView = launcherView
+            panel.initialFirstResponder = launcherView.searchField
+        }
+        if showingEmoji {
+            emoji.close()
+            showingEmoji = false
             panel.contentView = launcherView
             panel.initialFirstResponder = launcherView.searchField
         }
@@ -229,9 +300,15 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     }
 
     private func showLauncher() {
-        clipboard.close()
-        clipboardView.closeSettings()
-        showingClipboard = false
+        if showingClipboard {
+            clipboard.close()
+            clipboardView.closeSettings()
+            showingClipboard = false
+        }
+        if showingEmoji {
+            emoji.close()
+            showingEmoji = false
+        }
         model.reset()
         panel.contentView = launcherView
         panel.initialFirstResponder = launcherView.searchField
@@ -239,17 +316,38 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         panel.makeFirstResponder(launcherView.searchField)
     }
 
+    private func showEmoji() {
+        showingEmoji = true
+        emoji.open()
+        panel.contentView = emojiView
+        panel.initialFirstResponder = emojiView.searchField
+        resizePanel(to: emojiView.preferredHeight)
+        panel.makeFirstResponder(emojiView.searchField)
+    }
+
     func windowDidResignKey(_ notification: Notification) {
         guard !isDismissing, panel.isVisible else { return }
+        cancelLinkCleaning()
+        cancelWebSearch()
         cancelConversion()
+        emoji.cancelPendingCopy()
         // The user chose another window; do not reactivate the invocation source.
         if preferences.dismissOnFocusLoss { dismiss(returnFocus: false) }
     }
 
     private func runSelected() {
         guard let result = model.selectedResult else { return }
+        if result != .cleanLink { cancelLinkCleaning() }
+        if !result.isWebSearch { cancelWebSearch() }
         if result != .convertToTraditional && result != .convertToSimplified { cancelConversion() }
         switch result {
+        case .googleSearch:
+            searchGoogle()
+        case .googleSearchIn(let browser):
+            searchGoogle(in: browser)
+        case .webSearchSettings:
+            dismiss(returnFocus: false)
+            onWebSearchSettings?()
         case .convertToTraditional:
             runConversion(.traditionalTaiwan, resultID: result.id)
         case .convertToSimplified:
@@ -265,6 +363,12 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
                     model.recordSuccessfulAction(resultID: result.id, query: query)
                 }
             }
+        case .cleanLink:
+            cleanClipboardLink()
+        case .emojiSearch:
+            let query = model.query
+            showEmoji()
+            model.recordSuccessfulAction(resultID: result.id, query: query)
         case .clipboardHistory:
             let query = model.query
             showClipboard()
@@ -280,8 +384,127 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         }
     }
 
+    private func cancelLinkCleaning() {
+        linkCleaningRequest += 1
+        linkCleaningTask?.cancel()
+        linkCleaningTask = nil
+        if let linkCleaningStatus, model.actionStatus == linkCleaningStatus { model.actionStatus = nil }
+        linkCleaningStatus = nil
+    }
+
+    private func setLinkCleaningStatus(_ status: String?) {
+        linkCleaningStatus = status
+        model.actionStatus = status
+    }
+
+    private func cleanClipboardLink() {
+        guard linkCleaningTask == nil else { return }
+        let requestInvocation = invocation
+        linkCleaningRequest += 1
+        let request = linkCleaningRequest
+        model.launchError = nil
+        setLinkCleaningStatus(LauncherText.shared.cleaningLink)
+        linkCleaningTask = Task { [weak self, linkCleaner] in
+            do {
+                let preparation = try await linkCleaner.prepare()
+                try Task.checkCancellation()
+                guard let self, self.invocation == requestInvocation, self.linkCleaningRequest == request else { return }
+                if preparation.result.removedParameterCount > 0 { try await linkCleaner.commit(preparation) }
+                try Task.checkCancellation()
+                guard self.invocation == requestInvocation, self.linkCleaningRequest == request else { return }
+                let result = preparation.result
+                self.setLinkCleaningStatus(result.isProtected ? LauncherText.shared.linkProtected
+                    : result.removedParameterCount == 0 ? LauncherText.shared.linkAlreadyClean
+                    : L10n.format(LauncherText.shared.linkCleaned, result.removedParameterCount))
+                // Clipboard payloads never enter command usage learning or logs.
+            } catch {
+                guard let self, !Task.isCancelled, self.invocation == requestInvocation,
+                      self.linkCleaningRequest == request else { return }
+                self.setLinkCleaningStatus(nil)
+                switch error {
+                case LinkCleaner.Error.inputTooLarge: self.model.launchError = LauncherText.shared.linkTooLarge
+                case LinkCleaningError.clipboardChanged: self.model.launchError = LauncherText.shared.linkClipboardChanged
+                case LinkCleaningError.accessDenied: self.model.launchError = LauncherText.shared.linkAccessDenied
+                case LinkCleaningError.writeFailed: self.model.launchError = LauncherText.shared.linkWriteFailed
+                default: self.model.launchError = LauncherText.shared.linkInvalid
+                }
+            }
+            if let self, self.linkCleaningRequest == request { self.linkCleaningTask = nil }
+        }
+    }
+
+    private func refreshWebSearchPreferences() {
+        model.icons.prepareBrowserIcons(webSearchPreferences.browsers)
+        model.setWebSearchPreferences(enabled: webSearchPreferences.isEnabled,
+                                      browsers: webSearchPreferences.browsers)
+    }
+
+    private func cancelWebSearch() {
+        webSearchRequest += 1
+        webSearchTask?.cancel()
+        webSearchTask = nil
+        if model.actionStatus == LauncherText.shared.openingBrowser { model.actionStatus = nil }
+    }
+
+    private func searchGoogle(in browser: WebSearchBrowser? = nil) {
+        cancelLinkCleaning()
+        let query = model.query
+        guard !query.allSatisfy(\.isWhitespace), webSearchTask == nil else { return }
+        // Explicit browser handoffs have their own feature switch. Cue makes no
+        // HTTP request, suggestion lookup, DNS lookup, or query-history write.
+        guard webSearchPreferences.isEnabled else {
+            model.launchError = LauncherText.shared.webSearchDisabled
+            return
+        }
+        guard let url = WebSearch.googleURL(for: query) else { return }
+        guard let browser else {
+            handOffSearch(url, query: query, applicationURL: nil)
+            return
+        }
+        guard webSearchPreferences.browsers.contains(where: { $0.id == browser.id }) else { return }
+        model.launchError = nil
+        model.actionStatus = LauncherText.shared.openingBrowser
+        webSearchRequest += 1
+        let request = webSearchRequest
+        let requestInvocation = invocation
+        // Resolve the saved bundle ID only on execution, off the input thread.
+        // Do not cache machine-specific paths or silently use another browser.
+        webSearchTask = Task { [weak self, resolveBrowser] in
+            let applicationURL = await Task.detached(priority: .userInitiated) {
+                resolveBrowser(browser.bundleIdentifier)
+            }.value
+            guard let self, !Task.isCancelled, self.webSearchRequest == request,
+                  self.invocation == requestInvocation,
+                  self.webSearchPreferences.isEnabled,
+                  self.webSearchPreferences.browsers.contains(where: { $0.id == browser.id }) else { return }
+            self.webSearchTask = nil
+            self.model.actionStatus = nil
+            guard let applicationURL else {
+                self.model.launchError = L10n.format(LauncherText.shared.browserUnavailable, browser.name)
+                return
+            }
+            self.handOffSearch(url, query: query, applicationURL: applicationURL)
+        }
+    }
+
+    private func handOffSearch(_ url: URL, query: String, applicationURL: URL?) {
+        dismiss(returnFocus: false)
+        let searchInvocation = invocation
+        let searchRequest = webSearchRequest
+        openWebURL(url, applicationURL) { [weak self] error in
+            guard let self, error != nil, self.invocation == searchInvocation,
+                  self.webSearchRequest == searchRequest else { return }
+            self.model.setQuery(query)
+            self.model.launchError = LauncherText.shared.webSearchError
+            self.show(resetQuery: false)
+        }
+    }
+
     private func openContextSettings() {
         switch model.selectedResult {
+        case .googleSearch, .googleSearchIn, .webSearchSettings:
+            dismiss(returnFocus: false)
+            onWebSearchSettings?()
         case .convertToTraditional, .convertToSimplified, .chineseConversionSettings:
             dismiss(returnFocus: false)
             onConversionSettings?()
@@ -292,7 +515,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     private func cancelConversion() {
         conversionTask?.cancel()
-        if model.actionStatus != nil { model.actionStatus = nil }
+        if model.actionStatus == ChineseConversionText.converting { model.actionStatus = nil }
     }
 
     /// Conversion keeps the original invocation target while Cue owns keyboard
@@ -448,6 +671,20 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         configuration.activates = true
         NSWorkspace.shared.openApplication(at: application.url, configuration: configuration) { _, error in
             Task { @MainActor in completion(error) }
+        }
+    }
+
+    private static func openSystemWebURL(_ url: URL, applicationURL: URL?, completion: @escaping @MainActor (Error?) -> Void) {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        if let applicationURL {
+            NSWorkspace.shared.open([url], withApplicationAt: applicationURL, configuration: configuration) { _, error in
+                Task { @MainActor in completion(error) }
+            }
+        } else {
+            NSWorkspace.shared.open(url, configuration: configuration) { _, error in
+                Task { @MainActor in completion(error) }
+            }
         }
     }
 }

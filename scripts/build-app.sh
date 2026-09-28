@@ -81,9 +81,9 @@ for resource in "${icon_resources[@]}"; do
 done
 
 xcrun swift "$repo_root/scripts/check-localizations.swift" "$staged_app"
-for resource in ChineseConversion.cuecc OpenCC-LICENSE.txt OpenCC-NOTICE.txt; do
+for resource in ChineseConversion.cuecc OpenCC-LICENSE.txt OpenCC-NOTICE.txt EmojiCatalog.json Unicode-LICENSE.txt Emoji-NOTICE.txt; do
     cmp "$repo_root/Sources/Cue/Resources/$resource" "$staged_app/Contents/Resources/$resource" \
-        || fail "Missing or changed Chinese conversion resource: $resource."
+        || fail "Missing or changed bundled resource: $resource."
 done
 # Keep Sparkle's signed framework and helpers intact; sign only our outer bundle.
 sparkle_framework="$build_directory/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"

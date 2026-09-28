@@ -34,7 +34,13 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/SelectedTextService.swift" \
     "$repo_root/Sources/Cue/ChineseConversionEngine.swift" \
     "$repo_root/Sources/Cue/ChineseConversionSettings.swift" \
+    "$repo_root/Sources/Cue/WebSearchSettings.swift" \
+    "$repo_root/Sources/Cue/LinkCleaningService.swift" \
+    "$repo_root/Sources/Cue/EmojiGlyphCache.swift" \
+    "$repo_root/Sources/Cue/EmojiModel.swift" \
+    "$repo_root/Sources/Cue/EmojiView.swift" \
     "$repo_root/Sources/Cue/LauncherPanelController.swift" \
+    "$repo_root/Sources/Cue/NetworkPolicy.swift" \
     "$repo_root/scripts/check-conversion-lifecycle.swift" \
     -o "$check_directory/check-conversion-lifecycle"
 

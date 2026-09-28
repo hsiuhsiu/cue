@@ -16,7 +16,30 @@ struct LauncherText {
     let updatingIndex = L10n.string("index.updating", table: "Launcher", value: "Updating app index…")
     let indexUpdated = L10n.string("index.updated", table: "Launcher", value: "Index updated · %ld applications")
     let noResults = L10n.string("results.empty", table: "Launcher", value: "No results found")
+    let googleSearch = L10n.string("search.google", table: "Launcher", value: "Search Google")
+    let defaultBrowser = L10n.string("search.browser", table: "Launcher", value: "Default browser")
+    let webSearchShortcut = L10n.string("search.google.shortcut", table: "Launcher", value: "Search this text in Google (⌘Return)")
+    let webSearchOff = L10n.string("search.disabled", table: "Launcher", value: "Disabled")
+    let webSearchDisabled = L10n.string("search.google.disabled", table: "Launcher", value: "Google search is off. Press ⌘, on a search option to enable it.")
+    let webSearchError = L10n.string("search.google.error", table: "Launcher", value: "Couldn’t open Google in the selected browser. Please try again.")
+    let webSearchSettings = L10n.string("search.settings", table: "Launcher", value: "Google Search Settings")
+    let browserUnavailable = L10n.string("search.browserUnavailable", table: "Launcher", value: "%@ is unavailable. Install it again or choose another browser.")
+    let openingBrowser = L10n.string("search.openingBrowser", table: "Launcher", value: "Opening browser…")
+    let searchActions = L10n.string("search.actions", table: "Launcher", value: "Google search · Esc to return · ⌘, for search settings")
+    let browserChoices = L10n.string("search.choices", table: "Launcher", value: "Choose a search browser (⌘K) · Search settings (⌘,)")
     let updateIndex = L10n.string("command.updateIndex", table: "Launcher", value: "Update App Index")
+    let cleanLink = L10n.string("command.cleanLink", table: "Launcher", value: "Clean Link")
+    let emojiSearch = L10n.string("command.emojiSearch", table: "Launcher", value: "Emoji Search")
+    let cleanLinkDetail = L10n.string("command.cleanLink.detail", table: "Launcher", value: "Clipboard")
+    let cleaningLink = L10n.string("link.cleaning", table: "Launcher", value: "Cleaning clipboard link…")
+    let linkCleaned = L10n.string("link.cleaned", table: "Launcher", value: "Removed %ld tracking parameters. Clean link copied.")
+    let linkAlreadyClean = L10n.string("link.alreadyClean", table: "Launcher", value: "No removable tracking parameters. Clipboard unchanged.")
+    let linkProtected = L10n.string("link.protected", table: "Launcher", value: "This link may be signed. Kept unchanged so it will still work.")
+    let linkInvalid = L10n.string("link.invalid", table: "Launcher", value: "Copy a single HTTP or HTTPS link, then try again.")
+    let linkTooLarge = L10n.string("link.tooLarge", table: "Launcher", value: "This link is too long to clean. Clipboard unchanged.")
+    let linkClipboardChanged = L10n.string("link.clipboardChanged", table: "Launcher", value: "Clipboard changed while cleaning. Your newer copy was kept.")
+    let linkAccessDenied = L10n.string("link.accessDenied", table: "Launcher", value: "Clipboard access is blocked. Allow Cue in System Settings, then try again.")
+    let linkWriteFailed = L10n.string("link.writeFailed", table: "Launcher", value: "Couldn’t update the clipboard. Please try again.")
     let clipboardHistory = L10n.string("command.clipboardHistory", table: "Launcher", value: "Clipboard History")
     let sleep = L10n.string("command.sleep", table: "Launcher", value: "Sleep")
     let lockScreen = L10n.string("command.lockScreen", table: "Launcher", value: "Lock Screen")
@@ -42,12 +65,15 @@ final class LauncherModel {
     private(set) var conversionAliases: ChineseConversionAliases
     private(set) var isIndexing = false
     private(set) var indexStatus: String?
+    private(set) var allowsWebSearch = true
+    private(set) var searchBrowsers: [WebSearchBrowser] = []
+    private(set) var isShowingSearchActions = false
     var launchError: String? { didSet { if launchError != oldValue { onChange?() } } }
     var shortcutError: String? { didSet { if shortcutError != oldValue { onChange?() } } }
     var actionStatus: String? { didSet { if actionStatus != oldValue { onChange?() } } }
     var onQueryChange: (() -> Void)?
     var onChange: (() -> Void)?
-    let icons = AppIconCache()
+    let icons: AppIconCache
 
     private let text = LauncherText.shared
     private var applications: [IndexedApplication] = []
@@ -59,14 +85,19 @@ final class LauncherModel {
     private var usageOperations: Task<Void, Never>?
     private var usageStarted = false
     private var isStopping = false
+    private var hasLoadedApplications: Bool
 
     init(applications: [IndexedApplication] = [], usage: SearchUsageSnapshot = .empty,
          usageStore: SearchUsageStore? = nil,
-         conversionAliases: ChineseConversionAliases = .defaults) {
+         conversionAliases: ChineseConversionAliases = .defaults,
+         awaitingInitialIndex: Bool = false,
+         icons: AppIconCache = AppIconCache()) {
+        self.icons = icons
         self.applications = applications
         self.usage = usage
         self.usageStore = usageStore
         self.conversionAliases = conversionAliases
+        self.hasLoadedApplications = !awaitingInitialIndex
     }
 
     var selectedResult: LauncherResult? { results.first { $0.id == selectedID } }
@@ -85,7 +116,8 @@ final class LauncherModel {
     }
 
     func recordSuccessfulAction(resultID: String, query: String, at date: Date = Date()) {
-        guard !isStopping else { return }
+        // Arbitrary web queries have no ranking benefit and must not enter usage history.
+        guard !isStopping, !resultID.hasPrefix(LauncherResult.googleSearch.id) else { return }
         enqueueUsage { store in await store.record(resultID: resultID, query: query, at: date) }
     }
 
@@ -100,6 +132,7 @@ final class LauncherModel {
         onQueryChange?()
         adoptPendingUsage()
         query = value
+        if value.allSatisfy(\.isWhitespace) { isShowingSearchActions = false }
         launchError = nil
         indexStatus = nil
         updateResults()
@@ -113,6 +146,41 @@ final class LauncherModel {
         cachedQueries.removeAll(keepingCapacity: true)
         updateResults(preservingSelection: true)
         onChange?()
+    }
+
+    func setAllowsWebSearch(_ allowed: Bool) {
+        setWebSearchPreferences(enabled: allowed, browsers: searchBrowsers)
+    }
+
+    func setWebSearchPreferences(enabled: Bool, browsers: [WebSearchBrowser]) {
+        let browsers = Array(browsers.prefix(WebSearchBrowser.maximumAddedBrowsers))
+        guard allowsWebSearch != enabled || searchBrowsers != browsers else { return }
+        allowsWebSearch = enabled
+        searchBrowsers = browsers
+        cachedQueries.removeAll(keepingCapacity: true)
+        if enabled && launchError == text.webSearchDisabled { launchError = nil }
+        updateResults(preservingSelection: true)
+        onChange?()
+    }
+
+    func toggleSearchActions() {
+        guard !query.allSatisfy(\.isWhitespace) else { return }
+        onQueryChange?() // Cancel a pending handoff before changing the available actions.
+        isShowingSearchActions.toggle()
+        launchError = nil
+        updateResults()
+        onChange?()
+    }
+
+    @discardableResult
+    func closeSearchActions() -> Bool {
+        guard isShowingSearchActions else { return false }
+        toggleSearchActions()
+        return true
+    }
+
+    private var webSearchResults: [LauncherResult] {
+        [.googleSearch] + searchBrowsers.map { .googleSearchIn($0) }
     }
 
     func setConversionAliases(_ aliases: ChineseConversionAliases) {
@@ -132,6 +200,7 @@ final class LauncherModel {
         onChange?()
         let discovered = await Task.detached(priority: .userInitiated) { AppIndex.scan() }.value
         applications = discovered
+        hasLoadedApplications = true
         cachedQueries.removeAll(keepingCapacity: true)
         icons.invalidate()
         isIndexing = false
@@ -144,6 +213,7 @@ final class LauncherModel {
     func reset() {
         adoptPendingUsage()
         query = ""
+        isShowingSearchActions = false
         launchError = nil
         indexStatus = nil
         updateResults()
@@ -168,12 +238,16 @@ final class LauncherModel {
             selectedID = nil
             return
         }
-        if let cached = cachedQueries[query] {
+        if isShowingSearchActions {
+            results = webSearchResults
+        } else if let cached = cachedQueries[query] {
             results = cached
         } else {
             results = Array(LauncherResult.search(
-                applications, query: query, usage: usage, conversionAliases: conversionAliases
+                applications, query: query, usage: usage, conversionAliases: conversionAliases,
+                includeGoogleFallback: hasLoadedApplications
             ).prefix(maxResults))
+            if results == [.googleSearch] { results = Array(webSearchResults.prefix(maxResults)) }
             if cachedQueries.count >= 64 { cachedQueries.removeAll(keepingCapacity: true) }
             cachedQueries[query] = results
         }

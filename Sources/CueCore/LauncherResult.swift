@@ -1,4 +1,4 @@
-/// A selectable application or a built-in Cue command.
+/// A selectable application, built-in command, or action on the current query.
 public enum LauncherResult: Identifiable, Hashable, Sendable {
     case application(IndexedApplication)
     case updateIndex
@@ -9,6 +9,11 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
     case convertToTraditional
     case convertToSimplified
     case chineseConversionSettings
+    case googleSearch
+    case googleSearchIn(WebSearchBrowser)
+    case webSearchSettings
+    case cleanLink
+    case emojiSearch
 
     public var id: String {
         switch self {
@@ -21,6 +26,11 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         case .convertToTraditional: "command:convert-to-traditional"
         case .convertToSimplified: "command:convert-to-simplified"
         case .chineseConversionSettings: "command:chinese-conversion-settings"
+        case .googleSearch: "action:google-search"
+        case .googleSearchIn(let browser): "action:google-search:\(browser.bundleIdentifier)"
+        case .webSearchSettings: "command:web-search-settings"
+        case .cleanLink: "command:clean-link"
+        case .emojiSearch: "command:emoji-search"
         }
     }
 
@@ -35,6 +45,19 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         case .convertToTraditional: "Convert to Traditional Chinese"
         case .convertToSimplified: "Convert to Simplified Chinese"
         case .chineseConversionSettings: "Chinese Conversion Settings"
+        case .googleSearch: "Search Google"
+        case .googleSearchIn(let browser): "Search Google in \(browser.name)"
+        case .webSearchSettings: "Google Search Settings"
+        case .cleanLink: "Clean Link"
+        case .emojiSearch: "Emoji Search"
+        }
+    }
+
+    /// Query actions must not store the user's arbitrary search text as launch history.
+    public var isWebSearch: Bool {
+        switch self {
+        case .googleSearch, .googleSearchIn: true
+        default: false
         }
     }
 
@@ -87,21 +110,44 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         "简繁设置", "简繁转换设置", "繁简设置", "繁简转换设置", "中文转换设置",
     ].map(SearchEngine.normalize)
 
+    private static let webSearchSettingsAliases = [
+        "google settings", "google search settings", "browser settings", "web search settings",
+        "Google 搜尋設定", "搜尋瀏覽器設定", "瀏覽器設定",
+        "Google 搜索设置", "搜索浏览器设置", "浏览器设置",
+    ].map(SearchEngine.normalize)
+
+    private static let cleanLinkAliases = [
+        "clean link", "link cleaner", "clean url", "remove tracking",
+        "清理連結", "清理網址", "連結清理", "移除追蹤",
+    ].map(SearchEngine.normalize)
+
+    private static let emojiAliases = [
+        "emoji", "emoji search", "emoji finder", "emoticons",
+        "表情符號", "表情", "表情搜尋", "搜尋表情符號", "繪文字",
+    ].map(SearchEngine.normalize)
+
     public static func search(
         _ applications: [IndexedApplication],
         query: String,
         usage: SearchUsageSnapshot = .empty,
-        conversionAliases: ChineseConversionAliases = .defaults
+        conversionAliases: ChineseConversionAliases = .defaults,
+        includeGoogleFallback: Bool = false
     ) -> [LauncherResult] {
-        let query = SearchEngine.normalize(query)
-        guard !query.isEmpty else { return [] }
+        let normalizedQuery = SearchEngine.normalize(query)
+        guard !normalizedQuery.isEmpty else {
+            // Folding may erase a non-whitespace character (for example a lone
+            // combining accent). It is still usable as a literal web query.
+            return includeGoogleFallback && query.contains(where: { !$0.isWhitespace }) ? [.googleSearch] : []
+        }
+        let query = normalizedQuery
         let applications = SearchEngine.search(applications, normalizedQuery: query, usage: usage).map(Self.application)
         let exactAlias = conversionAliases.command(normalizedQuery: query)
 
         // Avoid crowding normal app searches with a command for one Latin letter.
         let isSingleASCIICharacter = query.count == 1 && query.unicodeScalars.allSatisfy(\.isASCII)
         guard !isSingleASCIICharacter else {
-            return exactAlias.map { [$0] + applications } ?? applications
+            let matches = exactAlias.map { [$0] + applications } ?? applications
+            return matches.isEmpty && includeGoogleFallback ? [.googleSearch] : matches
         }
         var commands: [LauncherResult] = []
         if clipboardAliases.contains(where: { $0.contains(query) }) { commands.append(.clipboardHistory) }
@@ -109,6 +155,11 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         if sleepAliases.contains(where: { $0.contains(query) }) { commands.append(.sleep) }
         if lockScreenAliases.contains(where: { $0.contains(query) }) { commands.append(.lockScreen) }
         if screenOffAliases.contains(where: { $0.contains(query) }) { commands.append(.screenOff) }
+        if cleanLinkAliases.contains(where: { $0.contains(query) }) { commands.append(.cleanLink) }
+        // Generic "search"/"finder" queries still belong to apps or web search.
+        if query != "搜尋", emojiAliases.contains(where: { $0.hasPrefix(query) }) {
+            commands.append(.emojiSearch)
+        }
         let matchesChineseConversion = chineseConversionAliases.contains(where: { $0.contains(query) })
         if matchesChineseConversion || traditionalAliases.contains(where: { $0.contains(query) }) {
             commands.append(.convertToTraditional)
@@ -118,6 +169,12 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         }
         if conversionSettingsAliases.contains(where: { $0.contains(query) }) {
             commands.append(.chineseConversionSettings)
+        }
+        // A plain query such as "Google" must stay available for web search.
+        // Require settings intent before matching this feature's settings aliases.
+        if (query.contains("setting") || query.contains("設定") || query.contains("设置")),
+           webSearchSettingsAliases.contains(where: { $0.contains(query) }) {
+            commands.append(.webSearchSettings)
         }
         if commands.count > 1 && !usage.isEmpty {
             let scorer = usage.scorer(normalizedQuery: query)
@@ -133,6 +190,7 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
             commands.removeAll { $0 == exactAlias }
             commands.insert(exactAlias, at: 0)
         }
+        if commands.isEmpty && applications.isEmpty && includeGoogleFallback { return [.googleSearch] }
         return commands + applications
     }
 }
