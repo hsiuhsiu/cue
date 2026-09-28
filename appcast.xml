@@ -4,75 +4,81 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>Cue</title>
         <item>
-            <title>0.3.0</title>
-            <pubDate>Sun, 27 Sep 2026 00:49:18 -0700</pubDate>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+            <title>0.4.0</title>
+            <pubDate>Sun, 27 Sep 2026 18:21:36 -0700</pubDate>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# Cue 0.3.0 — Clipboard and system commands / 剪貼簿與系統指令
+            <description sparkle:format="markdown"><![CDATA[# Cue 0.4.0 — Personalized search and launch at login / 個人化搜尋與登入時啟動
 
 ## English
 
-Cue 0.3.0 adds searchable clipboard history, Sleep and Lock Screen commands, and a smaller launcher with larger text and direct numbered shortcuts.
+Cue 0.4.0 learns your launcher choices, adds optional launch at login, and simplifies building and installing your own copy.
 
-- **Clipboard History:** type `clipboard` or `剪貼簿` to open it. Recording starts **off**; enable it to save new copies of text and links. Existing clipboard contents are not imported when recording is enabled or resumed. Each record shows its copied date and time. Search, copy, or delete individual records; copying closes Cue, ready for **Command+V** in the destination app.
-- **Settings where you need them:** use the clipboard page's gear or **Command+,** for recording and retention settings. Choose **1 hour**, **1 day**, **7 days** (default), **30 days**, or **No time limit**. Turning recording off stops new captures while saved records remain available and continue to expire.
-- **Immediate numbered actions:** **Command+1–9** opens the matching app, runs the matching command, or copies the matching clipboard record without another Enter press. Clipboard **Copy** and **Delete** buttons show their shortcuts inline. **Delete/Backspace** removes the selected record when the query is empty; with query text, it edits the query. **Command+Backspace** deletes the selected record in either case.
-- **A simpler launcher:** Cue initially shows only an empty input field. Larger input text and app names, balanced spacing, and blue tones inspired by the icon keep the interface compact. The window adapts to the result count and shows at most **nine matches without scrollbars**. Clipboard search still covers every saved record; refine the query to find older entries. **Command+,** from the main launcher opens Cue-wide Settings.
-- **Sleep and Lock Screen:** type `sleep` / `睡眠` or `lock` / `鎖定`, then press Enter or the displayed Command+number. Cue closes immediately before requesting the action; neither command logs you out or closes your apps.
+- **Personalized search:** within the same matching category, Cue prefers what you usually choose for that query, then overall frequency weighted toward recent use. Older usage loses half its weight every 14 days. Exact matches remain ahead of weaker matches; matching commands remain before apps. Only successful app launches and commands count—typing, selection, cancellation, failures, and searches inside Clipboard History do not.
+- **Responsive input:** search reads precomputed memory scores; loading, calculation, and saving run in the background. New learning takes effect on another query or invocation, keeping visible rows and numbered shortcuts stable. Sorting avoids repeatedly copying application data.
+- **Launch at login:** enable **Command+, → Startup → Launch at login**. New installations start off; existing macOS registration is reflected. If approval is needed, use **Open Login Items…** and allow Cue in System Settings. Disable it in Cue or macOS, and keep the same installed app location when updating.
+- **Local learning:** successful queries, app paths or command identifiers, scores, and timestamps stay in readable, unencrypted JSON on this Mac; nothing is uploaded. Limits are 512 results, 256 queries, and eight associations per query. Clipboard contents are excluded. Quit Cue and remove `~/Library/Application Support/com.yyhsiu.cue/Search/usage.json` to reset learning without removing settings or clipboard history.
 
-### Clipboard storage and limits
-
-History stays on this Mac as readable text, with no separate encryption or cloud sync. It stores at most **500 items or 4 MiB of text**, removing the oldest when full even with no time limit. Copies larger than **256 KiB** are skipped. Images and files are not recorded. Known concealed, transient, and automatically generated clipboard markers are skipped, but source apps do not always supply them: Cue cannot identify every sensitive copy. Deleting a history entry does not clear the current system clipboard. See the [Clipboard History guide](https://github.com/hsiuhsiu/cue/blob/v0.3.0/docs/clipboard.md).
+Optimized synthetic testing with 1,000 apps and full learning history measured core search p95 at **0.930 ms**, versus **0.931 ms** before learning. These component timings exclude input delivery, drawing, icons, and app launching. Both versions had occasional long wall-time samples, much of which was off the measured thread's CPU; this is not a guarantee of end-to-end latency. See the [performance report](https://github.com/hsiuhsiu/cue/blob/v0.4.0/docs/performance-adaptive-search.md).
 
 ### Install or upgrade
 
-[Download Cue 0.3.0](https://github.com/hsiuhsiu/cue/releases/download/v0.3.0/Cue-0.3.0-universal.dmg) · [Checksums](https://github.com/hsiuhsiu/cue/releases/download/v0.3.0/SHA256SUMS.txt)
+[Download Cue 0.4.0](https://github.com/hsiuhsiu/cue/releases/download/v0.4.0/Cue-0.4.0-universal.dmg) · [Checksums](https://github.com/hsiuhsiu/cue/releases/download/v0.4.0/SHA256SUMS.txt)
 
-- **Upgrade in Cue:** choose **Check for Updates…** from the menu bar or **Command+, → Updates** in the main launcher, then follow the download and **Install and Relaunch** prompts. Existing settings are preserved. Automatic checks can be disabled; you choose when to install and restart.
-- **Install manually:** quit Cue if it is running, open the DMG, drag **Cue.app** into **Applications**, replace the old copy if needed, and open it there. Cue appears in the menu bar; **Option+Space** is the default shortcut. Use these steps if your copy has no update option.
+Choose **Check for Updates… → Install and Relaunch** in Cue, or quit Cue, open the DMG, and drag **Cue.app** into **Applications**, replacing the old copy. Open the installed app; it lives in the menu bar, with **Option+Space** as its default shortcut. Settings, clipboard history, and learning are preserved. Automatic update checks are optional; you choose when to install and restart. Self-updating requires a writable installed location, not the read-only DMG.
 
-Cue must run from a writable installed location to update itself, not directly from the read-only DMG. The app is ad hoc-signed and **not Apple-notarized**. Sparkle verifies signed update archives and feeds; this does not replace Developer ID signing or Apple's first-launch checks. If macOS blocks the first launch, use the app-specific approval steps in the [installation guide](https://github.com/hsiuhsiu/cue/blob/v0.3.0/docs/installation.md).
+To build your own copy, install full **Xcode with Swift 6 or later**, open it, and finish its license and setup, including after upgrades when requested. Command Line Tools alone are insufficient. The workflow was tested with **Xcode 27**; the first build needs internet access for the pinned Sparkle dependency. Quit any running Cue, then run:
 
-### Verification and known limits
+```sh
+git clone https://github.com/hsiuhsiu/cue.git
+cd cue
+./scripts/install-app.sh
+open "$HOME/Applications/Cue.app"
+```
 
-Validated with optimized automated core, keyboard, clipboard, settings, localization, and system-command checks, plus manual UI checks. Clipboard checks use synthetic data and private pasteboards. Sleep/Lock routing and errors were tested with injected actions; **the Mac was not actually put to sleep or locked during validation**. Lock Screen uses a private macOS service and may need changes for future macOS versions. An updater installation from the public download on a second Mac remains unverified.
+This verifies and permanently installs an optimized Release app for your Mac at `~/Applications/Cue.app`, preserving existing data, without a paid developer account, signing key, or administrator access. The installer refuses to replace a running Cue and verifies a staged copy first. For later source updates, quit Cue and run `git pull --ff-only` and `./scripts/install-app.sh`. To stay on your own builds, disable automatic update checks; an update offered by Cue replaces your build with the published app and does not compile your repository. See the [source installation guide](https://github.com/hsiuhsiu/cue/blob/v0.4.0/docs/building.md).
 
-The universal app contains Apple silicon and Intel code and targets **macOS 14 or later**. Runtime testing was on **Apple silicon with macOS 26.6.2**; Intel and other macOS versions remain unverified.
+The app is ad hoc-signed, **without Developer ID signing or Apple notarization**. Sparkle verifies signed update archives and feeds; this does not replace Apple's first-launch checks. If blocked, follow the app-specific steps in the [installation guide](https://github.com/hsiuhsiu/cue/blob/v0.4.0/docs/installation.md).
+
+Validation includes optimized automated core, persistence, launcher, keyboard, clipboard, settings, login-item, localization, and system-command checks, plus manual launcher use. Tests use synthetic data and injected system actions; the Mac was not actually put to sleep or locked. Login registration/status were checked, but an actual logout/reboot startup cycle and a public update installation on a second Mac remain unverified. Lock Screen uses a private macOS service that may require future changes. The universal app targets **macOS 14+** on Apple silicon and Intel; this release was built with **Xcode 27** and runtime-tested only on **Apple silicon / macOS 27.0**.
 
 ## 正體中文
 
-Cue 0.3.0 加入可搜尋的剪貼簿記錄、睡眠與鎖定螢幕指令，並以更精簡的啟動器、更大的文字及編號快速鍵加快操作。
+Cue 0.4.0 會學習你在啟動器中的選擇，加入可選擇的登入時啟動，並簡化自行建置與安裝的流程。
 
-- **剪貼簿記錄：**輸入 `clipboard` 或「剪貼簿」即可開啟。記錄功能**預設關閉**；啟用後才會保存新拷貝的文字與連結，啟用或恢復記錄時不會匯入剪貼簿原有內容。每筆記錄顯示拷貝日期時間，可搜尋、拷貝或逐筆刪除。拷貝後 Cue 會關閉，再到目的 App 按 **Command+V** 貼上。
-- **在功能內調整設定：**剪貼簿頁的齒輪或 **Command+,** 可開啟記錄與保留時間設定。可選 **1 小時**、**1 天**、**7 天**（預設）、**30 天**或**不依時間清除**。關閉記錄只會停止擷取新內容，既有記錄仍可使用，也會繼續依保留期限清除。
-- **編號快速執行：**按 **Command+1–9** 會直接開啟對應 App、執行指令或拷貝剪貼簿記錄，不必再按 Enter。剪貼簿的**拷貝**與**刪除**按鈕會直接顯示快速鍵。搜尋欄空白時，**Delete／Backspace** 會刪除所選記錄；有文字時則編輯搜尋文字。**Command+Backspace** 在兩種情況都可刪除所選記錄。
-- **更精簡的啟動器：**剛叫出 Cue 時只有空白輸入欄。加大的輸入文字與 App 名稱、平衡的留白，以及呼應圖示的藍色色調，讓畫面清楚而緊湊。視窗依結果數量調整高度，最多顯示**九筆、不顯示捲軸**。剪貼簿搜尋仍涵蓋全部記錄，可輸入更精確的文字尋找較舊項目。在主啟動器按 **Command+,** 仍可開啟 Cue 的整體設定。
-- **睡眠與鎖定螢幕：**輸入 `sleep`／「睡眠」或 `lock`／「鎖定」，再按 Enter 或畫面上的 Command+數字執行。Cue 會先立即關閉視窗，再要求系統執行；兩個指令都不會登出或關閉其他 App。
+- **個人化搜尋：**同一符合程度內，先考慮該關鍵字通常選擇的項目，再參考帶有近期加權的整體使用頻率。舊記錄的權重每 14 天減半。完全符合仍優先於較弱的符合結果，符合的指令仍排列在 App 前方。只有成功開啟 App 或執行指令才算；打字、移動選取、取消、失敗及剪貼簿頁面的搜尋都不記錄。
+- **維持即時操作：**搜尋讀取記憶體中預先計算的分數，載入、計算與儲存都在背景執行。新的學習結果等下一次查詢或叫出 Cue 才採用，避免正在選擇時列表與編號快速鍵跳動。排序也減少反覆複製 App 資料的成本。
+- **登入時啟動：**在 **Command+, → 啟動 → 登入時啟動** 開啟。新安裝預設關閉，並反映 macOS 既有的註冊狀態。需要授權時，按**開啟登入項目⋯**，再到系統設定允許 Cue。可從 Cue 或 macOS 關閉，更新時請維持相同安裝位置。
+- **本機學習資料：**成功操作的關鍵字、App 路徑或指令識別碼、分數與時間，以可讀、未另外加密的 JSON 保存在這台 Mac，不會上傳。上限為 512 個結果、256 個關鍵字，每個關鍵字八個結果關聯，不包含剪貼簿內容。若要重設，先結束 Cue，再刪除 `~/Library/Application Support/com.yyhsiu.cue/Search/usage.json`，不影響設定或剪貼簿記錄。
 
-### 剪貼簿儲存與限制
-
-記錄以可讀文字保存在這台 Mac，不另行加密，也不會同步到雲端。最多保留 **500 筆或 4 MiB 文字**；容量滿時會刪除最舊記錄，選擇不依時間清除也適用。超過 **256 KiB** 的單次拷貝會略過，不記錄圖片與檔案。帶有已知隱藏、暫存或自動產生剪貼簿標記的內容會被略過，但來源 App 不一定提供這些標記，因此 Cue 無法辨識所有敏感內容。刪除歷史記錄不會清空系統剪貼簿目前的內容。詳見[剪貼簿記錄說明](https://github.com/hsiuhsiu/cue/blob/v0.3.0/docs/clipboard.md)。
+以最佳化版本、1,000 個合成 App 與滿容量學習記錄測試，核心搜尋 p95 為 **0.930 ms**，加入學習前為 **0.931 ms**。這些元件耗時不包含按鍵傳遞、繪圖、圖示與 App 啟動。兩個版本都曾出現偶發的較長經過時間，其中許多時間並非該執行緒正在使用 CPU；這不代表端到端延遲保證。詳見[效能報告](https://github.com/hsiuhsiu/cue/blob/v0.4.0/docs/performance-adaptive-search.md)。
 
 ### 安裝或升級
 
-[下載 Cue 0.3.0](https://github.com/hsiuhsiu/cue/releases/download/v0.3.0/Cue-0.3.0-universal.dmg) · [檢查碼](https://github.com/hsiuhsiu/cue/releases/download/v0.3.0/SHA256SUMS.txt)
+[下載 Cue 0.4.0](https://github.com/hsiuhsiu/cue/releases/download/v0.4.0/Cue-0.4.0-universal.dmg) · [檢查碼](https://github.com/hsiuhsiu/cue/releases/download/v0.4.0/SHA256SUMS.txt)
 
-- **從 Cue 更新：**在選單列選擇**檢查更新⋯**，或在主啟動器按 **Command+, → 更新**，依提示下載並**安裝與重新啟動**。既有設定會保留。自動檢查可以關閉，安裝與重啟的時機由你決定。
-- **手動安裝：**若 Cue 正在執行，先結束 Cue；開啟 DMG，將 **Cue.app** 拖進**應用程式**，需要時取代舊版本，再從該位置開啟。Cue 會出現在選單列，預設快速鍵為 **Option+Space**。若目前版本沒有更新選項，也可使用此方式。
+從 Cue 選擇**檢查更新⋯ → 安裝與重新啟動**；或先結束 Cue，開啟 DMG，將 **Cue.app** 拖進**應用程式**取代舊版本，再開啟已安裝的 App。Cue 位於選單列，預設快速鍵為 **Option+Space**。設定、剪貼簿記錄與學習資料會保留。自動檢查可以關閉，安裝與重啟由你決定。自我更新需要已安裝且可寫入的位置，不能直接從唯讀 DMG 執行。
 
-請從已安裝且可寫入的位置執行 Cue，才能自我更新；直接從唯讀 DMG 執行無法更新。App 使用 ad hoc 簽章，**尚未經 Apple 公證**。Sparkle 會驗證更新檔與更新資訊的簽章，但這不會取代 Developer ID 簽署或 Apple 的首次開啟檢查。若 macOS 阻擋首次開啟，請依[安裝說明](https://github.com/hsiuhsiu/cue/blob/v0.3.0/docs/installation.md)完成針對 Cue 的授權步驟。
+自行建置需要內含 **Swift 6 以上的完整 Xcode**；請先開啟並完成授權與設定，升級後若再次要求也需完成。只有 Command Line Tools 無法建置。此流程已在 **Xcode 27** 測試，首次建置需要網路下載固定版本的 Sparkle 相依套件。先結束正在執行的 Cue，再執行：
 
-### 驗證與已知限制
+```sh
+git clone https://github.com/hsiuhsiu/cue.git
+cd cue
+./scripts/install-app.sh
+open "$HOME/Applications/Cue.app"
+```
 
-已通過最佳化建置的核心、鍵盤、剪貼簿、設定、翻譯與系統指令自動檢查，並進行實際介面檢查。剪貼簿檢查使用測試資料與獨立剪貼簿。睡眠與鎖定的執行路徑及錯誤處理使用替代動作驗證；**驗證過程未實際讓 Mac 睡眠或鎖定**。鎖定螢幕使用 macOS 私有服務，未來系統版本可能需要調整。尚未在另一台 Mac 驗證從公開下載來源進行更新安裝。
+此流程會驗證並將適合這台 Mac 的最佳化 Release 版本固定安裝至 `~/Applications/Cue.app`，保留既有資料，不需要付費開發者帳號、簽章金鑰或管理者權限。安裝程式不會取代仍在執行的 Cue，也會先驗證暫存的新 App。日後更新原始碼時，先結束 Cue，再執行 `git pull --ff-only` 與 `./scripts/install-app.sh`。若只想使用自己的版本，請關閉自動檢查更新；從 Cue 安裝更新會換成已發布的 App，不會替儲存庫編譯。詳見[原始碼安裝指引](https://github.com/hsiuhsiu/cue/blob/v0.4.0/docs/building.md)。
 
-通用版包含 Apple silicon 與 Intel 程式碼，最低建置目標為 **macOS 14**。目前在 **Apple silicon、macOS 26.6.2** 實際執行測試；Intel 與其他 macOS 版本仍待驗證。
+App 使用 ad hoc 簽章，**沒有 Developer ID 簽署，也尚未經 Apple 公證**。Sparkle 會驗證更新檔與更新資訊的簽章，但不會取代 Apple 的首次開啟檢查。若遭阻擋，請依[安裝說明](https://github.com/hsiuhsiu/cue/blob/v0.4.0/docs/installation.md)完成針對 Cue 的授權步驟。
+
+驗證包含最佳化的核心、儲存、啟動器、鍵盤、剪貼簿、設定、登入項目、翻譯與系統指令自動檢查，並進行實際啟動器操作。測試使用合成資料與替代系統動作，未實際讓 Mac 睡眠或鎖定。登入註冊與狀態已檢查，但尚未實際登出或重開機驗證自動啟動，也尚未在另一台 Mac 驗證從公開來源更新安裝。鎖定螢幕使用 macOS 私有服務，未來可能需要調整。通用版支援 Apple silicon 與 Intel，最低建置目標為 **macOS 14**；此版本使用 **Xcode 27** 建置，目前只在 **Apple silicon／macOS 27.0** 實際執行測試。
 ]]></description>
-            <enclosure url="https://github.com/hsiuhsiu/cue/releases/download/v0.3.0/Cue-0.3.0-universal.dmg" length="4351941" type="application/octet-stream" sparkle:edSignature="W3pcHxlcElt2RHGhVGpTNSvVpYSJwcSTJQ4UCgr7HyQyrbomtDiNgDELTLX4HI97rmnGVCBSRdf4q6wtKvsTCQ=="></enclosure>
+            <enclosure url="https://github.com/hsiuhsiu/cue/releases/download/v0.4.0/Cue-0.4.0-universal.dmg" length="4502823" type="application/octet-stream" sparkle:edSignature="CFNUDGTum182M2vJtbIcTin1POyn+sx3RjJMhke2zI737FQNWHQUqtKL6wHy/ZOmXT4h0XLtUwc+qfIs4QOMCg=="></enclosure>
         </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: tvt3MDyjf+xH9QtFFqsaEvbe7fCOI/reISwinTuVOsXKoyBtcnnvjCcqj5E5cJR8oVmOjLqmsfQ2jcU99Mm5DA==
-length: 10164
+edSignature: X27JA5Oo9xb8h/uPLb30IsEAdaQkjXiGZ3CXLAoBQ3WaHY1K0AU9d2EJzgeGUzUveYuRcRMRcMquiHD0q+D5Bw==
+length: 10819
 -->
