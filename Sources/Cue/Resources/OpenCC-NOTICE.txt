@@ -1,0 +1,17 @@
+Cue includes data derived from Open Chinese Convert (OpenCC) 1.4.2.
+Copyright 2010-2026 Carbo Kuo and contributors.
+https://github.com/BYVoid/OpenCC
+Commit: 025f371dc76b598d77384fbdab90c937471844d8
+
+OpenCC is licensed under the Apache License, Version 2.0. The complete license
+is included in OpenCC-LICENSE.txt.
+
+Cue modifications: the dictionaries' first/default output candidates and the
+s2twp/tw2sp configuration plans are compiled into a compact Unicode-scalar trie
+format. Cue's Swift implementation follows OpenCC's normalization, maximum-match
+segmentation, ordered dictionary-group conversion, and ideographic-description
+sequence handling. OpenCC itself is not linked or installed at runtime.
+
+Reproduction instructions and exact input/output hashes are distributed with
+Cue's source in docs/chinese-conversion-data.md and
+scripts/chinese-conversion-data.json.

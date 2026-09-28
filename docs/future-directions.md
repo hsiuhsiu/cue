@@ -1,11 +1,15 @@
 # Future directions / 未來方向
 
-These are ideas for later, recorded on 2026-09-27. They are not part of Cue 0.4.0,
-an implementation plan, or a commitment to a release order. Build them one at a
-time when requested; do not add dependencies or generic plugin infrastructure
-just to anticipate them.
+These ideas were recorded on 2026-09-27. Except for Chinese conversion, released
+in Cue 0.5.0, they remain future directions, not an implementation plan or a
+commitment to a release order. Build them one at a time when requested; do not
+add dependencies or generic plugin infrastructure just to anticipate them.
 
-以下是預先記錄的方向，尚未實作，也不代表已排定版本或優先順序。之後依需求
+Chinese conversion was subsequently requested and included in Cue 0.5.0;
+see [its guide](chinese-conversion.md). The other ideas remain deferred.
+
+簡繁互轉已依後續要求加入 Cue 0.5.0，見[功能說明](chinese-conversion.md)。其他項目
+仍是預先記錄的方向，尚未實作，也不代表已排定版本或優先順序。之後依需求
 逐項規劃，維持 Cue 最核心的快速、簡潔、輕量原則。
 
 | Direction / 方向 | Intended behavior / 預期用途 |

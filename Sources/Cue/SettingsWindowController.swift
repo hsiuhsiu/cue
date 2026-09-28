@@ -27,6 +27,10 @@ private enum SettingsText {
     static let showUpdate = L10n.string("updates.show", table: "Settings", value: "Show Update…")
     static let updates = L10n.string("updates.heading", table: "Settings", value: "Updates")
     static let updatesHelp = L10n.string("updates.help", table: "Settings", value: "Checks run in the background without interrupting search. You choose when to install and restart Cue.")
+    static let network = L10n.string("network.heading", table: "Settings", value: "Network")
+    static let allowNetwork = L10n.string("network.allow", table: "Settings", value: "Allow network access")
+    static let networkHelp = L10n.string("network.help", table: "Settings", value: "Controls all of Cue's network features. Chinese conversion, search, and Clipboard History work fully offline.")
+    static let networkOff = L10n.string("network.updates_disabled", table: "Settings", value: "Network access is off. Update checks and downloads are disabled.")
     static let developmentBuild = L10n.string("updates.development_build", table: "Settings", value: "Development build")
     static let recorderLabel = L10n.string("recorder.label", table: "Settings", value: "Open Cue keyboard shortcut")
     static let recorderHelp = L10n.string("recorder.help", table: "Settings", value: "Press to record a new keyboard shortcut. Escape cancels recording.")
@@ -45,7 +49,7 @@ private enum SettingsText {
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let loginItem: LoginItemController
 
-    init(settings: CueSettings, updates: UpdateController, loginItem: LoginItemController,
+    init(settings: CueSettings, updates: UpdateController, loginItem: LoginItemController, networkPolicy: NetworkPolicy,
          applyShortcut: @escaping (LauncherShortcut) -> String?) {
         self.loginItem = loginItem
         let contentSize = NSSize(width: 510, height: 660)
@@ -58,7 +62,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.animationBehavior = .none
         window.contentView = NSHostingView(rootView: CueSettingsView(
-            settings: settings, updates: updates, loginItem: loginItem, applyShortcut: applyShortcut
+            settings: settings, updates: updates, loginItem: loginItem, networkPolicy: networkPolicy,
+            applyShortcut: applyShortcut
         ))
         super.init(window: window)
         window.delegate = self
@@ -89,7 +94,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func show() {
-        // This is an explicit user request from a nonactivating launcher. Plain activate()
+        // This is an explicit settings request. Plain activate()
         // can leave another app active, with Settings visible but unable to receive input.
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
@@ -107,6 +112,7 @@ private struct CueSettingsView: View {
     @ObservedObject var settings: CueSettings
     @ObservedObject var updates: UpdateController
     @ObservedObject var loginItem: LoginItemController
+    @ObservedObject var networkPolicy: NetworkPolicy
     let applyShortcut: (LauncherShortcut) -> String?
     @State private var shortcutError: String?
 
@@ -199,12 +205,23 @@ private struct CueSettingsView: View {
             }
 
             Section {
+                Toggle(SettingsText.allowNetwork, isOn: Binding(
+                    get: { networkPolicy.allowsNetwork },
+                    set: { networkPolicy.setAllowsNetwork($0) }
+                ))
+            } header: {
+                Text(SettingsText.network)
+            } footer: {
+                Text(SettingsText.networkHelp)
+            }
+
+            Section {
                 LabeledContent(SettingsText.version, value: appVersion)
                 Toggle(SettingsText.automaticUpdates, isOn: Binding(
-                    get: { updates.automaticChecksEnabled },
+                    get: { networkPolicy.allowsNetwork && updates.automaticChecksEnabled },
                     set: { updates.setAutomaticChecksEnabled($0) }
                 ))
-                .disabled(updates.startupError != nil)
+                .disabled(!networkPolicy.allowsNetwork || updates.startupError != nil)
                 HStack {
                     if let version = updates.availableVersion {
                         Text(L10n.format(SettingsText.availableVersion, version))
@@ -214,7 +231,7 @@ private struct CueSettingsView: View {
                     Button(updates.availableVersion == nil ? SettingsText.checkForUpdates : SettingsText.showUpdate) {
                         updates.checkForUpdates()
                     }
-                    .disabled(!updates.canCheckForUpdates)
+                    .disabled(!networkPolicy.allowsNetwork || !updates.canCheckForUpdates)
                 }
                 if let error = updates.startupError {
                     Text(error)
@@ -225,7 +242,7 @@ private struct CueSettingsView: View {
             } header: {
                 Text(SettingsText.updates)
             } footer: {
-                Text(SettingsText.updatesHelp)
+                Text(networkPolicy.allowsNetwork ? SettingsText.updatesHelp : SettingsText.networkOff)
             }
         }
         .formStyle(.grouped)

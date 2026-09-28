@@ -15,3 +15,4 @@
 "menu.shortcutConflict" = "%1$@ is unavailable (%2$d). Try another shortcut; your previous shortcut is unchanged.";
 "menu.appUnavailable" = "Cue is unavailable.";
 "update.unavailable" = "Updates are unavailable in this build: %@";
+"menu.networkOff" = "Updates Disabled (Network Off)";

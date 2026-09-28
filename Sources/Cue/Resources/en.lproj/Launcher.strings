@@ -13,7 +13,14 @@
 "command.clipboardHistory" = "Clipboard History";
 "command.sleep" = "Sleep";
 "command.lockScreen" = "Lock Screen";
+"command.screenOff" = "Screen Off";
+"command.convertToTraditional" = "Convert to Traditional Chinese";
+"command.convertToSimplified" = "Convert to Simplified Chinese";
+"command.convertToTraditional.detail" = "Taiwan";
+"command.convertToSimplified.detail" = "Mainland China";
+"command.chineseConversionSettings" = "Chinese Conversion Settings";
 "command.sleep.error" = "Couldn’t put this Mac to sleep. Please try Sleep in the Apple menu.";
 "command.lockScreen.error" = "Couldn’t lock this Mac. Please try Lock Screen in the Apple menu.";
+"command.screenOff.error" = "Couldn’t turn off the display. Please try again.";
 "command.detail" = "Command";
 "launch.error" = "Couldn’t open %@: %@";

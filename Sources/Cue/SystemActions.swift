@@ -5,12 +5,15 @@ import IOKit.pwr_mgt
 enum SystemAction: Sendable {
     case sleep
     case lockScreen
+    case screenOff
 }
 
 enum SystemActionError: Error {
     case sleepUnavailable
     case sleepFailed(IOReturn)
     case lockUnavailable
+    case screenOffUnavailable
+    case screenOffFailed(Int32)
 }
 
 enum SystemActions {
@@ -34,7 +37,40 @@ enum SystemActions {
                 try lockService.get()
             }.value
             service.lock()
+        case .screenOff:
+            try await ScreenOffService.perform()
         }
+    }
+}
+
+/// pmset's documented one-shot display-sleep request changes no power settings.
+/// It does not request system sleep or lock the session. Only execution creates
+/// a process; launching, typing, and ranking never touch this service.
+enum ScreenOffService {
+    static func perform(
+        runProcess: @escaping @Sendable (URL, [String]) throws -> Int32 = execute
+    ) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            let status: Int32
+            do {
+                status = try runProcess(URL(fileURLWithPath: "/usr/bin/pmset"), ["displaysleepnow"])
+            } catch {
+                throw SystemActionError.screenOffUnavailable
+            }
+            guard status == 0 else { throw SystemActionError.screenOffFailed(status) }
+        }.value
+    }
+
+    private static func execute(_ executable: URL, _ arguments: [String]) throws -> Int32 {
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = arguments
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        return process.terminationStatus
     }
 }
 

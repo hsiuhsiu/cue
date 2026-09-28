@@ -13,7 +13,14 @@
 "command.clipboardHistory" = "剪貼簿記錄";
 "command.sleep" = "睡眠";
 "command.lockScreen" = "鎖定螢幕";
+"command.screenOff" = "關閉螢幕";
+"command.convertToTraditional" = "轉換為正體中文";
+"command.convertToSimplified" = "轉換為簡體中文";
+"command.convertToTraditional.detail" = "台灣";
+"command.convertToSimplified.detail" = "中國大陸";
+"command.chineseConversionSettings" = "簡繁轉換設定";
 "command.sleep.error" = "無法讓這台 Mac 進入睡眠。請試用 Apple 選單中的「睡眠」。";
 "command.lockScreen.error" = "無法鎖定這台 Mac。請試用 Apple 選單中的「鎖定螢幕」。";
+"command.screenOff.error" = "無法關閉螢幕。請再試一次。";
 "command.detail" = "指令";
 "launch.error" = "無法開啟 %@：%@";

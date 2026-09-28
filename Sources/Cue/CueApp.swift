@@ -5,6 +5,7 @@ import CueCore
 private enum MenuText {
     static let settings = L10n.string("menu.settings", table: "Menu", value: "Settings…")
     static let checkForUpdates = L10n.string("menu.checkForUpdates", table: "Menu", value: "Check for Updates…")
+    static let networkOff = L10n.string("menu.networkOff", table: "Menu", value: "Updates Disabled (Network Off)")
     static let updateAvailable = L10n.string("menu.updateAvailable", table: "Menu", value: "Update Available (%@)…")
     static let updateAccessibility = L10n.string("menu.updateAccessibility", table: "Menu", value: "Cue — update available")
     static let about = L10n.string("menu.about", table: "Menu", value: "About Cue")
@@ -46,7 +47,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var hotKey: HotKeyManager!
     private var statusItem: NSStatusItem!
     private let settings = CueSettings()
+    private let networkPolicy = NetworkPolicy()
     private var settingsController: SettingsWindowController?
+    private let conversionPreferences = ChineseConversionPreferences()
+    private var conversionSettingsController: ChineseConversionSettingsController?
     private lazy var loginItem = LoginItemController()
     private var preferencesSubscription: AnyCancellable?
     private var updates: UpdateController!
@@ -61,9 +65,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let usageURL = URL.homeDirectory.appendingPathComponent("Library/Application Support", isDirectory: true)
             .appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.yyhsiu.cue", isDirectory: true)
             .appendingPathComponent("Search/usage.json")
-        let model = LauncherModel(usageStore: SearchUsageStore(fileURL: usageURL))
+        let model = LauncherModel(usageStore: SearchUsageStore(fileURL: usageURL),
+                                  conversionAliases: conversionPreferences.aliases)
         launcher = LauncherPanelController(clipboard: clipboard, model: model)
         launcher.onSettings = { [weak self] in self?.showSettings() }
+        launcher.onConversionSettings = { [weak self] in self?.showConversionSettings() }
+        conversionPreferences.onChange = { [weak model] aliases in model?.setConversionAliases(aliases) }
         configureMenuBar()
         configureEditingMenu()
         hotKey = HotKeyManager { [weak self] in
@@ -85,20 +92,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         Task { await launcher.model.loadApplications() }
         launcher.model.startUsageTracking()
         // Construct the launcher and register its hotkey before starting update work.
-        updates = UpdateController()
+        updates = UpdateController(networkPolicy: networkPolicy)
         updates.onPresentUpdate = { [weak self] in
-            self?.launcher.dismiss()
+            self?.launcher.dismiss(returnFocus: false)
             NSApp.activate()
         }
-        updateSubscription = updates.$availableVersion.combineLatest(updates.$canCheckForUpdates)
-            .sink { [weak self] version, canCheck in
+        updateSubscription = updates.$availableVersion.combineLatest(
+            updates.$canCheckForUpdates, networkPolicy.changes.prepend(networkPolicy.allowsNetwork)
+        )
+            .sink { [weak self] version, canCheck, allowsNetwork in
                 guard let self else { return }
                 self.updateMenuItems.forEach {
-                    $0.title = version.map { L10n.format(MenuText.updateAvailable, $0) } ?? MenuText.checkForUpdates
-                    $0.isEnabled = canCheck
+                    $0.title = allowsNetwork
+                        ? (version.map { L10n.format(MenuText.updateAvailable, $0) } ?? MenuText.checkForUpdates)
+                        : MenuText.networkOff
+                    $0.isEnabled = allowsNetwork && canCheck
                 }
-                self.statusItem.button?.image = version == nil ? self.menuBarIcon : self.menuBarUpdateIcon
-                self.statusItem.button?.setAccessibilityLabel(version == nil ? "Cue" : MenuText.updateAccessibility)
+                let hasUpdate = allowsNetwork && version != nil
+                self.statusItem.button?.image = hasUpdate ? self.menuBarUpdateIcon : self.menuBarIcon
+                self.statusItem.button?.setAccessibilityLabel(hasUpdate ? MenuText.updateAccessibility : "Cue")
             }
         Task { @MainActor [weak self] in self?.updates.start() }
     }
@@ -107,12 +119,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         guard let clipboard else { return .terminateNow }
         guard !isTerminating else { return .terminateLater }
         isTerminating = true
-        launcher.dismiss()
+        launcher.dismiss(returnFocus: false)
         clipboard.stop()
         Task {
             async let clipboardFinished: Void = clipboard.prepareForTermination()
             async let usageFinished: Void = launcher.model.prepareForTermination()
-            _ = await (clipboardFinished, usageFinished)
+            async let conversionFinished: Void = launcher.finishPendingTextConversion()
+            _ = await (clipboardFinished, usageFinished, conversionFinished)
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
@@ -125,13 +138,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationDidBecomeActive(_ notification: Notification) {
+        launcher?.focusIfPresented()
         // Reflect changes made in macOS Login Items when returning to Settings.
         // No service lookup is performed for ordinary launcher invocation.
         settingsController?.refreshLoginItemStatus()
+        conversionSettingsController?.refreshAccess()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if settingsController?.window?.isVisible != true { launcher.show() }
+        if settingsController?.window?.isVisible != true,
+           conversionSettingsController?.window?.isVisible != true { launcher.show() }
         return false
     }
 
@@ -140,22 +156,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func checkForUpdates() { updates.checkForUpdates() }
 
     @objc private func showAbout() {
-        launcher.dismiss()
+        launcher.dismiss(returnFocus: false)
         NSApp.activate()
         NSApp.orderFrontStandardAboutPanel(nil)
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(checkForUpdates) {
-            return updates?.canCheckForUpdates ?? false
+            return networkPolicy.allowsNetwork && (updates?.canCheckForUpdates ?? false)
         }
         return true
     }
 
     @objc private func showSettings() {
-        launcher.dismiss()
+        launcher.dismiss(returnFocus: false)
         if settingsController == nil {
-            settingsController = SettingsWindowController(settings: settings, updates: updates, loginItem: loginItem) { [weak self] shortcut in
+            settingsController = SettingsWindowController(settings: settings, updates: updates, loginItem: loginItem,
+                                                          networkPolicy: networkPolicy) { [weak self] shortcut in
                 guard let self else { return MenuText.appUnavailable }
                 let status = self.hotKey.register(shortcut: shortcut)
                 guard status == noErr else {
@@ -166,6 +183,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             }
         }
         settingsController?.show()
+    }
+
+    private func showConversionSettings() {
+        launcher.dismiss(returnFocus: false)
+        if conversionSettingsController == nil {
+            conversionSettingsController = ChineseConversionSettingsController(preferences: conversionPreferences)
+        }
+        conversionSettingsController?.show()
     }
 
     private func settingsMenuItem() -> NSMenuItem {

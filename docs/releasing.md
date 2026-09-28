@@ -28,11 +28,34 @@ Feed verification fails closed without an expiration fallback
 (`SUSignedFeedFailureExpirationInterval = 0`). Keep this and pre-extraction
 archive verification enabled in production.
 
+## Network defaults
+
+Keep `CueNetworkAccessAllowedByDefault` and `SUEnableAutomaticChecks` **false**
+in `Resources/Info.plist`. SwiftPM (including missing bundle metadata), Xcode
+Debug/Release, and ordinary local builds default to offline. `release.sh` enables
+both values only in its temporary, final distribution copy before signing.
+The checked-in plist and Xcode build output remain unchanged, so making a release
+does not turn later source builds online. Explicit user choices are preferences
+outside the bundle and are preserved by installation.
+
+`scripts/check-build-network-policy.sh` validates the source defaults. The release
+script also validates the built app before staging changes, then requires online
+defaults in both the signed staged app and the mounted DMG. JavaScript in release
+notes stays disabled in every build. The runtime gate and updater behavior are
+covered by `scripts/check-network-policy.sh` and `scripts/check-updates.sh`, which
+the release script runs with the other checks. See [network policy](network-policy.md).
+
+原始碼的 `CueNetworkAccessAllowedByDefault` 與 `SUEnableAutomaticChecks` 維持
+`false`；只有發布腳本在簽章前，將最終暫存的發行 App 改為 `true`。來源 plist 與
+Xcode 建置產物不會被改成連網預設。封裝流程會檢查來源、原始建置產物、簽署後的
+App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使用者明確儲存的選擇
+位於 App 外，安裝新版本仍會保留；完整說明見[網路政策](network-policy.md)。
+
 ## Prepare and verify
 
 1. Set `CFBundleShortVersionString` and increment `CFBundleVersion` in
    `Resources/Info.plist`. Sparkle compares the monotonically increasing build
-   number; for example, 0.4.0 uses build 5 after 0.3.0's build 4. Never reset
+   number; for example, 0.5.0 uses build 6 after 0.4.0's build 5. Never reset
    the build number when changing the displayed version. Write **both English and Traditional Chinese** sections in
    `docs/releases/v<version>.md`, with equivalent changes and limitations.
    Start with one `# Cue <version> — ...` title, then the language sections.
@@ -49,20 +72,25 @@ archive verification enabled in production.
 3. Inspect `.build/releases/<version>/`: `Cue-<version>-universal.dmg`,
    `appcast.xml`, and `SHA256SUMS.txt`. Do not edit the generated signed feed,
    notes, or DMG afterward. SHA-256 is a transfer check, not a publisher identity.
-4. Run the optimized launcher, adaptive-search, clipboard, settings, localization, and system-action
-   checks. Clipboard checks must use synthetic data and private pasteboards.
+4. Run the optimized launcher, command-icon, adaptive-search, clipboard, settings,
+   localization, system-action, selected-text, conversion-lifecycle, network-policy,
+   and updater checks. Clipboard checks must use synthetic data and private pasteboards.
    Run `scripts/check-login-item.sh` with its injected service; it must not change
    the operator's login items. For manual login testing, install Cue in a stable
    Applications location, check registration and state after reopening Settings,
    and distinguish those checks from an actual logout/login test.
-   Sleep/Lock checks inject actions instead of changing the operator's session;
-   report actual sleep/lock as unverified unless deliberately tested. Check the
+   Sleep/Lock/Screen Off checks inject actions instead of changing the operator's session;
+   report actual power/lock transitions as unverified unless deliberately tested. Check the
    Release interface for blank initial input, all nine numbered shortcuts,
    clipboard search and deletion, and feature-local settings.
 5. Test an older updater-enabled fixture through download, verification,
    installation and relaunch. Confirm preferences and the automatic-check
-   opt-out survive. Check corrupted-download rejection, unavailable updates,
-   and typing during background checks. Never weaken production signature or
+   opt-out survive. Verify an explicit network choice survives both source and
+   official installations; offline startup must not start Sparkle, and both
+   manual and automatic checks must stay disabled. Turning access off should
+   cancel active update work; turning it back on should restore the saved
+   automatic-check preference. Check corrupted-download rejection, unavailable
+   updates, and typing during background checks. Never weaken production signature or
    transport settings to make tests pass. If an end-to-end update or platform
    check is not completed, state that limitation in both release-note languages
    before signing; do not claim it passed based on packaging checks alone.
@@ -79,21 +107,21 @@ an already-published build with different bytes.
 ## Publish assets before the feed
 
 Commit and push the reviewed source. Create and push an annotated version tag
-on that commit. Publish the tested assets and bilingual notes; for 0.4.0:
+on that commit. Publish the tested assets and bilingual notes; for 0.5.0:
 
 ```sh
-git tag -a v0.4.0 -m "Cue 0.4.0 Personalized search and launch at login"
+git tag -a v0.5.0 -m "Cue 0.5.0 Offline Chinese conversion and network controls"
 git push origin main
-git push origin v0.4.0
-./scripts/github-release-notes.sh --body docs/releases/v0.4.0.md \
-  > .build/github-release-v0.4.0.md
-gh release create v0.4.0 \
-  .build/releases/0.4.0/Cue-0.4.0-universal.dmg \
-  .build/releases/0.4.0/appcast.xml \
-  .build/releases/0.4.0/SHA256SUMS.txt \
+git push origin v0.5.0
+./scripts/github-release-notes.sh --body docs/releases/v0.5.0.md \
+  > .build/github-release-v0.5.0.md
+gh release create v0.5.0 \
+  .build/releases/0.5.0/Cue-0.5.0-universal.dmg \
+  .build/releases/0.5.0/appcast.xml \
+  .build/releases/0.5.0/SHA256SUMS.txt \
   --repo hsiuhsiu/cue --verify-tag --latest \
-  --title "$(./scripts/github-release-notes.sh --title docs/releases/v0.4.0.md)" \
-  --notes-file .build/github-release-v0.4.0.md
+  --title "$(./scripts/github-release-notes.sh --title docs/releases/v0.5.0.md)" \
+  --notes-file .build/github-release-v0.5.0.md
 ```
 
 Never upload the complete titled source file as GitHub's release body. Confirm

@@ -58,3 +58,36 @@ windows, and leaves the application's normal build directory untouched. It
 prints one JSON report per fresh process, including per-icon median, p95,
 maximum, and total timings. Results depend on the installed apps, competing
 work, display resources, and system caches; rerun when assessing another Mac.
+
+
+## Built-in command artwork (2026-09-27)
+
+Cue 0.5.0 replaces per-row SF Symbol requests for built-in commands
+with eight matching white tiles and blue outline icons. Core Graphics and Core Text render both
+28-pixel and 56-pixel representations once on a detached worker. Main-actor
+publication wraps the completed bitmaps and updates only matching existing
+cells; it never reloads the table, changes selection, or rebuilds search results.
+Application-index invalidation leaves this separate command cache intact.
+
+`./scripts/check-command-icons.sh --preview .build/command-icons-preview.png`
+passed 96 checks on the development Mac using Swift 6.4 / Xcode 27 in an optimized
+build. It covers background rendering, both scales, distinct artwork, cache
+identity, invalidation during and after preparation, and delayed callbacks after
+the visible query changes. The real launcher view retained its field editor,
+selection, row objects, and ordering, with no model notification or table reload.
+
+For 100 batches of 800 cached lookups (80,000 verified identity hits), the median
+batch average was 174.4 ns per lookup, p95 185.7 ns, and maximum 215.4 ns. These are
+in-process cache lookup costs, not keystroke-to-display latency. Normal startup
+may briefly show the existing placeholder while the background worker prepares
+artwork; it does not wait for that worker before accepting input.
+
+The installed Release build was also inspected through its native UI: screen
+search, conversion results, typing, keyboard selection, and Command-comma focus.
+The generated review sheet checks actual 28-pixel artwork and a separately
+rendered 4× enlargement on light and dark backgrounds; it does not stretch a
+small bitmap. The lighter revision uses solid blue strokes on white, extra
+internal spacing, left-side arrows pointing toward the conversion target, and
+diagonal 繁/简 characters with independent left/right return arrows and a larger
+upper-right gear for feature settings. No display-off, lock, or system-sleep transition was
+triggered during these checks.

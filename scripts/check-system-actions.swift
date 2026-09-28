@@ -2,7 +2,8 @@ import AppKit
 import CueCore
 
 /// Use the real views/controller with an injected action recorder. These checks
-/// never sleep or lock the Mac, show a window, post keys, or read the clipboard.
+/// never sleep/lock the Mac, turn off displays, start pmset, show a window, post
+/// keys, or read the clipboard.
 @main
 struct CheckSystemActions {
     @MainActor
@@ -11,6 +12,7 @@ struct CheckSystemActions {
         application.setActivationPolicy(.prohibited)
         application.mainMenu = nil
         let checks = Checks()
+        await checkScreenOffProcess(checks)
         do {
             try await checkRouting(checks)
             // Resolving the framework and symbol is safe; never call lock() here.
@@ -26,7 +28,49 @@ struct CheckSystemActions {
             print("System-action regression failed: \(checks.failures.count) failures / \(checks.count) checks.")
             exit(1)
         }
-        print("System-action regression passed: \(checks.count) checks; English/Chinese commands, Enter and numbered routing, immediate dismissal, repeat suppression, and lock-service availability. No real system action was performed.")
+        print("System-action regression passed: \(checks.count) checks; English/Chinese commands, Enter and numbered routing, immediate dismissal, repeat suppression, display-sleep process validation, and lock-service availability. No real system action was performed.")
+    }
+
+    @MainActor
+    private static func checkScreenOffProcess(_ checks: Checks) async {
+        do {
+            try await ScreenOffService.perform { executable, arguments in
+                // A successful injected request proves both routing and executor;
+                // the fixture never creates or launches a real Process.
+                guard executable.path == "/usr/bin/pmset",
+                      arguments == ["displaysleepnow"], !Thread.isMainThread else {
+                    throw FixtureError.invalidInvocation
+                }
+                return 0
+            }
+            checks.expect(true, "Screen Off must use only the one-shot display-sleep command off the main thread")
+        } catch {
+            checks.expect(false, "The valid injected display-sleep request must succeed")
+        }
+
+        for status: Int32 in [-1, 1, 127] {
+            do {
+                try await ScreenOffService.perform { _, _ in status }
+                checks.expect(false, "A nonzero display-sleep status must fail")
+            } catch SystemActionError.screenOffFailed(let actual) {
+                checks.expect(actual == status, "The display-sleep failure must retain its exit status")
+            } catch {
+                checks.expect(false, "A nonzero display-sleep status must produce the correct error")
+            }
+        }
+        do {
+            try await ScreenOffService.perform { _, _ in throw FixtureError.launchFailed }
+            checks.expect(false, "A failed process launch must not report Screen Off success")
+        } catch SystemActionError.screenOffUnavailable {
+            checks.expect(true, "An unavailable display-sleep executable must produce a distinct launch error")
+        } catch {
+            checks.expect(false, "A process-launch failure must produce the correct error")
+        }
+    }
+
+    private enum FixtureError: Error {
+        case invalidInvocation
+        case launchFailed
     }
 
     @MainActor
@@ -63,6 +107,7 @@ struct CheckSystemActions {
         let cases: [(String, LauncherResult, SystemAction)] = [
             ("sleep", .sleep, .sleep), ("睡眠", .sleep, .sleep),
             ("lock", .lockScreen, .lockScreen), ("鎖定", .lockScreen, .lockScreen),
+            ("screen off", .screenOff, .screenOff), ("關閉螢幕", .screenOff, .screenOff),
         ]
 
         for (query, result, action) in cases {

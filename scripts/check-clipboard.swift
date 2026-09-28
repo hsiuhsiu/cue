@@ -16,6 +16,7 @@ struct CheckClipboard {
         do {
             try await checkMonitor(checks)
             try await checkModelAndView(checks)
+            try await checkTransientClipboardUse(checks)
             try await checkNumberKeys(checks)
             try await checkDeleteKeys(checks)
             try await checkExpiryOnOpen(checks)
@@ -219,6 +220,63 @@ struct CheckClipboard {
         checks.expect(!fixture.defaults.bool(forKey: "clipboard.recordingEnabled") && fixture.defaults.string(forKey: "clipboard.retention") == "forever",
                       "Pause and retention choices must persist")
         checks.expect(!window.isVisible, "Native keyboard checks must never show their window")
+    }
+
+    @MainActor
+    private static func checkTransientClipboardUse(_ checks: Checks) async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try fixture.write("Baseline before recording")
+        let model = ClipboardModel(defaults: fixture.defaults, fileURL: fixture.file, pasteboardName: fixture.board.name)
+        defer { model.close(); model.stop() }
+        await checks.eventually("Transient clipboard fixture must finish loading") { !model.isLoading }
+        model.setRecordingEnabled(true)
+        // Let the monitor establish its enabling baseline before the first new copy.
+        try await Task.sleep(for: .milliseconds(80))
+        try fixture.write("Ordinary copy before conversion")
+        model.open()
+        await checks.eventually("Ordinary copies must be recorded before a conversion") {
+            model.results.first?.text == "Ordinary copy before conversion"
+        }
+        let original = try await ClipboardStore(fileURL: fixture.file).load(retention: .forever)
+
+        model.beginTransientClipboardUse()
+        model.beginTransientClipboardUse()
+        try fixture.write("Temporary converted selection")
+        model.open()
+        // Wait beyond the real 400 ms monitor interval to exercise timer polling.
+        try await Task.sleep(for: .milliseconds(450))
+        var disk = try await ClipboardStore(fileURL: fixture.file).load(retention: .forever)
+        checks.expect(disk == original, "Temporary selected text must never enter clipboard history")
+        model.endTransientClipboardUse()
+        try fixture.write("Temporary nested replacement")
+        model.open()
+        try await Task.sleep(for: .milliseconds(450))
+        disk = try await ClipboardStore(fileURL: fixture.file).load(retention: .forever)
+        checks.expect(disk == original, "Ending one nested transient use must not resume recording early")
+
+        try fixture.write("Ordinary copy before conversion")
+        model.endTransientClipboardUse()
+        model.open()
+        try await Task.sleep(for: .milliseconds(450))
+        disk = try await ClipboardStore(fileURL: fixture.file).load(retention: .forever)
+        checks.expect(disk == original, "Restoring the original clipboard must not recapture it or change recency")
+        try fixture.write("Fresh copy after conversion")
+        model.open()
+        await checks.eventually("Recording resumes for the next ordinary copy") {
+            model.results.first?.text == "Fresh copy after conversion" && model.results.count == 2
+        }
+
+        model.beginTransientClipboardUse()
+        model.setRecordingEnabled(false)
+        model.endTransientClipboardUse()
+        try fixture.write("Copied after the user disabled recording")
+        model.open()
+        try await Task.sleep(for: .milliseconds(450))
+        disk = try await ClipboardStore(fileURL: fixture.file).load(retention: .forever)
+        checks.expect(!model.recordingEnabled && disk.count == 2,
+                      "Finishing a conversion must respect a user disabling recording during the operation")
+        await model.prepareForTermination()
     }
 
     @MainActor

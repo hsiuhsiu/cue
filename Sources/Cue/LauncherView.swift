@@ -230,7 +230,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         separator.isHidden = isQueryEmpty
         emptyLabel.stringValue = model.isIndexing ? text.findingApplications : text.noResults
         let error = model.launchError ?? model.shortcutError
-        let message = error ?? (model.isIndexing ? text.updatingIndex : (isQueryEmpty ? nil : model.indexStatus))
+        let message = error ?? model.actionStatus ?? (model.isIndexing ? text.updatingIndex : (isQueryEmpty ? nil : model.indexStatus))
         status.stringValue = message ?? ""
         status.isHidden = message == nil
         status.textColor = error == nil ? .secondaryLabelColor : .systemRed
@@ -268,20 +268,29 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         case .updateIndex:
             cell.title.stringValue = text.updateIndex
             cell.detail.stringValue = text.command
-            cell.icon.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: nil)
         case .clipboardHistory:
             cell.title.stringValue = text.clipboardHistory
             cell.detail.stringValue = text.command
-            cell.icon.image = NSImage(systemSymbolName: "clipboard", accessibilityDescription: nil)
         case .sleep:
             cell.title.stringValue = text.sleep
             cell.detail.stringValue = text.command
-            cell.icon.image = NSImage(systemSymbolName: "moon.zzz", accessibilityDescription: nil)
         case .lockScreen:
             cell.title.stringValue = text.lockScreen
             cell.detail.stringValue = text.command
-            cell.icon.image = NSImage(systemSymbolName: "lock", accessibilityDescription: nil)
+        case .screenOff:
+            cell.title.stringValue = text.screenOff
+            cell.detail.stringValue = text.command
+        case .convertToTraditional:
+            cell.title.stringValue = text.convertToTraditional
+            cell.detail.stringValue = text.traditionalRegion
+        case .convertToSimplified:
+            cell.title.stringValue = text.convertToSimplified
+            cell.detail.stringValue = text.simplifiedRegion
+        case .chineseConversionSettings:
+            cell.title.stringValue = text.chineseConversionSettings
+            cell.detail.stringValue = text.command
         }
+        if let command = CommandIcon(result) { cell.icon.image = model.icons.image(for: command) }
         return cell
     }
 
@@ -290,13 +299,18 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         model.select(displayedResults[table.selectedRow].id)
     }
 
-    private func updateIcon(_ applicationID: String) {
+    private func updateIcon(_ loadedID: String) {
         guard let row = displayedResults.firstIndex(where: {
-            if case .application(let app) = $0 { return app.id == applicationID }
-            return false
-        }), case .application(let application) = displayedResults[row],
+            if case .application(let app) = $0 { return app.id == loadedID }
+            return $0.id == loadedID
+        }),
               let cell = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? ResultCell else { return }
-        cell.icon.image = model.icons.image(for: application)
+        let result = displayedResults[row]
+        if case .application(let application) = result {
+            cell.icon.image = model.icons.image(for: application)
+        } else if let command = CommandIcon(result) {
+            cell.icon.image = model.icons.image(for: command)
+        }
     }
 
     @objc private func clickedResult() {

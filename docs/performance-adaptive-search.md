@@ -219,3 +219,49 @@ p95 從原本約 **0.931 ms** 到滿容量學習記錄約 **0.930 ms**；500 個
 會移到第一個，正常關閉並重開 Cue 後仍保留；連續輸入、刪字、上下選取、
 空白搜尋、⌥Space 叫出與 ⌘, 設定焦點都正常，登入啟動與跟隨系統語言
 設定也保留。這是功能操作驗證，不是逐幀延遲量測。
+
+## Chinese conversion development follow-up, 2026-09-27
+
+Adding the conversion commands and configurable aliases does not load conversion
+dictionaries or access other apps while searching. Saved aliases are validated
+and normalized once; search compares the normalized query with those cached
+strings. Dictionary loading and selected-text conversion begin only on execution.
+
+The same optimized, synthetic 30-query benchmark was rerun on this Mac with the
+conversion changes. The table compares the recorded 0.4.0 measurements above
+with this development run, using maximum usage history. Values are milliseconds;
+each core/model row contains 3,000 samples. These are separate runs, not a fresh
+paired before/after experiment, so differences cannot be attributed solely to
+the added commands.
+
+| Apps | Background worker | Core p95, 0.4.0 → development | Model miss p95, 0.4.0 → development | Development core / model maximum |
+| --- | --- | ---: | ---: | ---: |
+| 500 | Off | 0.474 → 0.573 | 0.472 → 0.552 | 20.195 / 1.709 |
+| 500 | On | 0.488 → 0.528 | 0.483 → 0.512 | 1.118 / 0.675 |
+| 1,000 | Off | 0.930 → 0.968 | 0.935 → 0.994 | 1.176 / 30.654 |
+| 1,000 | On | 0.956 → 0.987 | 0.961 → 0.981 | 1.218 / 1.180 |
+
+Across empty and maximum history, model cache-hit p95 was 0.000417–0.000458 ms.
+The 20.195 ms core and 30.654 ms model maxima used 0.639 and 1.242 ms of thread
+CPU respectively; most elapsed time was off that thread's CPU, with the external
+cause still unisolated. This run preserves those tails and the higher 500-app
+p95 rather than claiming zero overhead. The existing query set does not time
+`st`/`ts` specifically, dictionary loading, conversion, clipboard restoration,
+Accessibility, input delivery, or rendering. Conversion-engine measurements
+are documented separately in [dictionary data and performance](chinese-conversion-data.md).
+
+### 正體中文補充
+
+新增簡繁轉換指令與自訂別名後，搜尋只比較已整理好的記憶體字串，不會載入
+轉換詞庫或存取其他 App；實際執行指令才開始處理選取文字。
+
+上表以相同的最佳化版本、合成 30 組查詢及滿容量使用記錄，比較先前 0.4.0
+與這次開發版；每格有 3,000 次取樣，單位為毫秒。兩次量測不是同時重新做的
+成對實驗，不能把差異完全歸因於新增指令。1,000 個 App 的 model 未命中快取
+p95 為 0.994 ms，背景工作時為 0.981 ms；500 個 App 的 p95 增幅較大，已
+如實列出。快取命中的 p95 介於 0.000417–0.000458 ms。
+
+最長的 20.195／30.654 ms 樣本實際使用該執行緒 CPU 的時間分別為
+0.639／1.242 ms，其餘等待的外部原因尚未確認。這不是零成本或無延遲的保證；
+此測試也不包含 `st`／`ts` 專項、詞庫載入、文字轉換、剪貼簿還原、輔助使用、
+按鍵傳遞或畫面繪製。轉換引擎的量測另見[詞庫資料與效能](chinese-conversion-data.md)。

@@ -20,6 +20,7 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     -module-cache-path "$check_directory/module-cache" \
     -Xlinker -rpath -Xlinker "$check_directory" \
     "$repo_root/Sources/Cue/AppIconCache.swift" \
+    "$repo_root/Sources/Cue/CommandIcon.swift" \
     "$repo_root/Sources/Cue/Localization.swift" \
     "$repo_root/Sources/Cue/LauncherAppearance.swift" \
     "$repo_root/Sources/Cue/ResultShortcut.swift" \
@@ -30,6 +31,9 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/ClipboardView.swift" \
     "$repo_root/Sources/Cue/HotKeyManager.swift" \
     "$repo_root/Sources/Cue/SystemActions.swift" \
+    "$repo_root/Sources/Cue/SelectedTextService.swift" \
+    "$repo_root/Sources/Cue/ChineseConversionEngine.swift" \
+    "$repo_root/Sources/Cue/ChineseConversionSettings.swift" \
     "$repo_root/Sources/Cue/LauncherPanelController.swift" \
     "$repo_root/scripts/check-adaptive-search.swift" \
     -o "$check_directory/check-adaptive-search"

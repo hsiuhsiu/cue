@@ -15,3 +15,4 @@
 "menu.shortcutConflict" = "無法使用 %1$@（%2$d）。請嘗試其他快速鍵；原有快速鍵保持不變。";
 "menu.appUnavailable" = "目前無法使用 Cue。";
 "update.unavailable" = "這個版本無法使用更新功能：%@";
+"menu.networkOff" = "更新已停用（網路關閉）";

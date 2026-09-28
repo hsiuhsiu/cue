@@ -30,6 +30,7 @@ final class ClipboardModel {
     private var presentationGeneration = 0
     private var copyGeneration = 0
     private var isStopping = false
+    private var transientClipboardUses = 0
 
     private static let enabledKey = "clipboard.recordingEnabled"
     private static let retentionKey = "clipboard.retention"
@@ -134,9 +135,26 @@ final class ClipboardModel {
         recordingEnabled = value
         defaults.set(value, forKey: Self.enabledKey)
         captureGeneration += 1
-        monitor.setEnabled(value, generation: captureGeneration)
+        monitor.setEnabled(value && transientClipboardUses == 0, generation: captureGeneration)
         if errorMessage == Self.deniedError { errorMessage = nil }
         onChange?()
+    }
+
+    /// A text replacement temporarily owns the pasteboard without becoming history.
+    /// Invalidate in-flight captures immediately instead of waiting on a promised
+    /// payload from another app. Disable/resume are ordered on the monitor queue.
+    func beginTransientClipboardUse() {
+        transientClipboardUses += 1
+        captureGeneration += 1
+        monitor.setEnabled(false, generation: captureGeneration)
+    }
+
+    func endTransientClipboardUse() {
+        guard transientClipboardUses > 0 else { return }
+        transientClipboardUses -= 1
+        guard transientClipboardUses == 0 else { return }
+        captureGeneration += 1
+        monitor.setEnabled(recordingEnabled && !isStopping, generation: captureGeneration)
     }
 
     func setRetention(_ value: ClipboardRetention) {
@@ -229,11 +247,11 @@ final class ClipboardModel {
         guard !isStopping else { return }
         switch event {
         case .captured(let value, let generation):
-            guard recordingEnabled, generation == captureGeneration else { return }
+            guard recordingEnabled, transientClipboardUses == 0, generation == captureGeneration else { return }
             if errorMessage == Self.deniedError { errorMessage = nil }
             record(value)
         case .accessDenied(let generation):
-            guard recordingEnabled, generation == captureGeneration else { return }
+            guard recordingEnabled, transientClipboardUses == 0, generation == captureGeneration else { return }
             errorMessage = Self.deniedError
             onChange?()
         }

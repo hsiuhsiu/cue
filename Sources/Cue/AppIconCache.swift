@@ -7,8 +7,39 @@ final class AppIconCache {
     private var images: [String: NSImage] = [:]
     private var pending: [String: Task<Void, Never>] = [:]
     private var generation = 0
+    private var commandImages: [CommandIcon: NSImage] = [:]
+    private var commandTask: Task<Void, Never>?
     private let placeholder = NSImage(systemSymbolName: "app", accessibilityDescription: nil)!
     var onLoad: ((String) -> Void)?
+
+    init() {
+        commandTask = Task { [weak self] in
+            let rendered = await Task.detached(priority: .userInitiated) {
+                CommandIcon.allCases.map { command in
+                    (command, [1, 2].compactMap { command.render(scale: $0) })
+                }
+            }.value
+            guard let self, !Task.isCancelled else { return }
+            for (command, bitmaps) in rendered {
+                let image = NSImage(size: NSSize(width: 28, height: 28))
+                for bitmap in bitmaps {
+                    let representation = NSBitmapImageRep(cgImage: bitmap)
+                    representation.size = image.size
+                    image.addRepresentation(representation)
+                }
+                guard !bitmaps.isEmpty else { continue }
+                self.commandImages[command] = image
+                self.onLoad?(command.resultID)
+            }
+            self.commandTask = nil
+        }
+    }
+
+    deinit { commandTask?.cancel() }
+
+    func image(for command: CommandIcon) -> NSImage {
+        commandImages[command] ?? placeholder
+    }
 
     func image(for application: IndexedApplication) -> NSImage {
         if let image = images[application.id] { return image }

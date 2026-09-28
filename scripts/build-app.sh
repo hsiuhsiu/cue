@@ -22,6 +22,7 @@ case "$configuration" in
 esac
 
 [[ "$(uname -s)" == Darwin ]] || fail "Cue requires macOS and full Xcode."
+"$repo_root/scripts/check-build-network-policy.sh"
 
 icon_resources=(
     AppIcon.icns MenuBarIconTemplate.png MenuBarIconTemplate@2x.png
@@ -71,6 +72,7 @@ temporary_directory="$(mktemp -d "$repo_root/.build/.cue-app.XXXXXX")"
 trap 'rm -rf "$temporary_directory"' EXIT
 staged_app="$temporary_directory/Cue.app"
 ditto "$build_directory/Build/Products/$xcode_configuration/Cue.app" "$staged_app"
+"$repo_root/scripts/check-build-network-policy.sh" source "$staged_app"
 [[ "$(plutil -extract CFBundleIconFile raw -o - "$staged_app/Contents/Info.plist")" == AppIcon ]] \
     || { printf 'The built app is missing its AppIcon reference.\n' >&2; exit 1; }
 for resource in "${icon_resources[@]}"; do
@@ -79,6 +81,10 @@ for resource in "${icon_resources[@]}"; do
 done
 
 xcrun swift "$repo_root/scripts/check-localizations.swift" "$staged_app"
+for resource in ChineseConversion.cuecc OpenCC-LICENSE.txt OpenCC-NOTICE.txt; do
+    cmp "$repo_root/Sources/Cue/Resources/$resource" "$staged_app/Contents/Resources/$resource" \
+        || fail "Missing or changed Chinese conversion resource: $resource."
+done
 # Keep Sparkle's signed framework and helpers intact; sign only our outer bundle.
 sparkle_framework="$build_directory/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
 diff --no-dereference -qr "$sparkle_framework" "$staged_app/Contents/Frameworks/Sparkle.framework"

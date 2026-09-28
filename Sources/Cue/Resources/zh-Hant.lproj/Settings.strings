@@ -34,3 +34,7 @@
 "startup.unavailable" = "macOS 找不到 Cue 的登入項目。請開啟已安裝的 Cue 後再試一次。";
 "startup.unknown" = "macOS 無法確認 Cue 的登入狀態。請在系統設定中檢查登入項目。";
 "startup.error" = "無法更新登入時啟動設定：%@";
+"network.heading" = "網路";
+"network.allow" = "允許使用網路";
+"network.help" = "管理 Cue 所有網路功能。簡繁轉換、搜尋與剪貼簿記錄皆可完整離線使用。";
+"network.updates_disabled" = "網路使用已關閉，無法檢查或下載更新。";

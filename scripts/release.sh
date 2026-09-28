@@ -14,6 +14,7 @@ if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]
 fi
 
 source_plist="$repo_root/Resources/Info.plist"
+"$repo_root/scripts/check-build-network-policy.sh" source "$source_plist"
 version="$(plutil -extract CFBundleShortVersionString raw -o - "$source_plist")"
 build_number="$(plutil -extract CFBundleVersion raw -o - "$source_plist")"
 minimum_os="$(plutil -extract LSMinimumSystemVersion raw -o - "$source_plist")"
@@ -111,9 +112,14 @@ xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \
 "$repo_root/scripts/check-settings.sh"
 "$repo_root/scripts/check-login-item.sh"
 "$repo_root/scripts/check-launcher-keyboard.sh"
+"$repo_root/scripts/check-command-icons.sh"
 "$repo_root/scripts/check-adaptive-search.sh"
 "$repo_root/scripts/check-clipboard.sh"
 "$repo_root/scripts/check-system-actions.sh"
+"$repo_root/scripts/check-selected-text.sh"
+"$repo_root/scripts/check-conversion-lifecycle.sh"
+"$repo_root/scripts/check-network-policy.sh"
+"$repo_root/scripts/check-updates.sh"
 
 step "Building the universal Release application..."
 xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \
@@ -126,6 +132,14 @@ mkdir -p "$stage_directory" "$package_directory" "$mount_directory"
 ditto "$build_directory/Build/Products/Release/Cue.app" "$stage_directory/Cue.app"
 ln -s /Applications "$stage_directory/Applications"
 
+# Ordinary Release builds remain offline. Only this final distribution copy gets
+# online defaults; never change the source plist, Xcode output, or user preferences.
+"$repo_root/scripts/check-build-network-policy.sh" source "$stage_directory/Cue.app"
+step "Enabling network defaults for the official release bundle..."
+plutil -replace CueNetworkAccessAllowedByDefault -bool true "$stage_directory/Cue.app/Contents/Info.plist"
+plutil -replace SUEnableAutomaticChecks -bool true "$stage_directory/Cue.app/Contents/Info.plist"
+"$repo_root/scripts/check-build-network-policy.sh" source "$source_plist"
+
 step "Ad hoc signing the complete app bundle..."
 codesign --force --sign - --timestamp=none "$stage_directory/Cue.app"
 
@@ -134,6 +148,7 @@ verify_app() {
     local plist="$app/Contents/Info.plist"
     local executable="$app/Contents/MacOS/Cue"
     local architectures architecture binary_minimum resource
+    "$repo_root/scripts/check-build-network-policy.sh" official "$app"
     [[ -f "$executable" && -x "$executable" ]] || fail "Missing Cue executable in $app."
     [[ "$(plutil -extract CFBundleIdentifier raw -o - "$plist")" == com.yyhsiu.cue ]] \
         || fail "Packaged bundle identifier does not match."
@@ -143,6 +158,10 @@ verify_app() {
         [[ -s "$app/Contents/Resources/$resource" ]] || fail "Missing bundled icon: $resource."
     done
     xcrun swift "$repo_root/scripts/check-localizations.swift" "$app"
+    for resource in ChineseConversion.cuecc OpenCC-LICENSE.txt OpenCC-NOTICE.txt; do
+        cmp "$repo_root/Sources/Cue/Resources/$resource" "$app/Contents/Resources/$resource" \
+            || fail "Missing or changed Chinese conversion resource: $resource."
+    done
     [[ "$(plutil -extract CFBundleShortVersionString raw -o - "$plist")" == "$version" ]] \
         || fail "Packaged version does not match."
     [[ "$(plutil -extract CFBundleVersion raw -o - "$plist")" == "$build_number" ]] \
@@ -234,6 +253,7 @@ step "Writing and checking SHA-256 checksum..."
 )
 
 # mkdir also rejects a release directory created by another process during the build.
+"$repo_root/scripts/check-build-network-policy.sh" source "$source_plist"
 mkdir "$output_directory"
 created_output=1
 mv "$image_path" "$appcast_path" "$package_directory/SHA256SUMS.txt" "$output_directory/"

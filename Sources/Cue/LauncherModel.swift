@@ -20,8 +20,15 @@ struct LauncherText {
     let clipboardHistory = L10n.string("command.clipboardHistory", table: "Launcher", value: "Clipboard History")
     let sleep = L10n.string("command.sleep", table: "Launcher", value: "Sleep")
     let lockScreen = L10n.string("command.lockScreen", table: "Launcher", value: "Lock Screen")
+    let screenOff = L10n.string("command.screenOff", table: "Launcher", value: "Screen Off")
+    let convertToTraditional = L10n.string("command.convertToTraditional", table: "Launcher", value: "Convert to Traditional Chinese")
+    let convertToSimplified = L10n.string("command.convertToSimplified", table: "Launcher", value: "Convert to Simplified Chinese")
+    let traditionalRegion = L10n.string("command.convertToTraditional.detail", table: "Launcher", value: "Taiwan")
+    let simplifiedRegion = L10n.string("command.convertToSimplified.detail", table: "Launcher", value: "Mainland China")
+    let chineseConversionSettings = L10n.string("command.chineseConversionSettings", table: "Launcher", value: "Chinese Conversion Settings")
     let sleepError = L10n.string("command.sleep.error", table: "Launcher", value: "Couldn’t put this Mac to sleep. Please try Sleep in the Apple menu.")
     let lockError = L10n.string("command.lockScreen.error", table: "Launcher", value: "Couldn’t lock this Mac. Please try Lock Screen in the Apple menu.")
+    let screenOffError = L10n.string("command.screenOff.error", table: "Launcher", value: "Couldn’t turn off the display. Please try again.")
     let command = L10n.string("command.detail", table: "Launcher", value: "Command")
     let launchError = L10n.string("launch.error", table: "Launcher", value: "Couldn’t open %@: %@")
 }
@@ -32,10 +39,13 @@ final class LauncherModel {
     private(set) var query = ""
     private(set) var results: [LauncherResult] = []
     private(set) var selectedID: LauncherResult.ID?
+    private(set) var conversionAliases: ChineseConversionAliases
     private(set) var isIndexing = false
     private(set) var indexStatus: String?
     var launchError: String? { didSet { if launchError != oldValue { onChange?() } } }
     var shortcutError: String? { didSet { if shortcutError != oldValue { onChange?() } } }
+    var actionStatus: String? { didSet { if actionStatus != oldValue { onChange?() } } }
+    var onQueryChange: (() -> Void)?
     var onChange: (() -> Void)?
     let icons = AppIconCache()
 
@@ -51,10 +61,12 @@ final class LauncherModel {
     private var isStopping = false
 
     init(applications: [IndexedApplication] = [], usage: SearchUsageSnapshot = .empty,
-         usageStore: SearchUsageStore? = nil) {
+         usageStore: SearchUsageStore? = nil,
+         conversionAliases: ChineseConversionAliases = .defaults) {
         self.applications = applications
         self.usage = usage
         self.usageStore = usageStore
+        self.conversionAliases = conversionAliases
     }
 
     var selectedResult: LauncherResult? { results.first { $0.id == selectedID } }
@@ -85,6 +97,7 @@ final class LauncherModel {
 
     func setQuery(_ value: String) {
         guard value != query else { return }
+        onQueryChange?()
         adoptPendingUsage()
         query = value
         launchError = nil
@@ -97,6 +110,14 @@ final class LauncherModel {
         let limit = min(max(value, 1), LauncherPreferences.maximumVisibleResults)
         guard limit != maxResults else { return }
         maxResults = limit
+        cachedQueries.removeAll(keepingCapacity: true)
+        updateResults(preservingSelection: true)
+        onChange?()
+    }
+
+    func setConversionAliases(_ aliases: ChineseConversionAliases) {
+        guard aliases != conversionAliases else { return }
+        conversionAliases = aliases
         cachedQueries.removeAll(keepingCapacity: true)
         updateResults(preservingSelection: true)
         onChange?()
@@ -150,7 +171,9 @@ final class LauncherModel {
         if let cached = cachedQueries[query] {
             results = cached
         } else {
-            results = Array(LauncherResult.search(applications, query: query, usage: usage).prefix(maxResults))
+            results = Array(LauncherResult.search(
+                applications, query: query, usage: usage, conversionAliases: conversionAliases
+            ).prefix(maxResults))
             if cachedQueries.count >= 64 { cachedQueries.removeAll(keepingCapacity: true) }
             cachedQueries[query] = results
         }

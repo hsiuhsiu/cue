@@ -34,3 +34,7 @@
 "startup.unavailable" = "macOS could not find Cue's login item. Open your installed copy of Cue, then try again.";
 "startup.unknown" = "macOS could not confirm Cue's login status. Check Login Items in System Settings.";
 "startup.error" = "Could not update launch at login: %@";
+"network.heading" = "Network";
+"network.allow" = "Allow network access";
+"network.help" = "Controls all of Cue's network features. Chinese conversion, search, and Clipboard History work fully offline.";
+"network.updates_disabled" = "Network access is off. Update checks and downloads are disabled.";

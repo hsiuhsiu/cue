@@ -51,7 +51,40 @@ struct CheckAdaptiveSearch {
         defer { try? FileManager.default.removeItem(at: folder) }
         let domain = "com.yyhsiu.cue.tests.adaptive.\(UUID())"
         let defaults = UserDefaults(suiteName: domain)!
+        defer { defaults.removePersistentDomain(forName: domain) }
         defaults.register(defaults: ["clipboard.recordingEnabled": false])
+        let conversionPreferences = ChineseConversionPreferences(defaults: defaults)
+        check(conversionPreferences.aliases == .defaults, "New preferences use st/ts conversion aliases")
+        let aliasModel = LauncherModel()
+        aliasModel.setQuery("xy")
+        check(aliasModel.results.isEmpty, "Unknown alias starts with cached empty results")
+        var aliasChanges = 0
+        conversionPreferences.onChange = { aliases in
+            aliasChanges += 1
+            aliasModel.setConversionAliases(aliases)
+        }
+        try conversionPreferences.save(traditional: "xy", simplified: "")
+        check(aliasChanges == 1 && aliasModel.results.first == .convertToTraditional,
+              "Saving aliases invalidates the current query's cached empty results immediately")
+        let savedAliases = ChineseConversionPreferences(defaults: defaults).aliases
+        check(savedAliases.traditional == "xy" && savedAliases.simplified.isEmpty,
+              "Custom and disabled aliases survive a preferences restart")
+        try conversionPreferences.save(traditional: " xy ", simplified: " ")
+        check(aliasChanges == 1, "Saving unchanged normalized display values sends no redundant update")
+        do {
+            try conversionPreferences.save(traditional: "XY", simplified: "ｘｙ")
+            check(false, "Duplicate aliases must be rejected")
+        } catch {
+            check(ChineseConversionPreferences(defaults: defaults).aliases == savedAliases && aliasChanges == 1,
+                  "Rejected aliases must not alter persisted preferences or the live search model")
+        }
+        try conversionPreferences.save(traditional: "z", simplified: "ts")
+        check(aliasModel.results.isEmpty, "Changing an alias also removes its old cached result")
+        aliasModel.setQuery("z")
+        check(aliasModel.selectedResult == .convertToTraditional, "An explicitly saved one-character alias remains usable")
+        defaults.set(["traditional": "ST", "simplified": "ｓｔ"], forKey: "chineseConversion.aliases")
+        check(ChineseConversionPreferences(defaults: defaults).aliases == .defaults,
+              "Invalid saved aliases fall back to usable defaults")
         let board = NSPasteboard(name: NSPasteboard.Name(domain))
         defer { board.releaseGlobally() }
         let clipboard = ClipboardModel(defaults: defaults, fileURL: folder.appendingPathComponent("clipboard.json"),

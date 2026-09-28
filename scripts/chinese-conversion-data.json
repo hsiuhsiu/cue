@@ -1,0 +1,41 @@
+{
+  "upstream": "https://github.com/BYVoid/OpenCC",
+  "version": "1.4.2",
+  "commit": "025f371dc76b598d77384fbdab90c937471844d8",
+  "sourceSHA256": {
+    "LICENSE": "b534e465949558eec2597b04f5092b5e161236a68dfbfd04d547592ac3964308",
+    "data/config/s2twp.json": "681dd1ff5f3a1efe93a6f56006ee7f58f767fa0366fd3a2ec6165c983e39415d",
+    "data/config/tw2sp.json": "f8cf900c1b456a7d2e8477f5bf146814071d28ad64ef37fbc0ae757930c167d5",
+    "data/dictionary/CJK_Compatibility_Ideographs.txt": "663cc10b7de7c7cee3ff9df1ee963977d6c26c00b23f8fe670fab481283ed4f9",
+    "data/dictionary/STCharacters.txt": "a0ca1601c70648cf48b33c3c6210ccbecc5c7eead4b4c3daf76587ba2c03582b",
+    "data/dictionary/STPhrases.txt": "f6eab5e5c6dd7640597878d3dfc6599ee1279d2bc91561eadd8e114194e2925a",
+    "data/dictionary/TSCharacters.txt": "737c21c66f55a419dd6956cb3089476cdefc5a36877452631617696df1e5d925",
+    "data/dictionary/TSPhrases.txt": "362fa1b9a7d6edd04b462a32e12c9fef3adae822ab1dee9c83561cc37c06cb1f",
+    "data/dictionary/TWPhrases.txt": "bcb435b744ee3e522beb9b18fcc5486a36ed4763c6aa642ce18112fb5d604e31",
+    "data/dictionary/TWPhrasesRev.txt": "2c13969308cf4b9216cfb0145cefb9da96c5d0329a393850c2a63b341caaf4bd",
+    "data/dictionary/TWVariants.txt": "e187278e119c427ca561180ac5da5b20e9f8681190458f35c327ce499e95a6a5",
+    "data/dictionary/TWVariantsPhrases.txt": "36df033675a2e9152927fa8419f0732a061cb4909c5060f25a5cfc9b08ffff06",
+    "data/dictionary/TWVariantsRevPhrases.txt": "5ebfb4bdc938c2b14e01ace378988d5d3dc12462b3496ef1d424951ccd371256",
+    "generated/STPhrases_GeneratedFromRegionalPhrases.txt": "9ab40618a9b162cca6dae9ec6767a8c4669017a20b2d6da5f94b7a7f99d09170",
+    "generated/TWVariantsRev.txt": "ab059484c60f0983a8c841cd1edb622db883bf7627a872c92e29f70ec9ecd2de"
+  },
+  "artifactSHA256": "b21b83f6b708207b2ee15408284311b3be6ee9f6e09d8b8004ebc6057397eff3",
+  "artifactBytes": 3178020,
+  "nodes": 104916,
+  "edges": 104905,
+  "valueScalars": 164947,
+  "dictionaryEntries": {
+    "CJK_Compatibility_Ideographs": 1002,
+    "STCharacters": 4012,
+    "STPhrases": 49238,
+    "STPhrases_GeneratedFromRegionalPhrases": 556,
+    "TSCharacters": 4148,
+    "TSPhrases": 477,
+    "TWPhrases": 818,
+    "TWPhrasesRev": 810,
+    "TWVariants": 41,
+    "TWVariantsPhrases": 12,
+    "TWVariantsRev": 41,
+    "TWVariantsRevPhrases": 1128
+  }
+}

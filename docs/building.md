@@ -23,6 +23,12 @@ Cue lives in the menu bar, with no Dock icon. Press **Option+Space** to open it.
 
 The installer refuses to replace a running Cue; quit normally so pending clipboard saves finish. It verifies a staged copy before replacing the app and keeps the previous app until installation succeeds, restoring it if verification fails. Existing settings and clipboard history are outside the app bundle and are not modified by installation.
 
+### Network defaults
+
+Source builds default to **network access off** and **automatic update checks off**, including SwiftPM, Xcode Debug/Release, and the build/install scripts. Missing build metadata also means off. Official release DMGs default to on. An explicit choice made in **Settings → Network → Allow network access** is saved locally and overrides either build default, including after replacement or reinstallation.
+
+When network access is off, manual checks, automatic checks, and update downloads are disabled. The automatic-check toggle displays off and is disabled, while its separate preference is remembered for when access is allowed again. Chinese conversion, including regional vocabulary, remains fully offline with the same bundled dictionaries; there is no first-use download. Cloning and the first build's Sparkle fetch are developer-tool network operations, separate from the running app's setting. See [network behavior and scope](network-policy.md).
+
 ### Updating your own build
 
 Quit Cue, then run this from the same repository:
@@ -35,7 +41,9 @@ open "$HOME/Applications/Cue.app"
 
 Use the same install path on each update so the login item continues to refer to the installed app. Its status comes from macOS; if approval is requested after an update, follow the message in Cue's Settings. If you have edited source files, resolve any Git conflicts before building.
 
-Source builds retain the standard GitHub update checker. To keep using only your own builds, turn off **Settings → Updates → Automatically check for updates** and use the commands above. An update offered by Cue installs the published GitHub binary, which replaces local code changes; it does not pull or compile your repository. Cue never installs an update without your action.
+Source builds include the GitHub updater but leave networking off by default. Use the commands above to keep running your own builds. If you explicitly allow network access, you can check manually and choose whether to enable automatic checks. An update offered by Cue installs the published GitHub binary, which replaces local code changes; it does not pull or compile your repository. Cue never installs an update without your action.
+
+Rebuilding or updating an ad-hoc signed app can invalidate its previous Accessibility permission. If Chinese conversion still requests permission while Cue's switch is enabled, [remove its old permission entry and add the currently installed copy](chinese-conversion.md#permission-still-unavailable-after-rebuilding-or-updating).
 
 ### Other build options
 
@@ -83,6 +91,12 @@ Cue 會出現在選單列，不會有 Dock 圖示；按 **Option+Space** 即可�
 
 安裝程式不會取代仍在執行的 Cue；請正常結束，讓尚未完成的剪貼簿儲存作業結束。它會先驗證暫存的新 App，再取代原版本；完成前保留舊 App，若驗證失敗會還原。設定與剪貼簿記錄位於 App 外，安裝過程不會修改這些資料。
 
+### 網路預設值
+
+原始碼建置預設**關閉網路存取**與**自動檢查更新**，包含 SwiftPM、Xcode Debug／Release 及建置／安裝腳本；缺少建置資料也視為關閉。正式發布的 DMG 預設開啟。在**設定 → 網路 → 允許使用網路**明確選擇後，會儲存在本機並優先於版本預設值，替換 App 或重新安裝也會保留。
+
+關閉網路時，手動檢查、自動檢查及更新下載都會停用。自動檢查開關顯示關閉且無法操作，但會記住原本偏好，重新允許網路後可恢復。簡繁轉換與地區用詞規則維持完整離線功能，使用相同內附詞庫，首次使用不需下載。取得儲存庫與首次建置下載 Sparkle 屬於開發工具的連線，與執行中 App 的設定分開。詳見[網路行為與適用範圍](network-policy.md)。
+
 ### 更新自己建置的版本
 
 先結束 Cue，再於原本的儲存庫目錄執行：
@@ -95,7 +109,9 @@ open "$HOME/Applications/Cue.app"
 
 每次使用相同安裝位置，讓登入項目持續指向已安裝的 App。登入狀態由 macOS 管理；若更新後需要重新允許，請依 Cue 設定中的提示操作。如果你修改過原始碼，請先處理 Git 提示的衝突，再建置。
 
-自行建置的版本仍保留 GitHub 更新檢查。若只想使用自己的版本，請關閉 **設定 → 更新 → 自動檢查更新**，並用上方指令更新。從 Cue 內安裝更新會換成 GitHub 上已發布的 App，取代本機程式碼修改；它不會替你的儲存庫執行更新或編譯。Cue 不會在未經你操作時自動安裝更新。
+自行建置的版本包含 GitHub 更新功能，但預設關閉網路；若只想使用自己的版本，請用上方指令更新。若明確允許網路，可手動檢查，也可自行選擇開啟自動檢查。從 Cue 內安裝更新會換成 GitHub 上已發布的 App，取代本機程式碼修改；它不會替你的儲存庫執行更新或編譯。Cue 不會在未經你操作時自動安裝更新。
+
+重新建置或更新使用 ad-hoc 簽章的 App，可能讓原先的輔助使用授權失效。若 Cue 的權限開關已開啟，簡繁轉換仍要求授權，請[移除舊權限項目，再加入目前已安裝的那份 App](chinese-conversion.md#重新建置或更新後仍顯示未取得權限)。
 
 ### 其他選項
 
