@@ -47,3 +47,9 @@
 "search.openingBrowser" = "Opening browser…";
 "search.actions" = "Google search · Esc to return · ⌘, for search settings";
 "search.choices" = "Choose a search browser (⌘K) · Search settings (⌘,)";
+
+/* Inline calculator */
+"calculator.copy" = "Copy result ↵";
+"calculator.copying" = "Copying result…";
+"calculator.copyError" = "Couldn’t copy the result. Please try again.";
+"calculator.accessDenied" = "Clipboard access is blocked. Allow Cue in System Settings, then try again.";

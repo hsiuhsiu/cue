@@ -296,6 +296,11 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         cell.toolTip = nil
         cell.preferredDetailWidth = result.isWebSearch ? 140 : 86
         switch result {
+        case .calculation(let calculation):
+            cell.title.stringValue = (calculation.isApproximate ? "≈ " : "= ") + calculation.value
+            cell.detail.stringValue = text.calculationCopy
+            cell.preferredDetailWidth = 100
+            cell.toolTip = cell.title.stringValue
         case .application(let application):
             cell.title.stringValue = application.name
             cell.detail.stringValue = ""

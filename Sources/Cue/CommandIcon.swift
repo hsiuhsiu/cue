@@ -6,11 +6,12 @@ import CueCore
 enum CommandIcon: CaseIterable, Sendable {
     case updateIndex, clipboardHistory, sleep, lockScreen, screenOff
     case convertToTraditional, convertToSimplified, chineseConversionSettings
-    case googleSearch, webSearchSettings, cleanLink, emojiSearch
+    case googleSearch, webSearchSettings, cleanLink, emojiSearch, calculator
 
     init?(_ result: LauncherResult) {
         switch result {
         case .application: return nil
+        case .calculation: self = .calculator
         case .cleanLink: self = .cleanLink
         case .emojiSearch: self = .emojiSearch
         case .googleSearch, .googleSearchIn: self = .googleSearch
@@ -28,6 +29,7 @@ enum CommandIcon: CaseIterable, Sendable {
 
     var resultID: String {
         switch self {
+        case .calculator: LauncherResult.calculationID
         case .cleanLink: LauncherResult.cleanLink.id
         case .emojiSearch: LauncherResult.emojiSearch.id
         case .googleSearch: LauncherResult.googleSearch.id
@@ -130,6 +132,14 @@ enum CommandIcon: CaseIterable, Sendable {
         }
 
         switch self {
+        case .calculator:
+            rounded(CGRect(x: 7, y: 5, width: 14, height: 18), radius: 2)
+            rounded(CGRect(x: 10, y: 16, width: 8, height: 4), radius: 0.5)
+            for x: CGFloat in [10.5, 14, 17.5] {
+                for y: CGFloat in [9, 12.5] {
+                    c.fillEllipse(in: CGRect(x: x - 0.7, y: y - 0.7, width: 1.4, height: 1.4))
+                }
+            }
         case .webSearchSettings:
             c.strokeEllipse(in: CGRect(x: 5.5, y: 12, width: 10, height: 10))
             line([CGPoint(x: 14, y: 13.5), CGPoint(x: 17, y: 10.5)])

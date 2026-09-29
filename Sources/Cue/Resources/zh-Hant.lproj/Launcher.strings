@@ -47,3 +47,9 @@
 "search.openingBrowser" = "正在開啟瀏覽器…";
 "search.actions" = "Google 搜尋 · Esc 返回 · ⌘, 搜尋設定";
 "search.choices" = "選擇搜尋瀏覽器（⌘K）· 搜尋設定（⌘,）";
+
+/* Inline calculator */
+"calculator.copy" = "拷貝結果 ↵";
+"calculator.copying" = "正在拷貝結果⋯";
+"calculator.copyError" = "無法拷貝結果，請再試一次。";
+"calculator.accessDenied" = "剪貼簿存取已遭封鎖，請在系統設定中允許 Cue 後再試一次。";

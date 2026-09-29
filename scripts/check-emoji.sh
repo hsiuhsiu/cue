@@ -36,6 +36,7 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/EmojiModel.swift" \
     "$repo_root/Sources/Cue/EmojiView.swift" \
     "$repo_root/Sources/Cue/EmojiGlyphCache.swift" \
+    "$repo_root/Sources/Cue/CalculatorCopyService.swift" \
     "$repo_root/Sources/Cue/LauncherPanelController.swift" \
     "$repo_root/Sources/Cue/NetworkPolicy.swift" \
     "$repo_root/scripts/check-emoji.swift" \

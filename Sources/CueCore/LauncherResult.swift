@@ -14,6 +14,10 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
     case webSearchSettings
     case cleanLink
     case emojiSearch
+    case calculation(CalculatorResult)
+
+    /// Keep expressions and numeric results out of identifiers and usage history.
+    public static let calculationID = "action:calculate"
 
     public var id: String {
         switch self {
@@ -31,6 +35,7 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         case .webSearchSettings: "command:web-search-settings"
         case .cleanLink: "command:clean-link"
         case .emojiSearch: "command:emoji-search"
+        case .calculation: Self.calculationID
         }
     }
 
@@ -50,6 +55,7 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         case .webSearchSettings: "Google Search Settings"
         case .cleanLink: "Clean Link"
         case .emojiSearch: "Emoji Search"
+        case .calculation(let result): result.value
         }
     }
 
@@ -133,6 +139,9 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         conversionAliases: ChineseConversionAliases = .defaults,
         includeGoogleFallback: Bool = false
     ) -> [LauncherResult] {
+        // The calculator rejects ordinary text before parsing or allocating. Use
+        // the original expression: search normalization is not math normalization.
+        let calculation = Calculator.evaluate(query).map(Self.calculation)
         let normalizedQuery = SearchEngine.normalize(query)
         guard !normalizedQuery.isEmpty else {
             // Folding may erase a non-whitespace character (for example a lone
@@ -190,7 +199,7 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
             commands.removeAll { $0 == exactAlias }
             commands.insert(exactAlias, at: 0)
         }
-        if commands.isEmpty && applications.isEmpty && includeGoogleFallback { return [.googleSearch] }
-        return commands + applications
+        if calculation == nil && commands.isEmpty && applications.isEmpty && includeGoogleFallback { return [.googleSearch] }
+        return calculation.map { [$0] + commands + applications } ?? (commands + applications)
     }
 }

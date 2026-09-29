@@ -46,6 +46,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private var linkCleaningTask: Task<Void, Never>?
     private var linkCleaningRequest = 0
     private var linkCleaningStatus: String?
+    private let copyCalculatedValue: @Sendable (String) async throws -> Void
+    private var calculationCopyTask: Task<Void, Never>?
+    private var calculationCopyRequest = 0
     private let selectedText: any SelectedTextAccessing
     private let convertText: @Sendable (String, ChineseConversionTarget) async throws -> String
     private let frontmostProcess: @MainActor () -> Int32?
@@ -100,6 +103,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
              NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0)
          },
          linkCleaner: (any LinkCleaning)? = nil,
+         copyCalculation: (@Sendable (String) async throws -> Void)? = nil,
          selectedText: (any SelectedTextAccessing)? = nil,
          convertText: @escaping @Sendable (String, ChineseConversionTarget) async throws -> String = { text, target in
              try await ChineseConversionEngine.shared.convert(text, to: target)
@@ -117,6 +121,11 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         self.webSearchPreferences = webSearchPreferences ?? WebSearchPreferences()
         self.resolveBrowser = resolveBrowser
         self.linkCleaner = linkCleaner ?? LinkCleaningService()
+        if let copyCalculation { self.copyCalculatedValue = copyCalculation }
+        else {
+            let writer = CalculatorCopyService()
+            self.copyCalculatedValue = { try await writer.copy($0) }
+        }
         self.selectedText = selectedText ?? SelectedTextService(
             beforePaste: { await clipboard.beginTransientClipboardUse() },
             afterPaste: { await clipboard.endTransientClipboardUse() }
@@ -164,7 +173,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             self?.cancelConversion()
             self?.cancelWebSearch()
             self?.cancelLinkCleaning()
+            self?.cancelCalculationCopy()
         }
+        model.onSelectionChange = { [weak self] in self?.cancelCalculationCopy() }
         refreshWebSearchPreferences()
         self.webSearchPreferences.onChange = { [weak self] in
             self?.cancelWebSearch()
@@ -235,6 +246,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     /// Establish an invocation independently of window presentation. This only
     /// samples the source PID; accessibility and conversion stay deferred.
     func prepareInvocation(resetQuery: Bool = true) {
+        cancelCalculationCopy()
         emoji.cancelPendingCopy()
         cancelLinkCleaning()
         model.icons.refreshBrowserIcons()
@@ -267,6 +279,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         let returnToSource = returnFocus && panel.isVisible
             && frontmostProcess() == ProcessInfo.processInfo.processIdentifier
         let source = sourceProcessID
+        cancelCalculationCopy()
         cancelWebSearch()
         cancelLinkCleaning()
         if shouldCancel { cancelConversion() }
@@ -327,6 +340,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     func windowDidResignKey(_ notification: Notification) {
         guard !isDismissing, panel.isVisible else { return }
+        cancelCalculationCopy()
         cancelLinkCleaning()
         cancelWebSearch()
         cancelConversion()
@@ -337,10 +351,13 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     private func runSelected() {
         guard let result = model.selectedResult else { return }
+        if result.id != LauncherResult.calculationID { cancelCalculationCopy() }
         if result != .cleanLink { cancelLinkCleaning() }
         if !result.isWebSearch { cancelWebSearch() }
         if result != .convertToTraditional && result != .convertToSimplified { cancelConversion() }
         switch result {
+        case .calculation(let calculation):
+            copyCalculation(calculation)
         case .googleSearch:
             searchGoogle()
         case .googleSearchIn(let browser):
@@ -390,6 +407,44 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         linkCleaningTask = nil
         if let linkCleaningStatus, model.actionStatus == linkCleaningStatus { model.actionStatus = nil }
         linkCleaningStatus = nil
+    }
+
+    private func cancelCalculationCopy() {
+        calculationCopyRequest += 1
+        calculationCopyTask?.cancel()
+        calculationCopyTask = nil
+        if model.actionStatus == LauncherText.shared.calculationCopying { model.actionStatus = nil }
+    }
+
+    private func copyCalculation(_ calculation: CalculatorResult) {
+        guard calculationCopyTask == nil else { return }
+        calculationCopyRequest += 1
+        let request = calculationCopyRequest
+        let requestInvocation = invocation
+        let query = model.query
+        model.launchError = nil
+        model.actionStatus = LauncherText.shared.calculationCopying
+        calculationCopyTask = Task { [weak self, copyCalculatedValue] in
+            do {
+                try Task.checkCancellation()
+                try await copyCalculatedValue(calculation.value)
+                try Task.checkCancellation()
+                guard let self, self.calculationCopyRequest == request,
+                      self.invocation == requestInvocation, self.model.query == query,
+                      self.model.selectedResult == .calculation(calculation) else { return }
+                self.calculationCopyTask = nil
+                self.model.actionStatus = nil
+                // Neither the expression nor its result is a learnable command.
+                self.dismiss()
+            } catch {
+                guard !Task.isCancelled, let self, self.calculationCopyRequest == request,
+                      self.invocation == requestInvocation else { return }
+                self.calculationCopyTask = nil
+                self.model.actionStatus = nil
+                self.model.launchError = (error as? CalculatorCopyService.Failure) == .denied
+                    ? LauncherText.shared.calculationAccessDenied : LauncherText.shared.calculationCopyError
+            }
+        }
     }
 
     private func setLinkCleaningStatus(_ status: String?) {
@@ -447,6 +502,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     }
 
     private func searchGoogle(in browser: WebSearchBrowser? = nil) {
+        cancelCalculationCopy()
         cancelLinkCleaning()
         let query = model.query
         guard !query.allSatisfy(\.isWhitespace), webSearchTask == nil else { return }
@@ -501,6 +557,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     }
 
     private func openContextSettings() {
+        cancelCalculationCopy()
         switch model.selectedResult {
         case .googleSearch, .googleSearchIn, .webSearchSettings:
             dismiss(returnFocus: false)

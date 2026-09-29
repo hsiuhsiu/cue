@@ -20,6 +20,7 @@ struct CheckCommandIcons {
         (.webSearchSettings, .webSearchSettings, "Search settings"),
         (.cleanLink, .cleanLink, "Clean link"),
         (.emojiSearch, .emojiSearch, "Emoji search"),
+        (.calculator, .calculation(Calculator.evaluate("1+1")!), "Calculator"),
     ]
 
     @MainActor

@@ -3,6 +3,33 @@ import XCTest
 import CueCore
 
 final class LauncherResultTests: XCTestCase {
+    func testCalculatorResultPrecedesLocalMatchesWithoutGoogleFallback() throws {
+        let expression = "2+3*4"
+        let result = try XCTUnwrap(Calculator.evaluate(expression))
+        let applications = [app(expression), app("Calculator")]
+        XCTAssertEqual(LauncherResult.search(applications, query: expression, includeGoogleFallback: true),
+                       [.calculation(result), .application(applications[0])])
+        XCTAssertEqual(LauncherResult.search([], query: expression, includeGoogleFallback: true), [.calculation(result)])
+        XCTAssertEqual(LauncherResult.search([], query: expression, includeGoogleFallback: false), [.calculation(result)])
+        XCTAssertEqual(LauncherResult.calculation(result).id, LauncherResult.calculationID)
+        XCTAssertEqual(LauncherResult.calculation(result).name, "14")
+        XCTAssertFalse(LauncherResult.calculation(result).isWebSearch)
+    }
+
+    func testCalculatorLeavesOrdinaryAndIncompleteSearchesAlone() throws {
+        let applications = [app("1Password"), app("123"), app("Calendar")]
+        for (query, index) in [("1Password", 0), ("123", 1), ("Calendar", 2)] {
+            XCTAssertEqual(LauncherResult.search(applications, query: query), [.application(applications[index])])
+        }
+        for query in ["2+", "(2+3", "1/0", "123 invalid", "-2+3"] {
+            XCTAssertEqual(LauncherResult.search([], query: query, includeGoogleFallback: true), [.googleSearch], query)
+        }
+        let first = try XCTUnwrap(Calculator.evaluate("1+1"))
+        let second = try XCTUnwrap(Calculator.evaluate("1+2"))
+        XCTAssertEqual(LauncherResult.calculation(first).id, LauncherResult.calculation(second).id)
+        XCTAssertNotEqual(LauncherResult.calculation(first), LauncherResult.calculation(second))
+    }
+
     private func app(_ name: String, id: String? = nil) -> IndexedApplication {
         IndexedApplication(
             id: id,

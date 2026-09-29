@@ -30,6 +30,10 @@ struct LauncherText {
     let updateIndex = L10n.string("command.updateIndex", table: "Launcher", value: "Update App Index")
     let cleanLink = L10n.string("command.cleanLink", table: "Launcher", value: "Clean Link")
     let emojiSearch = L10n.string("command.emojiSearch", table: "Launcher", value: "Emoji Search")
+    let calculationCopy = L10n.string("calculator.copy", table: "Launcher", value: "Copy result ↵")
+    let calculationCopying = L10n.string("calculator.copying", table: "Launcher", value: "Copying result…")
+    let calculationCopyError = L10n.string("calculator.copyError", table: "Launcher", value: "Couldn’t copy the result. Please try again.")
+    let calculationAccessDenied = L10n.string("calculator.accessDenied", table: "Launcher", value: "Clipboard access is blocked. Allow Cue in System Settings, then try again.")
     let cleanLinkDetail = L10n.string("command.cleanLink.detail", table: "Launcher", value: "Clipboard")
     let cleaningLink = L10n.string("link.cleaning", table: "Launcher", value: "Cleaning clipboard link…")
     let linkCleaned = L10n.string("link.cleaned", table: "Launcher", value: "Removed %ld tracking parameters. Clean link copied.")
@@ -72,6 +76,7 @@ final class LauncherModel {
     var shortcutError: String? { didSet { if shortcutError != oldValue { onChange?() } } }
     var actionStatus: String? { didSet { if actionStatus != oldValue { onChange?() } } }
     var onQueryChange: (() -> Void)?
+    var onSelectionChange: (() -> Void)?
     var onChange: (() -> Void)?
     let icons: AppIconCache
 
@@ -116,8 +121,11 @@ final class LauncherModel {
     }
 
     func recordSuccessfulAction(resultID: String, query: String, at date: Date = Date()) {
-        // Arbitrary web queries have no ranking benefit and must not enter usage history.
-        guard !isStopping, !resultID.hasPrefix(LauncherResult.googleSearch.id) else { return }
+        // Expressions stay private even when the user chooses a matching app or
+        // command below the answer. This check runs only after an explicit action.
+        guard !isStopping, !resultID.hasPrefix(LauncherResult.googleSearch.id),
+              resultID != LauncherResult.calculationID,
+              Calculator.evaluate(query) == nil else { return }
         enqueueUsage { store in await store.record(resultID: resultID, query: query, at: date) }
     }
 
@@ -222,6 +230,7 @@ final class LauncherModel {
 
     func select(_ id: LauncherResult.ID?) {
         guard selectedID != id else { return }
+        onSelectionChange?()
         selectedID = id
         onChange?()
     }
