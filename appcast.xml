@@ -4,46 +4,56 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>Cue</title>
         <item>
-            <title>0.7.0</title>
-            <pubDate>Mon, 28 Sep 2026 21:20:19 -0700</pubDate>
-            <sparkle:version>8</sparkle:version>
-            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+            <title>0.8.0</title>
+            <pubDate>Tue, 29 Sep 2026 22:00:56 -0700</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# Cue 0.7.0 — Instant calculator / 即時計算
+            <description sparkle:format="markdown"><![CDATA[# Cue 0.8.0 — Unit and currency conversion / 單位與幣值換算
 
 ## English
 
-Cue 0.7.0 adds an offline calculator directly to the launcher, including powers.
+Cue 0.8.0 adds inline unit and currency conversion and fixes learned app choices
+that could remain behind a matching built-in command.
 
-- **Answers while typing:** enter `1+2*3`, `(12+8)/4`, or `2^10`. A complete
-  supported expression shows its answer first, with matching apps and commands
-  below it and at most nine results in total. There is no separate calculator
-  page or setting.
-- **Copy with the keyboard:** select the answer and press **Return**, or use
-  **Command+1**, to copy only its numeric value and close Cue. Paste with
-  **Command+V** in the destination app. Typing alone does not change the
-  clipboard, and Cue does not paste automatically.
-- **Powers and clear precision:** use `^` or adjacent `**`, including `2^-3`
-  and `9^0.5`. Powers associate right to left: `2^3^2` is `512`. Parentheses
-  distinguish `(-2)^2` (`4`) from `(-2^2)` (`-4`). Exact answers show **`=`**;
-  approximate answers show **`≈`**, with up to 16 significant digits.
-  Fractional powers always show `≈`.
-- **Local and bounded:** decimals, parentheses, scientific notation and basic
-  arithmetic are supported; expressions must start with a digit or `(` and
-  contain an operator. A plain number remains an ordinary search. Incomplete,
-  undefined or out-of-range expressions produce no calculator answer. Inputs
-  are limited to 512 UTF-8 bytes, 256 tokens and 32 nested levels; exponents
-  are limited to −10,000 through 10,000. Calculation needs no network or extra
-  permission and works with both Cue networking and browser search disabled.
-  Expressions and answers are excluded from search-learning history; copied
-  answers follow Clipboard History's normal recording settings.
+- **Conversions while typing:** enter `10m`, `5坪`, `25C`, or `100USD` to see
+  up to three common conversions. Specify one target with `10m to ft` or
+  `100USD to TWD`. Results share the launcher's nine-row limit with app and
+  command matches; there is no separate conversion page or setting.
+- **Offline physical units:** length, area, mass, volume, temperature, time and
+  speed are supported, including Taiwan's **坪**. Area uses the exact ratio
+  `1 m² = 0.3025 坪`. English names and Traditional Chinese aliases are accepted.
+  Select a result and press **Return**, or use its **Command+number**, to copy
+  only the numeric value and close Cue. Paste with **Command+V** in the
+  destination app; Cue does not paste automatically.
+- **Daily currency reference rates:** currency conversion requires **Settings
+  → Network → Allow Cue to access the network**. ExchangeRate-API provides a
+  daily table without an API key; Cue displays its date and source. These are
+  indicative rates, not live market prices or bank quotes. Loading and retry
+  states appear without blocking typing. Fresh rates are cached; expired rates
+  are not used as current answers. Turning network access off cancels pending
+  rate work and hides currency answers, including cached ones. Ordinary units
+  continue working offline.
+- **Private conversion inputs:** Cue downloads a fixed USD-based table and
+  converts locally; amounts, entered text and requested currencies are not sent
+  to the provider. Normal connection information, including IP address, still
+  reaches the provider. Conversion inputs and results are excluded from search
+  learning. Typing alone does not change the clipboard; values explicitly
+  copied follow Clipboard History's normal recording settings.
+- **Learned app choices can move ahead:** a successful choice for the same
+  query can now promote an app above an incidental built-in command match.
+  For example, choosing iTerm2 for `it` can move it ahead of the Traditional
+  Chinese conversion command on the next invocation. Existing learning is
+  preserved; explicitly configured exact command aliases still rank first.
+  Ranking continues to use prepared in-memory scores, and background learning
+  does not move the rows currently being selected.
 
-See the [calculator guide](https://github.com/hsiuhsiu/cue/blob/v0.7.0/docs/calculator.md)
-for syntax, limits and interaction with app and Google search.
+See the [unit and currency guide](https://github.com/hsiuhsiu/cue/blob/v0.8.0/docs/unit-conversion.md)
+and [adaptive search guide](https://github.com/hsiuhsiu/cue/blob/v0.8.0/docs/performance-adaptive-search.md).
 
 ### Install or upgrade
 
-[Download Cue 0.7.0](https://github.com/hsiuhsiu/cue/releases/download/v0.7.0/Cue-0.7.0-universal.dmg) · [Checksums](https://github.com/hsiuhsiu/cue/releases/download/v0.7.0/SHA256SUMS.txt)
+[Download Cue 0.8.0](https://github.com/hsiuhsiu/cue/releases/download/v0.8.0/Cue-0.8.0-universal.dmg) · [Checksums](https://github.com/hsiuhsiu/cue/releases/download/v0.8.0/SHA256SUMS.txt)
 
 With Cue network access enabled, choose **Check for Updates…**, then **Install
 and Relaunch**. Or quit Cue, open the DMG, and drag **Cue.app** into
@@ -67,19 +77,27 @@ downloads the pinned Sparkle dependency. To update that source build, quit Cue,
 run `git pull --ff-only` and `./scripts/install-app.sh` in the same repository,
 then reopen the installed app. Source builds default to Cue-owned networking
 and automatic update checks **off**; official DMGs default to **on**. Explicit
-saved choices are preserved. Browser search has its own enabled-by-default
-switch in both builds. Installing an update offered by Cue replaces a source
-build with the published app. See the
-[source guide](https://github.com/hsiuhsiu/cue/blob/v0.7.0/docs/building.md) and
-[network policy](https://github.com/hsiuhsiu/cue/blob/v0.7.0/docs/network-policy.md).
+saved choices are preserved. Currency conversion follows that network choice.
+Browser search has its own enabled-by-default switch in both builds. Installing
+an update offered by Cue replaces a source build with the published app. See the
+[source guide](https://github.com/hsiuhsiu/cue/blob/v0.8.0/docs/building.md) and
+[network policy](https://github.com/hsiuhsiu/cue/blob/v0.8.0/docs/network-policy.md).
 
 ### Installation and testing limits
 
 The app is ad hoc-signed, **without Developer ID signing or Apple notarization**.
 If macOS blocks first launch, follow the app-specific
-[installation instructions](https://github.com/hsiuhsiu/cue/blob/v0.7.0/docs/installation.md).
+[installation instructions](https://github.com/hsiuhsiu/cue/blob/v0.8.0/docs/installation.md).
 Chinese text replacement still needs Accessibility permission for the installed
 copy; rebuilding or updating can invalidate an older grant.
+
+Optimized checks cover core conversion logic, native conversion copying,
+currency-service freshness and cancellation, keyboard interaction, and adaptive
+search. Currency service checks use injected transport and isolated storage; a
+separate live check successfully downloaded the provider's fixed USD table. Local
+interface checks confirmed conversions and the learned `it` / iTerm2 ordering.
+These checks do not establish a full public update installation or cross-platform
+runtime compatibility.
 
 The universal app targets **macOS 14+**, with Apple silicon and Intel binaries.
 Runtime verification is on **Apple silicon / macOS 27.0 / Xcode 27**. Intel,
@@ -90,31 +108,37 @@ verified for this release.
 
 ## 正體中文
 
-Cue 0.7.0 將離線計算機直接加入主搜尋，並支援次方。
+Cue 0.8.0 加入主搜尋中的單位與幣值換算，並修正學習後的 App 選擇仍可能
+固定排在符合的內建指令後面的問題。
 
-- **打字即顯示答案：**輸入 `1+2*3`、`(12+8)/4` 或 `2^10`。完整且支援的
-  算式會把答案放在第一列，符合的 App 與指令仍列在下方，合計最多九筆。
-  不需要另外進入計算機頁面，也沒有額外設定。
-- **用鍵盤拷貝：**選取答案後按 **Return**，或直接按 **Command+1**，只拷貝
-  數值並收起 Cue，再到目標 App 按 **Command+V** 貼上。單純打字不會修改
-  剪貼簿，Cue 也不會自動貼上。
-- **次方與明確精度：**可用 `^` 或相鄰的 `**`，包含 `2^-3` 與 `9^0.5`。
-  連續次方由右向左算，`2^3^2` 為 `512`；括號可區分 `(-2)^2`（`4`）與
-  `(-2^2)`（`-4`）。精確答案顯示 **`=`**，近似答案顯示 **`≈`**，最多保留
-  16 位有效數字；小數次方一律標示 `≈`。
-- **離線且限制工作量：**支援小數、括號、科學記號與基本四則運算；算式必須
-  以數字或 `(` 開頭並含運算符號，單純數字仍視為一般搜尋。不完整、未定義
-  或超出範圍時不顯示計算答案。輸入最多 512 個 UTF-8 位元組、256 個語法
-  項目及 32 層巢狀深度，指數限制在 −10,000 到 10,000。計算不需網路或額外
-  權限，Cue 自行連網與瀏覽器搜尋都關閉時仍可使用。算式及答案不會加入
-  搜尋學習記錄；已拷貝的答案依剪貼簿記錄原有設定處理。
+- **打字即顯示換算：**輸入 `10m`、`5坪`、`25C` 或 `100USD`，即可看到最多
+  三種常用換算；用 `10m to ft` 或 `100USD to TWD` 指定一個目標。換算結果
+  與符合的 App、指令共用最多九列的限制，不需另一個換算頁面或額外設定。
+- **一般單位完全離線：**支援長度、面積、質量、體積、溫度、時間與速度，
+  包含台灣的**坪**。面積採用精確比例 `1 平方公尺 = 0.3025 坪`，也接受
+  英文名稱與正體中文別名。選取結果後按 **Return**，或按對應的
+  **Command+數字**，只拷貝數值並收起 Cue；再到目標 App 按 **Command+V**
+  貼上，Cue 不會自動貼入。
+- **每日幣值參考匯率：**幣值換算需要開啟**設定 → 網路 → 允許 Cue 自行
+  連網**。ExchangeRate-API 提供每日匯率表，不需 API 金鑰；Cue 顯示資料
+  日期與來源。這是參考匯率，不是即時行情或銀行報價。載入與重試狀態不會
+  阻擋打字；有效資料會快取，過期匯率不當成目前答案。關閉網路會取消
+  等待中的匯率工作，快取的幣值答案也會隱藏；一般單位仍可離線使用。
+- **換算輸入留在本機：**Cue 下載固定的美元基準匯率表，再於本機換算，
+  不會向服務商送出金額、輸入文字或指定幣別；IP 位址等一般連線資訊仍會
+  傳給服務商。換算輸入與結果不加入搜尋學習。單純打字不會修改剪貼簿，
+  明確拷貝的數值依剪貼簿記錄原有設定處理。
+- **學習後的 App 可往前排：**相同關鍵字的成功選擇，現在能讓 App 超過
+  碰巧符合的內建指令。例如用 `it` 成功開啟 iTerm2 後，下次叫出時可超過
+  正體中文轉換指令。原有學習紀錄會保留；明確設定的完整指令別名仍優先。
+  排序繼續使用記憶體中的分數，背景學習不會讓正在選取的列表突然跳動。
 
-語法、限制及與 App／Google 搜尋的互動方式，詳見
-[計算機說明](https://github.com/hsiuhsiu/cue/blob/v0.7.0/docs/calculator.md)。
+詳見[單位與幣值換算說明](https://github.com/hsiuhsiu/cue/blob/v0.8.0/docs/unit-conversion.md)
+及[搜尋習慣說明](https://github.com/hsiuhsiu/cue/blob/v0.8.0/docs/performance-adaptive-search.md)。
 
 ### 安裝或升級
 
-[下載 Cue 0.7.0](https://github.com/hsiuhsiu/cue/releases/download/v0.7.0/Cue-0.7.0-universal.dmg) · [檢查碼](https://github.com/hsiuhsiu/cue/releases/download/v0.7.0/SHA256SUMS.txt)
+[下載 Cue 0.8.0](https://github.com/hsiuhsiu/cue/releases/download/v0.8.0/Cue-0.8.0-universal.dmg) · [檢查碼](https://github.com/hsiuhsiu/cue/releases/download/v0.8.0/SHA256SUMS.txt)
 
 允許 Cue 使用網路後，選擇**檢查更新⋯**，再依提示安裝並重新啟動（**Install
 and Relaunch**）；或先結束 Cue，開啟 DMG，將 **Cue.app** 拖進**應用程式**取代
@@ -135,19 +159,25 @@ open "$HOME/Applications/Cue.app"
 最佳化 App 會固定安裝至 `~/Applications/Cue.app`。首次建置下載固定版本的
 Sparkle；更新自行建置版時，先結束 Cue，在同一份儲存庫執行 `git pull --ff-only`
 與 `./scripts/install-app.sh`，再重新開啟已安裝的 App。自行建置版預設**關閉**
-Cue 自行連網與自動檢查更新，正式 DMG 預設**開啟**；明確儲存的選擇會保留。
-兩種版本的瀏覽器搜尋皆有獨立、預設開啟的開關。若從 Cue 安裝提供的更新，
-會將自行建置版換成發布版。詳見
-[原始碼指引](https://github.com/hsiuhsiu/cue/blob/v0.7.0/docs/building.md)與
-[網路政策](https://github.com/hsiuhsiu/cue/blob/v0.7.0/docs/network-policy.md)。
+Cue 自行連網與自動檢查更新，正式 DMG 預設**開啟**；明確儲存的選擇會保留，
+幣值換算也遵守該網路選擇。兩種版本的瀏覽器搜尋皆有獨立、預設開啟的開關。
+若從 Cue 安裝提供的更新，會將自行建置版換成發布版。詳見
+[原始碼指引](https://github.com/hsiuhsiu/cue/blob/v0.8.0/docs/building.md)與
+[網路政策](https://github.com/hsiuhsiu/cue/blob/v0.8.0/docs/network-policy.md)。
 
 ### 安裝與驗證限制
 
 App 使用 ad hoc 簽章，**沒有 Developer ID 簽署，也未經 Apple 公證**。若 macOS
 阻擋首次開啟，請依針對 Cue 的
-[安裝說明](https://github.com/hsiuhsiu/cue/blob/v0.7.0/docs/installation.md)操作。
+[安裝說明](https://github.com/hsiuhsiu/cue/blob/v0.8.0/docs/installation.md)操作。
 簡繁文字取代仍需要為目前安裝的 Cue 開啟輔助使用權限；重新建置或更新可能
 使舊授權失效。
+
+最佳化檢查涵蓋核心換算邏輯、原生換算拷貝、匯率資料有效時間與取消行為、
+鍵盤操作及搜尋學習。幣值服務測試使用注入的傳輸與隔離儲存；另一次實際連線
+檢查成功下載服務商固定的美元匯率表。本機介面也確認了換算及 `it`／iTerm2
+學習後的排序。這些檢查不代表完整的公開更新安裝流程或跨平台執行相容性
+已驗證。
 
 通用版目標為 **macOS 14+**，包含 Apple silicon 與 Intel 執行檔。實際執行驗證
 環境為 **Apple silicon／macOS 27.0／Xcode 27**；Intel、其他 macOS 版本、另一台
@@ -155,10 +185,10 @@ Mac 的首次安裝，以及完整的公開更新安裝流程，仍未驗證。�
 替代動作；本次發布尚未實際驗證睡眠、鎖定、關閉顯示器及登出／重開機後啟動
 的完整循環。
 ]]></description>
-            <enclosure url="https://github.com/hsiuhsiu/cue/releases/download/v0.7.0/Cue-0.7.0-universal.dmg" length="5410888" type="application/octet-stream" sparkle:edSignature="XNq9y6WJwEEbrA6GNMvm6jo/UWpf39JEjne1n2BHt5EJRgVZqm0Uadp20kFYrAz0UPGTVPs/vOioXM6W9ia2CA=="></enclosure>
+            <enclosure url="https://github.com/hsiuhsiu/cue/releases/download/v0.8.0/Cue-0.8.0-universal.dmg" length="6365596" type="application/octet-stream" sparkle:edSignature="TxANq80Kk9CCHWLrhCOtSnvsiRLM01uZpzqlLb9IPhI3mPKBH6SemqZ1NhPSPKEjkgZfkoayErs/sTe7eiGpCA=="></enclosure>
         </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: x+hacApWYJFHSsI73BJcaxiEA9Gu2gSQT2nJntmPg2Ahv+kzS7PQ0LQkPy+RluG0RXHf3qAP9NxrWsYuKOxSBA==
-length: 9567
+edSignature: 1pjhNIS+C3HKcz+SR+1HsmM+5ZMolF1BluaNJPcs8DibArNmlQAQ4K4HCH39xUPV314/88GqiKH0YHyewpAKBw==
+length: 12126
 -->
