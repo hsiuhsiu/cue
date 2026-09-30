@@ -83,15 +83,91 @@ final class SearchUsageTests: XCTestCase {
         XCTAssertTrue(LauncherResult.search(applications, query: "unrelated", usage: snapshot).isEmpty)
     }
 
-    func testCommandsLearnWithinTheirExistingGroupWithoutCrowdingSingleLetters() {
+    func testQueryPreferenceCrossesCommandAppBoundaryWithoutCrowdingSingleLetters() {
         let application = app("Computer")
         var usage = SearchUsage()
         usage.record(resultID: LauncherResult.lockScreen.id, query: "computer", at: now)
         record(application, query: "computer", count: 100, at: now, in: &usage)
         let snapshot = usage.snapshot(at: now)
         XCTAssertEqual(LauncherResult.search([application], query: "computer", usage: snapshot),
-                       [.lockScreen, .sleep, .application(application)])
+                       [.application(application), .lockScreen, .sleep])
         XCTAssertEqual(LauncherResult.search([], query: "l", usage: snapshot), [])
+    }
+
+    func testOneITermChoiceOvertakesIncidentalTraditionalConversionMatch() {
+        let application = app("iTerm2")
+        let initial = LauncherResult.search([application], query: "it")
+        XCTAssertEqual(initial, [.convertToTraditional, .application(application)])
+
+        var usage = SearchUsage()
+        record(application, query: "it", at: now, in: &usage)
+        let snapshot = usage.snapshot(at: now)
+        let expected: [LauncherResult] = [.application(application), .convertToTraditional]
+        XCTAssertEqual(LauncherResult.search([application], query: "it", usage: snapshot), expected)
+        XCTAssertEqual(LauncherResult.search([application], query: " \tＩＴ \n", usage: snapshot), expected)
+    }
+
+    func testLearnedCommandCanRegainPriorityWhileOtherCommandsKeepTheirOrder() {
+        let application = app("Screen Utility")
+        var usage = SearchUsage()
+        record(application, query: "screen", count: 2, at: now, in: &usage)
+        usage.record(resultID: LauncherResult.screenOff.id, query: "screen", at: now)
+        XCTAssertEqual(LauncherResult.search([application], query: "screen", usage: usage.snapshot(at: now)),
+                       [.application(application), .screenOff, .lockScreen])
+
+        usage.record(resultID: LauncherResult.screenOff.id, query: "screen", at: now)
+        usage.record(resultID: LauncherResult.screenOff.id, query: "screen", at: now)
+        XCTAssertEqual(LauncherResult.search([application], query: "screen", usage: usage.snapshot(at: now)),
+                       [.screenOff, .application(application), .lockScreen])
+    }
+
+    func testGeneralPopularityDoesNotCrossGroupsWithoutHistoryForThisQuery() {
+        let application = app("Index Helper")
+        var usage = SearchUsage()
+        record(application, query: "index helper", count: 100, at: now, in: &usage)
+        usage.record(resultID: LauncherResult.updateIndex.id, query: "refresh", at: now)
+        XCTAssertEqual(LauncherResult.search([application], query: "index", usage: usage.snapshot(at: now)),
+                       [.updateIndex, .application(application)])
+        XCTAssertEqual(LauncherResult.search([application], query: "index", usage: .empty),
+                       [.updateIndex, .application(application)])
+    }
+
+    func testEqualQueryScoresKeepCommandsFirstDespiteDifferentGeneralPopularity() {
+        let application = app("Index Helper")
+        var usage = SearchUsage()
+        record(application, query: "index helper", count: 100, at: now, in: &usage)
+        record(application, query: "index", at: now, in: &usage)
+        usage.record(resultID: LauncherResult.updateIndex.id, query: "index", at: now)
+        XCTAssertEqual(LauncherResult.search([application], query: "index", usage: usage.snapshot(at: now)),
+                       [.updateIndex, .application(application)])
+    }
+
+    func testCrossGroupLearningPreservesExistingAppTextCategoriesAndCommandOrder() {
+        let applications = [app("Screen"), app("Screen Utility"), app("Manage Screen")]
+        var usage = SearchUsage()
+        record(applications[0], query: "screen", count: 2, at: now, in: &usage)
+        record(applications[1], query: "screen", count: 100, at: now, in: &usage)
+        record(applications[2], query: "screen", count: 200, at: now, in: &usage)
+        usage.record(resultID: LauncherResult.screenOff.id, query: "screen", at: now)
+        let snapshot = usage.snapshot(at: now)
+        let results = LauncherResult.search(applications.reversed(), query: "screen", usage: snapshot)
+        let appResults = results.compactMap { result -> IndexedApplication? in
+            if case .application(let application) = result { return application }
+            return nil
+        }
+        XCTAssertEqual(appResults, applications)
+        XCTAssertEqual(results.filter { $0 == .lockScreen || $0 == .screenOff }, [.screenOff, .lockScreen])
+        XCTAssertEqual(results.first, .application(applications[0]))
+    }
+
+    func testUnmatchedHighQueryScoresCannotIntroduceAnAppOrCommandIntoTheMerge() {
+        let applications = [app("iTerm2"), app("Safari")]
+        var usage = SearchUsage()
+        record(applications[1], query: "it", count: 100, at: now, in: &usage)
+        usage.record(resultID: LauncherResult.lockScreen.id, query: "it", at: now)
+        record(applications[0], query: "it", at: now, in: &usage)
+        XCTAssertEqual(LauncherResult.search(applications, query: "it", usage: usage.snapshot(at: now)),
+                       [.application(applications[0]), .convertToTraditional])
     }
 
     func testIdenticalScoresKeepOriginalStableTies() {

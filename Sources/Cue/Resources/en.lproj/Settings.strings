@@ -36,5 +36,5 @@
 "startup.error" = "Could not update launch at login: %@";
 "network.heading" = "Network";
 "network.allow" = "Allow Cue to access the network";
-"network.help" = "Controls Cue’s own network access, including updates. Manual browser searches are managed separately in Google Search Settings.";
+"network.help" = "Controls Cue’s own network access, including updates and currency rates. Manual browser searches are managed separately in Google Search Settings.";
 "network.updates_disabled" = "Network access is off. Update checks and downloads are disabled.";

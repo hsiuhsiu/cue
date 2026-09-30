@@ -36,5 +36,5 @@
 "startup.error" = "無法更新登入時啟動設定：%@";
 "network.heading" = "網路";
 "network.allow" = "允許 Cue 自行連網";
-"network.help" = "管理 Cue 本身的網路存取，包括更新。手動瀏覽器搜尋可在「Google 搜尋設定」中另外管理。";
+"network.help" = "管理 Cue 本身的網路存取，包括更新與貨幣匯率。手動瀏覽器搜尋可在「Google 搜尋設定」中另外管理。";
 "network.updates_disabled" = "網路使用已關閉，無法檢查或下載更新。";

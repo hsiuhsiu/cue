@@ -1,14 +1,16 @@
 #!/bin/bash
 set -euo pipefail
-
+if [[ "${1:-}" != "--live" || "$#" -ne 1 ]]; then
+    echo 'Usage: ./scripts/check-currency-live.sh --live'
+    echo 'Optional: makes one live request to the fixed public USD rates endpoint, with isolated preferences and no disk cache.'
+    exit 64
+fi
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-check_directory="$(mktemp -d "${TMPDIR:-/tmp}/cue-command-icons.XXXXXX")"
+check_directory="$(mktemp -d "${TMPDIR:-/tmp}/cue-currency-live.XXXXXX")"
 trap 'rm -rf "$check_directory"' EXIT
-
 if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
     export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 fi
-
 xcrun swiftc -swift-version 6 -O -parse-as-library \
     -emit-module -emit-library -module-name CueCore \
     "$repo_root"/Sources/CueCore/*.swift \
@@ -19,16 +21,8 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     -I "$check_directory" -L "$check_directory" -lCueCore \
     -module-cache-path "$check_directory/module-cache" \
     -Xlinker -rpath -Xlinker "$check_directory" \
-    "$repo_root/Sources/Cue/AppIconCache.swift" \
-    "$repo_root/Sources/Cue/CommandIcon.swift" \
-    "$repo_root/Sources/Cue/Localization.swift" \
-    "$repo_root/Sources/Cue/LauncherAppearance.swift" \
-    "$repo_root/Sources/Cue/ResultShortcut.swift" \
-    "$repo_root/Sources/Cue/CurrencyRatesController.swift" \
     "$repo_root/Sources/Cue/NetworkPolicy.swift" \
-    "$repo_root/Sources/Cue/LauncherModel.swift" \
-    "$repo_root/Sources/Cue/LauncherView.swift" \
-    "$repo_root/scripts/check-command-icons.swift" \
-    -o "$check_directory/check-command-icons"
-
-"$check_directory/check-command-icons" "$@"
+    "$repo_root/Sources/Cue/CurrencyRatesController.swift" \
+    "$repo_root/scripts/check-currency-live.swift" \
+    -o "$check_directory/check-currency-live"
+"$check_directory/check-currency-live"

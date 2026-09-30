@@ -84,6 +84,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private let scroll = NSScrollView()
     private let emptyLabel = NSTextField(labelWithString: "")
     private let status = NSTextField(labelWithString: "")
+    private let rateProvider = NSButton(title: "Rates By Exchange Rate API", target: nil, action: nil)
     private let separator = NSBox()
     private var inputLineHeight: CGFloat = 0
     private var displayedResults: [LauncherResult] = []
@@ -96,7 +97,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     override var isFlipped: Bool { true }
 
     var preferredHeight: CGFloat {
-        let statusHeight: CGFloat = status.isHidden ? 0 : 26
+        let statusHeight: CGFloat = status.isHidden && rateProvider.isHidden ? 0 : 26
         guard !isQueryEmpty else { return 56 + statusHeight }
         guard !displayedResults.isEmpty else { return 120 + statusHeight }
         return 64 + CGFloat(displayedResults.count) * 42 + statusHeight
@@ -159,7 +160,13 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         status.font = .systemFont(ofSize: 11)
         status.lineBreakMode = .byTruncatingTail
         status.isHidden = true
-        for view in [searchField, separator, scroll, emptyLabel, status] { addSubview(view) }
+        rateProvider.isBordered = false
+        rateProvider.font = .systemFont(ofSize: 11)
+        rateProvider.contentTintColor = .linkColor
+        rateProvider.target = self
+        rateProvider.action = #selector(openRateProvider)
+        rateProvider.isHidden = true
+        for view in [searchField, separator, scroll, emptyLabel, status, rateProvider] { addSubview(view) }
         model.onChange = { [weak self] in self?.render() }
         model.icons.onLoad = { [weak self] id in self?.updateIcon(id) }
         render()
@@ -223,14 +230,16 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         searchField.frame = NSRect(x: 18, y: (56 - inputLineHeight) / 2,
                                   width: max(0, bounds.width - 36), height: inputLineHeight)
         separator.frame = NSRect(x: 0, y: 56, width: bounds.width, height: 1)
-        let statusHeight: CGFloat = status.isHidden ? 0 : 26
+        let statusHeight: CGFloat = status.isHidden && rateProvider.isHidden ? 0 : 26
         scroll.frame = NSRect(x: 6, y: 60, width: bounds.width - 12,
                               height: max(0, bounds.height - 64 - statusHeight))
         scroll.layoutSubtreeIfNeeded()
         table.tableColumns.first?.width = scroll.contentSize.width
         emptyLabel.frame = NSRect(x: 16, y: 56 + (max(0, bounds.height - 56 - statusHeight) - 24) / 2,
                                   width: bounds.width - 32, height: 24)
-        status.frame = NSRect(x: 18, y: bounds.height - 23, width: max(0, bounds.width - 36), height: 17)
+        let providerWidth: CGFloat = rateProvider.isHidden ? 0 : 190
+        status.frame = NSRect(x: 18, y: bounds.height - 23, width: max(0, bounds.width - 36 - providerWidth), height: 17)
+        rateProvider.frame = NSRect(x: bounds.width - 208, y: bounds.height - 25, width: 190, height: 20)
     }
 
     private func render() {
@@ -261,7 +270,10 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         separator.isHidden = isQueryEmpty
         emptyLabel.stringValue = model.isIndexing ? text.findingApplications : text.noResults
         let error = model.launchError ?? model.shortcutError
-        let message = error ?? model.actionStatus ?? (model.isIndexing ? text.updatingIndex : (isQueryEmpty ? nil : model.indexStatus))
+        let showsRates = visibleResults.contains { if case .conversion(let result) = $0 { return result.isCurrency }; return false }
+        rateProvider.isHidden = !showsRates
+        let message = error ?? model.actionStatus ?? (showsRates ? model.currencyRateDate : nil)
+            ?? (model.isIndexing ? text.updatingIndex : (isQueryEmpty ? nil : model.indexStatus))
             ?? (model.isShowingSearchActions ? text.searchActions : nil)
         status.stringValue = message ?? ""
         status.isHidden = message == nil
@@ -296,6 +308,21 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         cell.toolTip = nil
         cell.preferredDetailWidth = result.isWebSearch ? 140 : 86
         switch result {
+        case .conversion(let conversion):
+            cell.title.stringValue = (conversion.isApproximate ? "≈ " : "= ") + conversion.value + " " + conversion.unitSymbol
+            cell.detail.stringValue = text.calculationCopy
+            cell.preferredDetailWidth = 100
+            cell.toolTip = cell.title.stringValue
+        case .currencyStatus(let state):
+            switch state {
+            case .networkRequired: cell.title.stringValue = text.currencyNetworkRequired
+            case .loading: cell.title.stringValue = text.currencyLoading
+            case .unavailable: cell.title.stringValue = text.currencyUnavailable
+            case .unsupported: cell.title.stringValue = text.currencyUnsupported
+            }
+            cell.title.textColor = .secondaryLabelColor
+            cell.detail.stringValue = state == .unavailable ? text.currencyRetry : (state == .networkRequired ? text.currencyDisabled : "")
+            cell.preferredDetailWidth = 90
         case .calculation(let calculation):
             cell.title.stringValue = (calculation.isApproximate ? "≈ " : "= ") + calculation.value
             cell.detail.stringValue = text.calculationCopy
@@ -350,6 +377,11 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         if result.isWebSearch { cell.icon.image = model.icons.image(forWebSearch: result) }
         else if let command = CommandIcon(result) { cell.icon.image = model.icons.image(for: command) }
         return cell
+    }
+
+    @objc private func openRateProvider() {
+        guard !rateProvider.isHidden, let url = URL(string: "https://www.exchangerate-api.com") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {

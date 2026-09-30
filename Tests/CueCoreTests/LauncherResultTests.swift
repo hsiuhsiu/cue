@@ -257,11 +257,36 @@ final class LauncherResultTests: XCTestCase {
         var usage = SearchUsage()
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         usage.record(resultID: LauncherResult.sleep.id, query: "sleep", at: now)
-        XCTAssertEqual(LauncherResult.search([], query: "sleep", usage: usage.snapshot(at: now), conversionAliases: aliases),
-                       [.convertToTraditional, .sleep])
-        let applications = [app("Quick Note")]
-        XCTAssertEqual(LauncherResult.search(applications, query: "Q", conversionAliases: aliases),
-                       [.convertToSimplified, .application(applications[0])])
+        let applications = [app("Sleep Monitor"), app("Quick Note")]
+        for _ in 0..<100 {
+            usage.record(resultID: LauncherResult.application(applications[0]).id, query: "sleep", at: now)
+            usage.record(resultID: LauncherResult.application(applications[1]).id, query: "q", at: now)
+        }
+        let snapshot = usage.snapshot(at: now)
+        XCTAssertEqual(LauncherResult.search(applications, query: "sleep", usage: snapshot, conversionAliases: aliases),
+                       [.convertToTraditional, .application(applications[0]), .sleep])
+        XCTAssertEqual(LauncherResult.search(applications, query: "Q", usage: snapshot, conversionAliases: aliases),
+                       [.convertToSimplified, .application(applications[1])])
+    }
+
+    func testNumericAnswersRemainAheadOfPinnedAliasesAndLearnedApplications() throws {
+        let aliases = try ChineseConversionAliases(traditional: "2+3", simplified: "5m")
+        let applications = [app("2+3"), app("5m")]
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var usage = SearchUsage()
+        for _ in 0..<100 {
+            usage.record(resultID: LauncherResult.application(applications[0]).id, query: "2+3", at: now)
+            usage.record(resultID: LauncherResult.application(applications[1]).id, query: "5m", at: now)
+        }
+        let snapshot = usage.snapshot(at: now)
+        let calculation = try XCTUnwrap(Calculator.evaluate("2+3"))
+        XCTAssertEqual(LauncherResult.search(applications, query: "2+3", usage: snapshot, conversionAliases: aliases),
+                       [.calculation(calculation), .convertToTraditional, .application(applications[0])])
+        let query = try XCTUnwrap(ConversionQuery.parse("5m"))
+        let conversions = UnitConversion.convert(query).map(LauncherResult.conversion)
+        XCTAssertFalse(conversions.isEmpty)
+        XCTAssertEqual(LauncherResult.search(applications, query: "5m", usage: snapshot, conversionAliases: aliases),
+                       conversions + [.convertToSimplified, .application(applications[1])])
     }
 
     func testConversionAliasesAllowUnicodeSpacesAndDisablingWithoutPartialMatches() throws {

@@ -24,6 +24,8 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/Localization.swift" \
     "$repo_root/Sources/Cue/LauncherAppearance.swift" \
     "$repo_root/Sources/Cue/ResultShortcut.swift" \
+    "$repo_root/Sources/Cue/CurrencyRatesController.swift" \
+    "$repo_root/Sources/Cue/NetworkPolicy.swift" \
     "$repo_root/Sources/Cue/LauncherModel.swift" \
     "$repo_root/Sources/Cue/LauncherView.swift" \
     "$repo_root/scripts/check-launcher-keyboard.swift" \

@@ -11,12 +11,17 @@ fi
 
 source_root="$repo_root"
 build_flags=(-D ADAPTIVE_SEARCH)
+model_dependencies=(
+    "$repo_root/Sources/Cue/CurrencyRatesController.swift"
+    "$repo_root/Sources/Cue/NetworkPolicy.swift"
+)
 if [[ "${1:-}" == "--baseline-ref" && $# -eq 2 ]]; then
     source_root="$benchmark_directory/baseline"
     mkdir -p "$source_root"
     git -C "$repo_root" archive "$2" Sources/CueCore Sources/Cue/LauncherModel.swift Sources/Cue/Localization.swift \
         | tar -xf - -C "$source_root"
     build_flags=(-D BASELINE_SEARCH)
+    model_dependencies=()
 elif [[ $# -ne 0 ]]; then
     printf 'Usage: %s [--baseline-ref <git-ref-before-adaptive-search>]\n' "$0" >&2
     exit 2
@@ -34,6 +39,7 @@ xcrun swiftc -swift-version 6 -O -parse-as-library "${build_flags[@]}" \
     -Xlinker -rpath -Xlinker "$benchmark_directory" \
     "$source_root/Sources/Cue/Localization.swift" \
     "$source_root/Sources/Cue/LauncherModel.swift" \
+    "${model_dependencies[@]}" \
     "$repo_root/scripts/benchmark-adaptive-search.swift" \
     -o "$benchmark_directory/benchmark-adaptive-search"
 

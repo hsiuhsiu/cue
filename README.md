@@ -6,7 +6,7 @@
 
 <p align="center">Fast, simple, lightweight.</p>
 
-Cue is a small native macOS launcher with an instant calculator, emoji search, Google search, link cleaning, searchable clipboard history, offline Chinese conversion, and system commands. It runs in the menu bar, opens with **Option+Space**, and searches installed applications using an in-memory index.
+Cue is a small native macOS launcher with an instant calculator, unit and currency conversion, emoji search, Google search, link cleaning, searchable clipboard history, offline Chinese conversion, and system commands. It runs in the menu bar, opens with **Option+Space**, and searches installed applications using an in-memory index.
 
 <p>
   <picture>
@@ -18,7 +18,7 @@ Cue is a small native macOS launcher with an instant calculator, emoji search, G
 
 ## Download and install
 
-[Download Cue 0.7.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.7.0/Cue-0.7.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.7.0) · [正體中文安裝說明](docs/installation.md)
+[Download Cue 0.8.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.8.0/Cue-0.8.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.8.0) · [正體中文安裝說明](docs/installation.md)
 
 The repository and release downloads are public.
 
@@ -38,17 +38,23 @@ Cue discovers applications under `/Applications`, `/System/Applications`, and `~
 
 ### Personalized search
 
-Cue learns from applications and commands you successfully open through the launcher. Within the same matching category, it prefers the item you usually choose for that query, followed by usage frequency weighted toward recent use. Exact matches remain ahead of weaker matches. Merely typing, moving the selection, canceling, or a failed launch does not teach it anything. Clipboard contents, searches inside Clipboard History, and Google search queries are excluded.
+Cue learns from applications and commands you successfully open through the launcher. Within the same app matching category, it prefers the item you usually choose for that query, followed by usage frequency weighted toward recent use; exact app matches stay ahead of weaker app matches. A successful choice for the same query can also promote an app above a matching built-in command—for example, choosing iTerm2 for `it` can move it ahead of the incidental Traditional Chinese conversion match on the next invocation. Overall popularity alone does not change the order between apps and commands, and explicitly configured exact command aliases still come first. Merely typing, moving the selection, canceling, or a failed launch does not teach it anything. Clipboard contents, searches inside Clipboard History, and Google search queries are excluded.
 
 Learning stays on this Mac. Only successful queries, selected result identifiers, scores, and timestamps are saved in a small local file. Search uses a prepared in-memory snapshot; loading, score calculation, and saving happen in the background. An arriving update never moves the current rows while you are choosing a result. See [adaptive search behavior and performance](docs/performance-adaptive-search.md).
 
-Cue 會記住你在啟動器中成功開啟的 App 與指令。同一符合程度內，優先考慮「這個關鍵字通常選哪個項目」，再參考使用頻率與近期使用情況；完全符合仍優先。單純打字、移動選取、取消或開啟失敗不會留下學習記錄，也不記錄剪貼簿內容、剪貼簿頁面的搜尋或 Google 搜尋字詞。資料只存本機，搜尋使用記憶體中的分數，背景更新不會讓正在選擇的列表突然跳動。
+Cue 會記住你在啟動器中成功開啟的 App 與指令。同一 App 符合程度內，優先考慮「這個關鍵字通常選哪個項目」，再參考使用頻率與近期使用情況；完全符合的 App 仍排在較弱的 App 符合結果前面。相同關鍵字的成功選擇也能讓 App 超過內建指令，例如用 `it` 成功開啟 iTerm2 後，下次叫出時就能超過碰巧符合的正體轉換指令；一般使用頻率本身不會改變 App 與指令之間的順序，明確設定的完整指令別名仍優先。單純打字、移動選取、取消或開啟失敗不會留下學習記錄，也不記錄剪貼簿內容、剪貼簿頁面的搜尋或 Google 搜尋字詞。資料只存本機，搜尋使用記憶體中的分數，背景更新不會讓正在選擇的列表突然跳動。
 
 ### Instant calculator / 即時計算
 
 **Available in Cue 0.7.0.** Type an arithmetic expression directly in Cue, such as **`1+2*3`**, **`(12+8)/4`**, or **`2^10`**. The answer appears as the first result while you type. Press **Return** while it is selected, or **Command+1**, to copy just the answer and close Cue; paste with **Command+V** wherever you need it. Ordinary app and command matches remain available below the answer. Calculation works fully offline and does not save the expression or result in search-learning history. See the [calculator guide](docs/calculator.md) for supported syntax and limits.
 
 **Cue 0.7.0 起提供。** 直接在 Cue 輸入算式，例如 **`1+2*3`**、**`(12+8)/4`** 或 **`2^10`**，答案會即時顯示在第一列。選取答案後按 **Return**，或直接按 **Command+1**，即可只拷貝答案並收起 Cue，再到需要的位置按 **Command+V** 貼上。符合的 App 與指令仍會列在下方。計算完全離線，不會將算式或結果存入搜尋學習記錄。支援語法與限制詳見[計算機說明](docs/calculator.md)。
+
+### Unit and currency conversion / 單位與幣值換算
+
+**Available in Cue 0.8.0.** Type **`10m`**, **`5坪`**, or **`100USD`** for up to three common conversions, or specify a target with **`10m to ft`** or **`100USD to TWD`**. Press **Return** on a result or its **Command+number** to copy only the numeric value and close Cue. Physical units, including Taiwan's 坪, work offline. Currency conversion requires Cue's global network access: it uses a daily reference-rate table, shows its date and source, and hides currency answers when access is off. Amounts and query text stay on this Mac. See the [unit and currency guide](docs/unit-conversion.md) for supported units, freshness and privacy.
+
+**Cue 0.8.0 起提供。** 輸入 **`10m`**、**`5坪`** 或 **`100USD`**，即可看到最多三種常用換算；也可用 **`10m to ft`** 或 **`100USD to TWD`** 指定目標單位。選取結果後按 **Return**，或按對應的 **Command+數字**，只拷貝數值並收起 Cue。一般單位包含台灣的坪，完全離線。幣值換算需要允許 Cue 自行連網，使用每日參考匯率並顯示日期與來源；關閉網路就不顯示幣值答案。金額及查詢文字留在這台 Mac。支援單位、更新方式與隱私詳見[單位與幣值換算說明](docs/unit-conversion.md)。
 
 ### Google search / Google 搜尋
 
@@ -151,11 +157,11 @@ See the [English / 正體中文 source installation guide](docs/building.md) for
 
 Use **Settings → Network → Allow Cue to access the network** to control network requests made by Cue itself. Source builds—including SwiftPM, Xcode Debug/Release, and the local build/install scripts—default to **off**; official release DMGs default to **on**. Missing build metadata means off. An explicit choice saved in Settings takes precedence and survives updates, reinstalls, and switching between source and published builds.
 
-Turning network access off disables both manual and automatic update checks and downloads. The automatic-check toggle displays **off** and is disabled while offline, but Cue remembers its separate preference and can resume the chosen schedule when access is allowed again. Local app/command search, Clipboard History, system commands, Chinese conversion, link cleaning, emoji search, and the calculator remain fully available. Explicit Google searches use a separate browser-search switch in **Google Search Settings**, on by default; the browser handles those network requests. See [network behavior and scope](docs/network-policy.md).
+Turning network access off disables both manual and automatic update checks and downloads. It also stops currency-rate work and hides currency answers, including cached ones. The automatic-check toggle displays **off** and is disabled while offline, but Cue remembers its separate preference and can resume the chosen schedule when access is allowed again. Local app/command search, Clipboard History, system commands, Chinese conversion, link cleaning, emoji search, the calculator, and physical-unit conversion remain fully available. Explicit Google searches use a separate browser-search switch in **Google Search Settings**, on by default; the browser handles those network requests. See [network behavior and scope](docs/network-policy.md).
 
 在**設定 → 網路 → 允許 Cue 自行連網**管理 Cue 自己發出的網路請求。原始碼建置（包含 SwiftPM、Xcode Debug／Release 與本機建置／安裝腳本）預設**關閉**，正式下載的 DMG 預設**開啟**；缺少建置資料也視為關閉。在設定中明確儲存的選擇優先，更新、重新安裝或切換自行建置與下載版都會保留。
 
-關閉網路會停用手動、自動檢查更新及下載。自動檢查開關會顯示**關閉**且無法操作，但原先的偏好仍會保留，重新允許網路後可依原設定恢復排程。本機 App／指令搜尋、剪貼簿記錄、系統指令、簡繁轉換、連結清理、emoji 搜尋與計算機仍可完整使用。明確執行的 Google 搜尋由瀏覽器連線，受 **Google 搜尋設定**內獨立且預設開啟的瀏覽器搜尋開關控制；詳見[網路行為與適用範圍](docs/network-policy.md)。
+關閉網路會停用手動、自動檢查更新及下載；也會停止匯率工作並隱藏幣值答案，包含已有快取的情況。自動檢查開關會顯示**關閉**且無法操作，但原先的偏好仍會保留，重新允許網路後可依原設定恢復排程。本機 App／指令搜尋、剪貼簿記錄、系統指令、簡繁轉換、連結清理、emoji 搜尋、計算機與一般單位換算仍可完整使用。明確執行的 Google 搜尋由瀏覽器連線，受 **Google 搜尋設定**內獨立且預設開啟的瀏覽器搜尋開關控制；詳見[網路行為與適用範圍](docs/network-policy.md)。
 
 ## Updates
 
@@ -182,6 +188,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-link-cleaner.sh
 ./scripts/check-emoji.sh
 ./scripts/check-calculator.sh
+./scripts/check-unit-conversion.sh
+./scripts/check-currency-rates.sh
 ./scripts/check-command-icons.sh
 ./scripts/check-adaptive-search.sh
 ./scripts/check-clipboard.sh
@@ -207,6 +215,12 @@ The web-search check uses isolated preferences and injected browser openers to v
 Link-cleaning and emoji checks use synthetic fixtures and private pasteboards to exercise copying, cancellation, keyboard routing, and local search without reading or replacing the operator's clipboard.
 
 The calculator check uses synthetic expressions, private pasteboards, and injected copy operations to verify inline results, powers, copying, cancellation, keyboard routing, and offline behavior without changing the operator's clipboard.
+
+The currency-rate check uses an injected transport, clock, isolated preferences and a temporary cache to verify network gating, cancellation, fresh-only rates and retry limits. It makes no live API request and does not use the real currency cache.
+
+For an optional live-provider smoke check, explicitly run `./scripts/check-currency-live.sh --live`. This sends one fixed USD-table request using an isolated enabled policy and no disk cache; it does not change Cue's saved network preference.
+
+The unit-conversion check exercises launcher results, numeric copying, rate changes and cancellation with synthetic queries, injected rates and a private pasteboard.
 
 The adaptive-search check covers successful and failed launches, command learning, stable visible rows during background updates, cache invalidation, and persistence across restarts using injected actions and isolated synthetic state. It never sleeps or locks the Mac or reads real usage history.
 

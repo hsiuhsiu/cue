@@ -117,6 +117,8 @@ xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \
 "$repo_root/scripts/check-link-cleaner.sh"
 "$repo_root/scripts/check-emoji.sh"
 "$repo_root/scripts/check-calculator.sh"
+"$repo_root/scripts/check-unit-conversion.sh"
+"$repo_root/scripts/check-currency-rates.sh"
 "$repo_root/scripts/check-adaptive-search.sh"
 "$repo_root/scripts/check-clipboard.sh"
 "$repo_root/scripts/check-system-actions.sh"

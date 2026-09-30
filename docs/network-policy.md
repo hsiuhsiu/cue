@@ -7,7 +7,9 @@ blocks both automatic and manual update checks. It governs requests made by Cue
 itself. Since Cue 0.6.0, explicit Google browser searches use a
 separate feature-local switch.
 App discovery, local app/command search and learning, Clipboard History, system
-commands, Chinese conversion, link cleaning, and emoji search remain available.
+commands, Chinese conversion, link cleaning, emoji search, the calculator, and
+physical-unit conversion remain available. Currency conversion in the current
+source build requires this global permission, even when rates are cached.
 
 ### Defaults and saved choices
 
@@ -64,6 +66,32 @@ sent or buffered in the network stack cannot be recalled. The switch is an
 application policy, not a packet-level firewall or a way to reverse an update
 installation that has already started.
 
+### Currency rates and local unit conversion
+
+The current source build adds currency conversion; it is not included in the
+0.7.0 download. With Cue's global network access enabled, a recognized currency
+query can fetch the fixed HTTPS table at `https://open.er-api.com/v6/latest/USD`.
+Cue downloads the same USD-based table for every query and calculates locally:
+it does not send the amount, entered text, source currency or target currency.
+The provider still sees ordinary connection information, including the IP address.
+
+[ExchangeRate-API's open endpoint](https://www.exchangerate-api.com/docs/free)
+requires no API key and updates daily. Cue caches the table until the provider's
+next-update time (rejecting data or update intervals over 48 hours), displays the rate timestamp and a visible attribution link,
+and treats rates as indicative rather than bank or transaction quotes. When
+refresh is required, failure shows an unavailable state rather than a stale
+answer. No rate request starts at app startup or outside an active currency
+query. Rates load asynchronously; typing does not wait for them.
+
+Turning Cue networking off prevents new rate requests, cancels active work and
+hides cached currency answers. Canceled or older responses cannot restore an
+answer. Data already sent cannot be recalled. An offline or failed currency
+query shows its reason instead of automatically becoming a Google result;
+explicit Google actions continue to use their own separate permission.
+Conversion queries and results are excluded from search learning. Ordinary
+physical-unit conversions, including Taiwan's 坪, stay fully offline. See
+[unit and currency conversion](unit-conversion.md).
+
 ### Chinese conversion stays fully offline
 
 Both conversion directions use the same bundled OpenCC dictionaries whether
@@ -104,7 +132,8 @@ browser-search preference, not `NetworkPolicy.allowsNetwork`. Once a link is
 handed over, that browser controls its own network activity. Merely launching
 a browser application from local app results remains an app-launch action;
 these switches are not a firewall for that app. Any future network API request
-made by Cue, such as translation or exchange rates, must use the global gate.
+made by Cue, such as translation, must use the global gate just as currency
+rates do.
 
 Developer tools are separate: cloning the repository, fetching the pinned
 Sparkle package on the first build, and publishing a release require network
@@ -117,7 +146,8 @@ Unicode/CLDR source data; the running app never downloads these resources.
 Cue 在設定中提供全域網路存取開關，管理 Cue 自己發出的請求。關閉後，
 自動與手動檢查更新都會停用。自 Cue 0.6.0 起提供的 Google 瀏覽器搜尋使用獨立
 功能開關。App 索引、本機 App／指令搜尋與學習、剪貼簿記錄、系統指令、
-簡繁轉換、連結清理與 emoji 搜尋仍可使用。
+簡繁轉換、連結清理、emoji 搜尋、計算機與一般單位換算仍可使用。目前原始碼版
+加入的幣值換算需要這項全域許可，即使已快取匯率也一樣。
 
 ### 預設值與已儲存的選擇
 
@@ -161,6 +191,27 @@ Google 搜尋在交給瀏覽器前會再次檢查自己的瀏覽器搜尋開關�
 網路緩衝區的資料無法收回。這是 App 的連線政策，不是封包層級的防火牆，也不能
 撤銷已開始的更新安裝。
 
+### 匯率與本機單位換算
+
+目前原始碼版加入幣值換算，尚未包含在 0.7.0 下載版。允許 Cue 自行連網時，
+辨識出的幣值查詢可觸發下載固定的 HTTPS 匯率表：
+`https://open.er-api.com/v6/latest/USD`。每次都取得同一份以美元為基準的資料，
+換算在本機完成；不會送出金額、輸入文字、來源或目標幣別。服務提供者仍會
+收到 IP 位址等一般連線資訊。
+
+[ExchangeRate-API 公開端點](https://www.exchangerate-api.com/docs/free)不需要
+API 金鑰，每日更新。Cue 會快取至來源指定的下次更新時間，拒絕超過 48 小時
+的資料或更新間隔，顯示匯率資料時間
+與來源連結。這些是參考匯率，不是銀行或交易報價。需要更新時若下載失敗，會
+顯示無法取得資料，不會用過期答案替代；App 啟動時或未使用幣值查詢時不會
+請求匯率，資料在背景載入，不阻塞打字。
+
+關閉 Cue 自行連網會阻止新匯率請求、取消進行中的工作，並隱藏快取的幣值
+答案。已取消或較舊的回應不能重新顯示答案；已送出的資料則無法收回。
+離線或失敗的幣值查詢會顯示原因，不會自動變成 Google 結果；明確執行的
+Google 動作仍遵守自己的獨立許可。換算查詢與結果不會加入搜尋學習。
+一般單位換算包含台灣的坪，維持完全離線。詳見[單位與幣值換算](unit-conversion.md)。
+
 ### 簡繁轉換維持完整離線功能
 
 無論網路開關為何，兩個方向都使用同一份內附 OpenCC 詞庫，包含台灣與中國大陸
@@ -190,8 +241,8 @@ Emoji 及其英文／正體中文名稱與關鍵字隨 Cue 內附，不需服務
 剪貼簿管理程式仍依各自設定運作。明確將 Google 查詢交給瀏覽器的動作遵守
 獨立的瀏覽器搜尋偏好，不受 `NetworkPolicy.allowsNetwork` 控制；交接後的
 網路活動由瀏覽器自行管理。單純從本機 App 結果開啟瀏覽器仍屬於啟動 App，
-這些開關不是該 App 的防火牆。未來若由 Cue 自己發出翻譯、匯率等 API 請求，
-仍必須遵守全域網路開關。
+這些開關不是該 App 的防火牆。未來若由 Cue 自己發出翻譯等 API 請求，
+也必須像匯率功能一樣遵守全域網路開關。
 
 開發工具另計：取得 Git 儲存庫、首次建置下載固定版本的 Sparkle，以及發布版本
 都需要網路。一般建置直接使用儲存庫內附的中文詞庫與 emoji 目錄；重新產生

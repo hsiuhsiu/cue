@@ -351,13 +351,15 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     private func runSelected() {
         guard let result = model.selectedResult else { return }
-        if result.id != LauncherResult.calculationID { cancelCalculationCopy() }
+        if result.numericCopyValue == nil { cancelCalculationCopy() }
         if result != .cleanLink { cancelLinkCleaning() }
         if !result.isWebSearch { cancelWebSearch() }
         if result != .convertToTraditional && result != .convertToSimplified { cancelConversion() }
         switch result {
-        case .calculation(let calculation):
-            copyCalculation(calculation)
+        case .calculation, .conversion:
+            copyNumericResult(result)
+        case .currencyStatus(let state):
+            if state == .unavailable { model.retryCurrencyRates() }
         case .googleSearch:
             searchGoogle()
         case .googleSearchIn(let browser):
@@ -416,8 +418,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         if model.actionStatus == LauncherText.shared.calculationCopying { model.actionStatus = nil }
     }
 
-    private func copyCalculation(_ calculation: CalculatorResult) {
-        guard calculationCopyTask == nil else { return }
+    private func copyNumericResult(_ result: LauncherResult) {
+        guard calculationCopyTask == nil, let value = result.numericCopyValue,
+              model.canCopyNumericResult(result) else { return }
         calculationCopyRequest += 1
         let request = calculationCopyRequest
         let requestInvocation = invocation
@@ -427,11 +430,11 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         calculationCopyTask = Task { [weak self, copyCalculatedValue] in
             do {
                 try Task.checkCancellation()
-                try await copyCalculatedValue(calculation.value)
+                try await copyCalculatedValue(value)
                 try Task.checkCancellation()
                 guard let self, self.calculationCopyRequest == request,
                       self.invocation == requestInvocation, self.model.query == query,
-                      self.model.selectedResult == .calculation(calculation) else { return }
+                      self.model.selectedResult == result else { return }
                 self.calculationCopyTask = nil
                 self.model.actionStatus = nil
                 // Neither the expression nor its result is a learnable command.

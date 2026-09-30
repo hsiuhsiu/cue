@@ -34,6 +34,13 @@ struct LauncherText {
     let calculationCopying = L10n.string("calculator.copying", table: "Launcher", value: "Copying result…")
     let calculationCopyError = L10n.string("calculator.copyError", table: "Launcher", value: "Couldn’t copy the result. Please try again.")
     let calculationAccessDenied = L10n.string("calculator.accessDenied", table: "Launcher", value: "Clipboard access is blocked. Allow Cue in System Settings, then try again.")
+    let currencyNetworkRequired = L10n.string("currency.networkRequired", table: "Launcher", value: "Currency conversion needs Cue network access")
+    let currencyLoading = L10n.string("currency.loading", table: "Launcher", value: "Fetching exchange rates…")
+    let currencyUnavailable = L10n.string("currency.unavailable", table: "Launcher", value: "Couldn’t load exchange rates")
+    let currencyUnsupported = L10n.string("currency.unsupported", table: "Launcher", value: "Currency is unavailable in this rate table")
+    let currencyRetry = L10n.string("currency.retry", table: "Launcher", value: "Retry ↵")
+    let currencyDisabled = L10n.string("currency.disabled", table: "Launcher", value: "Network off")
+    let currencyDaily = L10n.string("currency.daily", table: "Launcher", value: "Daily rates · %@")
     let cleanLinkDetail = L10n.string("command.cleanLink.detail", table: "Launcher", value: "Clipboard")
     let cleaningLink = L10n.string("link.cleaning", table: "Launcher", value: "Cleaning clipboard link…")
     let linkCleaned = L10n.string("link.cleaned", table: "Launcher", value: "Removed %ld tracking parameters. Clean link copied.")
@@ -91,11 +98,17 @@ final class LauncherModel {
     private var usageStarted = false
     private var isStopping = false
     private var hasLoadedApplications: Bool
+    private let currencyRates: CurrencyRatesController?
+    private var currencyQuery: ConversionQuery?
+    private var changingCurrencyActivity = false
+    private var displayedRateDate: Date?
+    private(set) var currencyRateDate: String?
 
     init(applications: [IndexedApplication] = [], usage: SearchUsageSnapshot = .empty,
          usageStore: SearchUsageStore? = nil,
          conversionAliases: ChineseConversionAliases = .defaults,
          awaitingInitialIndex: Bool = false,
+         currencyRates: CurrencyRatesController? = nil,
          icons: AppIconCache = AppIconCache()) {
         self.icons = icons
         self.applications = applications
@@ -103,6 +116,15 @@ final class LauncherModel {
         self.usageStore = usageStore
         self.conversionAliases = conversionAliases
         self.hasLoadedApplications = !awaitingInitialIndex
+        self.currencyRates = currencyRates
+        currencyRates?.onChange = { [weak self] in
+            guard let self, !self.changingCurrencyActivity else { return }
+            self.onQueryChange?() // A revoked rate/permission also cancels a pending copy.
+            self.updateRateDate()
+            self.cachedQueries.removeAll(keepingCapacity: true)
+            self.updateResults(preservingSelection: true)
+            self.onChange?()
+        }
     }
 
     var selectedResult: LauncherResult? { results.first { $0.id == selectedID } }
@@ -125,12 +147,16 @@ final class LauncherModel {
         // command below the answer. This check runs only after an explicit action.
         guard !isStopping, !resultID.hasPrefix(LauncherResult.googleSearch.id),
               resultID != LauncherResult.calculationID,
-              Calculator.evaluate(query) == nil else { return }
+              !resultID.hasPrefix(LauncherResult.conversionIDPrefix),
+              resultID != LauncherResult.currencyStatusID,
+              Calculator.evaluate(query) == nil,
+              ConversionQuery.parse(query) == nil else { return }
         enqueueUsage { store in await store.record(resultID: resultID, query: query, at: date) }
     }
 
     func prepareForTermination() async {
         isStopping = true
+        currencyRates?.stop()
         await usageOperations?.value
         if let usageStore { try? await usageStore.flush() }
     }
@@ -141,6 +167,7 @@ final class LauncherModel {
         adoptPendingUsage()
         query = value
         if value.allSatisfy(\.isWhitespace) { isShowingSearchActions = false }
+        updateCurrencyActivity()
         launchError = nil
         indexStatus = nil
         updateResults()
@@ -175,6 +202,7 @@ final class LauncherModel {
         guard !query.allSatisfy(\.isWhitespace) else { return }
         onQueryChange?() // Cancel a pending handoff before changing the available actions.
         isShowingSearchActions.toggle()
+        updateCurrencyActivity()
         launchError = nil
         updateResults()
         onChange?()
@@ -222,6 +250,7 @@ final class LauncherModel {
         adoptPendingUsage()
         query = ""
         isShowingSearchActions = false
+        updateCurrencyActivity()
         launchError = nil
         indexStatus = nil
         updateResults()
@@ -249,20 +278,68 @@ final class LauncherModel {
         }
         if isShowingSearchActions {
             results = webSearchResults
-        } else if let cached = cachedQueries[query] {
+        } else if currencyQuery == nil, let cached = cachedQueries[query] {
             results = cached
         } else {
+            let converted: [ConversionResult]?
+            let currencyStatus: CurrencyConversionStatus?
+            if let currencyQuery {
+                if currencyRates?.allowsNetwork != true {
+                    converted = []; currencyStatus = .networkRequired
+                } else if case .ready(let snapshot) = currencyRates?.state {
+                    converted = UnitConversion.convertCurrency(currencyQuery, rates: snapshot)
+                    currencyStatus = converted?.isEmpty == true ? .unsupported : nil
+                } else {
+                    converted = []
+                    currencyStatus = currencyRates?.state == .failed ? .unavailable : .loading
+                }
+            } else { converted = nil; currencyStatus = nil }
             results = Array(LauncherResult.search(
                 applications, query: query, usage: usage, conversionAliases: conversionAliases,
-                includeGoogleFallback: hasLoadedApplications
+                includeGoogleFallback: hasLoadedApplications,
+                conversionResults: converted, currencyStatus: currencyStatus
             ).prefix(maxResults))
             if results == [.googleSearch] { results = Array(webSearchResults.prefix(maxResults)) }
             if cachedQueries.count >= 64 { cachedQueries.removeAll(keepingCapacity: true) }
-            cachedQueries[query] = results
+            if currencyQuery == nil { cachedQueries[query] = results }
         }
         if !preservingSelection || !results.contains(where: { $0.id == selectedID }) {
             selectedID = results.first?.id
         }
+    }
+
+    func retryCurrencyRates() { currencyRates?.retry() }
+
+    func canCopyNumericResult(_ result: LauncherResult) -> Bool {
+        guard case .conversion(let converted) = result, converted.isCurrency else { return true }
+        // Recheck time/permission at the action boundary, including immediately
+        // after wake when the expiry callback has not yet run.
+        updateCurrencyActivity()
+        updateResults(preservingSelection: true)
+        onChange?()
+        guard currencyRates?.allowsNetwork == true, case .ready = currencyRates?.state else { return false }
+        return selectedResult == result
+    }
+
+    private func updateCurrencyActivity() {
+        let parsed = ConversionQuery.parse(query)
+        currencyQuery = parsed?.source.isCurrency == true ? parsed : nil
+        changingCurrencyActivity = true
+        currencyRates?.setActive(currencyQuery != nil && !isShowingSearchActions)
+        changingCurrencyActivity = false
+        updateRateDate()
+    }
+
+    private func updateRateDate() {
+        guard case .ready(let snapshot) = currencyRates?.state else {
+            currencyRateDate = nil; displayedRateDate = nil; return
+        }
+        guard displayedRateDate != snapshot.updatedAt else { return }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        currencyRateDate = L10n.format(text.currencyDaily, formatter.string(from: snapshot.updatedAt))
+        displayedRateDate = snapshot.updatedAt
     }
 
     private func adoptPendingUsage() {

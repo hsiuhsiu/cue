@@ -304,6 +304,9 @@ struct CheckLinkCleaner {
         for cancellation in ["query", "dismiss", "invocation", "other command", "actions", "web shortcut"] {
             controller.prepareInvocation()
             model.setQuery("clean link")
+            // Earlier app handoffs can learn this query and move ahead of the
+            // command. This fixture tests cleanup cancellation, not row order.
+            model.select(LauncherResult.cleanLink.id)
             await service.configure(result: cleaned, suspended: true)
             let beforePreparations = await service.preparations
             let beforeCommits = await service.commits
@@ -339,6 +342,7 @@ struct CheckLinkCleaner {
         // A suspended clipboard provider must not occupy the synchronous input path.
         controller.prepareInvocation()
         model.setQuery("clean link")
+        model.select(LauncherResult.cleanLink.id)
         await service.configure(result: cleaned, suspended: true)
         let beforeTypingPreparations = await service.preparations
         let beforeTypingCommits = await service.commits

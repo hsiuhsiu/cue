@@ -159,6 +159,82 @@ struct CheckAdaptiveSearch {
         check(SearchEngine.search(apps, query: "codi", usage: earlySaved).first == apps[2],
               "First-use actions survive startup loading and immediate quit")
 
+        // A command's incidental substring must not permanently block a learned
+        // app choice: "it" also occurs inside the traditional-conversion alias.
+        let terminal = IndexedApplication(name: "iTerm2", url: URL(fileURLWithPath: "/Synthetic/iTerm2.app"))
+        let terminalResult = LauncherResult.application(terminal)
+        let collisionFile = folder.appendingPathComponent("Collision/usage.json")
+        let collisionStore = SearchUsageStore(fileURL: collisionFile)
+        let collision = LauncherModel(applications: [terminal], usageStore: collisionStore)
+        var collisionCompletions: [@MainActor (Error?) -> Void] = []
+        var collisionLaunches: [IndexedApplication] = []
+        let beforeCollisionWindows = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
+        let collisionController = LauncherPanelController(
+            clipboard: clipboard, model: collision, openApplication: { app, completion in
+                collisionLaunches.append(app)
+                collisionCompletions.append(completion)
+            }
+        )
+        guard let collisionWindow = NSApplication.shared.windows.first(where: {
+            !beforeCollisionWindows.contains(ObjectIdentifier($0)) && $0.contentView is LauncherView
+        }), let collisionView = collisionWindow.contentView as? LauncherView else {
+            fatalError("Missing app/command collision fixture")
+        }
+        defer { collisionWindow.contentView = nil; collisionWindow.close() }
+        collision.startUsageTracking()
+        collision.setQuery("it")
+        check(collision.results == [.convertToTraditional, terminalResult],
+              "Unlearned it collision retains command-first ordering")
+        collision.select(terminalResult.id)
+        collisionController.dismiss()
+        let afterNavigation = await collisionStore.load()
+        check(collisionLaunches.isEmpty && afterNavigation == .empty,
+              "Selecting and dismissing iTerm2 does not learn the it collision")
+
+        let commandTwo = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command,
+            timestamp: 0, windowNumber: collisionWindow.windowNumber, context: nil,
+            characters: "2", charactersIgnoringModifiers: "2", isARepeat: false, keyCode: 19)!
+        collision.setQuery("it")
+        check(collisionView.handleNumberShortcut(commandTwo), "Command-2 routes through the collision launcher")
+        check(collisionLaunches == [terminal] && collision.query.isEmpty,
+              "Command-2 launches the displayed iTerm2 and dismisses immediately")
+        collisionController.dismiss()
+        collisionCompletions.removeFirst()(NSError(domain: domain, code: 3))
+        let afterFailure = await collisionStore.load()
+        check(afterFailure == .empty && !collisionWindow.isVisible,
+              "A failed iTerm2 launch neither learns the collision nor reopens a stale invocation")
+        collision.setQuery("it")
+        check(collision.results == [.convertToTraditional, terminalResult],
+              "Failed launch leaves the it ordering unchanged")
+        check(collisionView.handleNumberShortcut(commandTwo), "Command-2 executes a subsequent successful selection")
+        check(collisionLaunches == [terminal, terminal], "Both collision launches use the same explicit second row")
+        collision.setQuery("it")
+        let visibleCollision = collision.results
+        collision.select(LauncherResult.convertToTraditional.id)
+        collisionCompletions.removeFirst()(nil)
+        await collision.prepareForTermination()
+        check(collision.results == visibleCollision && collision.selectedID == LauncherResult.convertToTraditional.id,
+              "Completed collision learning does not move visible rows or their current selection")
+        collision.reset()
+        collision.setQuery("it")
+        check(collision.results == [terminalResult, .convertToTraditional],
+              "The next invocation promotes learned iTerm2 above the incidental conversion command")
+        let collisionJSON = try JSONSerialization.jsonObject(with: Data(contentsOf: collisionFile)) as! [String: Any]
+        let collisionUsage = collisionJSON["usage"] as! [String: Any]
+        let collisionResults = collisionUsage["results"] as! [[String: Any]]
+        let collisionEntry = collisionResults.first?["usage"] as? [String: Any]
+        check(collisionResults.count == 1 && collisionResults.first?["id"] as? String == terminalResult.id
+              && collisionEntry?["score"] as? Double == 1,
+              "Persistence contains exactly one successful iTerm2 selection, excluding navigation and failure")
+        let restoredCollision = LauncherModel(applications: [terminal], usageStore: SearchUsageStore(fileURL: collisionFile))
+        restoredCollision.startUsageTracking()
+        await restoredCollision.prepareForTermination()
+        restoredCollision.reset()
+        restoredCollision.setQuery("it")
+        check(restoredCollision.results == [terminalResult, .convertToTraditional],
+              "The learned app/command collision ordering survives a model and store restart")
+        collisionController.dismiss()
+
         // Commands use the same learning path, with system effects injected away.
         let commandFile = folder.appendingPathComponent("Commands/usage.json")
         let commandStore = SearchUsageStore(fileURL: commandFile)
@@ -229,7 +305,7 @@ struct CheckAdaptiveSearch {
               "Command learning contains launcher queries only; failed Lock is excluded")
         commandController.dismiss()
         await clipboard.prepareForTermination()
-        check(!NSApplication.shared.isActive && !window.isVisible && !commandWindow.isVisible,
+        check(!NSApplication.shared.isActive && !window.isVisible && !commandWindow.isVisible && !collisionWindow.isVisible,
               "Harness must not activate or show an app")
         print("Adaptive search integration passed: \(checks) checks; no real apps launched or user history read.")
     }

@@ -1,14 +1,11 @@
 #!/bin/bash
 set -euo pipefail
-
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-check_directory="$(mktemp -d "${TMPDIR:-/tmp}/cue-adaptive-search.XXXXXX")"
+check_directory="$(mktemp -d "${TMPDIR:-/tmp}/cue-unit-conversion.XXXXXX")"
 trap 'rm -rf "$check_directory"' EXIT
-
 if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
     export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 fi
-
 xcrun swiftc -swift-version 6 -O -parse-as-library \
     -emit-module -emit-library -module-name CueCore \
     "$repo_root"/Sources/CueCore/*.swift \
@@ -37,13 +34,12 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/ChineseConversionSettings.swift" \
     "$repo_root/Sources/Cue/WebSearchSettings.swift" \
     "$repo_root/Sources/Cue/LinkCleaningService.swift" \
+    "$repo_root/Sources/Cue/CalculatorCopyService.swift" \
     "$repo_root/Sources/Cue/EmojiGlyphCache.swift" \
     "$repo_root/Sources/Cue/EmojiModel.swift" \
     "$repo_root/Sources/Cue/EmojiView.swift" \
-    "$repo_root/Sources/Cue/CalculatorCopyService.swift" \
     "$repo_root/Sources/Cue/LauncherPanelController.swift" \
     "$repo_root/Sources/Cue/NetworkPolicy.swift" \
-    "$repo_root/scripts/check-adaptive-search.swift" \
-    -o "$check_directory/check-adaptive-search"
-
-"$check_directory/check-adaptive-search"
+    "$repo_root/scripts/check-unit-conversion.swift" \
+    -o "$check_directory/check-unit-conversion"
+"$check_directory/check-unit-conversion"

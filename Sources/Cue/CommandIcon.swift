@@ -11,7 +11,7 @@ enum CommandIcon: CaseIterable, Sendable {
     init?(_ result: LauncherResult) {
         switch result {
         case .application: return nil
-        case .calculation: self = .calculator
+        case .calculation, .conversion, .currencyStatus: self = .calculator
         case .cleanLink: self = .cleanLink
         case .emojiSearch: self = .emojiSearch
         case .googleSearch, .googleSearchIn: self = .googleSearch

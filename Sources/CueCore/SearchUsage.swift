@@ -202,6 +202,8 @@ public struct SearchUsageSnapshot: Equatable, Sendable {
         let general: [String: Double]
         let query: [String: Double]
 
+        var hasQueryHistory: Bool { !query.isEmpty }
+
         func signal(for resultID: String) -> Signal {
             Signal(query: query[resultID] ?? 0, general: general[resultID] ?? 0)
         }

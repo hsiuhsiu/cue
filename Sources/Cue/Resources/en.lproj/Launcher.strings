@@ -53,3 +53,10 @@
 "calculator.copying" = "Copying result…";
 "calculator.copyError" = "Couldn’t copy the result. Please try again.";
 "calculator.accessDenied" = "Clipboard access is blocked. Allow Cue in System Settings, then try again.";
+"currency.networkRequired" = "Currency conversion is offline";
+"currency.loading" = "Fetching exchange rates…";
+"currency.unavailable" = "Couldn’t load exchange rates";
+"currency.unsupported" = "Unsupported currency";
+"currency.retry" = "Retry ↵";
+"currency.disabled" = "Network off";
+"currency.daily" = "Daily rates · %@";

@@ -1,15 +1,28 @@
 # Adaptive search behavior and performance
 
-Cue 0.4.0 learns from successful launcher actions.
+Learning was introduced in Cue 0.4.0. The ranking rules below describe the current
+source. Dated measurements and installed-app verification later in this document
+are historical runs; they do not measure the current app/command merge change.
 
 ## Ranking behavior
 
-Text matching remains the first criterion: exact name, name prefix, word prefix,
+For applications, text matching remains the first criterion: exact name, name prefix, word prefix,
 substring, then initials/fuzzy matches. Within a matching category, ranking uses
 the score for the exact normalized query and selected result, followed by the
 result's overall score. Existing match penalties, positions, name lengths, names,
-and paths break remaining ties. Commands keep their existing position before apps
-and can learn their order relative to other matching commands.
+and paths break remaining ties. Matching commands also learn their order relative
+to other commands.
+
+The sorted app and command lists are merged by comparing the exact-query scores
+of their next results, preserving each list's internal order. A higher score for
+an app can move it ahead of a command; a tie keeps the command first. Overall
+popularity alone does not change this app/command order. For example, `it` also
+matches a substring of `traditional`, but a successful iTerm2 selection for `it`
+can put the app ahead of that incidental conversion command on the next
+invocation. There is no minimum repeat count: one successful choice suffices when
+the competing result has no history for that query. An explicitly configured
+exact command alias remains first, and numeric answers keep their leading
+position.
 
 Each successful selection adds one point. Older points decay with a 14-day
 half-life, combining frequency and recency without a clock read on every key.
@@ -17,8 +30,9 @@ Decay is recalculated in the background when loading or recording usage, not on
 every keystroke.
 Queries are normalized for case, diacritics, width, and whitespace. Learning one
 query does not automatically create preferences for its partial prefixes; general
-usage can still influence those searches. A habit cannot introduce a result that
-does not match or promote a weaker match above an exact match.
+usage can still influence those searches within each list. A habit cannot
+introduce a result that does not match or promote a weaker app match above an
+exact app match.
 
 The launcher records a successful app launch or built-in command using the query
 that led to it. Typing, arrow selection, canceling, and failures do not count.
@@ -39,8 +53,9 @@ To reset learning, quit Cue, remove just this `Search/usage.json` file, and reop
 Cue. Preferences and Clipboard History use separate storage.
 
 An actor loads and updates the state off the main thread. It prepares immutable
-score dictionaries there, including decay math. The typing path looks up those
-scores from memory once per matching result, then sorts; it never reads or writes
+score dictionaries there, including decay math. The typing path reads those
+scores from memory to sort within each list and merge matching apps and commands;
+queries without their own history skip the merge. It never reads or writes
 the usage file or waits for that actor. Startup continues while history loads.
 Recent query results remain cached.
 
@@ -175,7 +190,7 @@ should not be treated as universal improvements. The measurements support the
 bounded in-memory design and the sort fix; they do not establish smoothness on
 every Mac or replace optimized app interaction checks.
 
-## Installed-app verification
+## Installed-app verification from 0.4.0
 
 The final optimized app was installed at `~/Applications/Cue.app` and exercised
 on this Mac. Typing `c` initially placed Calculator eighth. Opening it with
@@ -192,10 +207,22 @@ the harness were injected; the Mac was never put to sleep or locked.
 
 ## 正體中文摘要
 
-Cue 0.4.0 支援依使用習慣排序。文字符合程度
-仍優先；同一類別內，先看相同關鍵字的選擇習慣，再看帶有近期加權的使用
-頻率。舊記錄的權重每 14 天減半。只記錄成功開啟的 App 或指令，不記錄
-單純打字、取消、失敗操作或剪貼簿頁面內的內容與搜尋。
+Cue 從 0.4.0 開始支援依使用習慣排序。以下是目前原始碼的規則，後面的
+日期、量測數字與已安裝 App 驗證是歷史紀錄，尚未量測這次 App／指令
+合併排序的修改。App 的文字符合程度仍優先；同一類別內，先看相同
+關鍵字的選擇習慣，再看帶有近期加權的使用頻率。指令也會在指令群組內
+依使用習慣排序。
+
+App 與指令兩個列表依序合併，只比較各自下一個結果對「完全相同且已
+正規化的關鍵字」的分數；分數相同時指令優先，不改變各群組內部的順序。
+一般使用頻率本身不會改變 App 與指令之間的順序。例如 `it` 會碰巧符合
+`traditional` 中間的字元，但成功選擇 iTerm2 後，下次叫出就能排在正體
+轉換指令前面。沒有固定的最低操作次數，另一個結果沒有該關鍵字的記錄時，
+一次成功選擇即可。明確設定的完整指令別名仍優先，數值答案也保留在最前面。
+較弱的 App 符合結果不會超過完全符合的 App。
+
+舊記錄的權重每 14 天減半。只記錄成功開啟的 App 或指令，不記錄單純
+打字、取消、失敗操作或剪貼簿頁面內的內容與搜尋。
 
 資料只有本機保存，最多 512 個結果、256 個關鍵字、每個關鍵字八個結果。
 檔案是可讀的 JSON，位於上述路徑。關閉 Cue 後只刪掉 `Search/usage.json`
@@ -265,3 +292,42 @@ p95 為 0.994 ms，背景工作時為 0.981 ms；500 個 App 的 p95 增幅較�
 0.639／1.242 ms，其餘等待的外部原因尚未確認。這不是零成本或無延遲的保證；
 此測試也不包含 `st`／`ts` 專項、詞庫載入、文字轉換、剪貼簿還原、輔助使用、
 按鍵傳遞或畫面繪製。轉換引擎的量測另見[詞庫資料與效能](chinese-conversion-data.md)。
+
+## App/command preference follow-up, 2026-09-29
+
+The optimized benchmark was rerun serially after compilation and tests completed,
+using the current source (including inline unit conversion and the query-specific
+app/command merge). Each core and model row below contains 3,000 samples; values
+are milliseconds. These are current measurements, not a paired before/after
+comparison of the merge alone.
+
+| Apps | Usage | Background worker | Core p95 | Model miss p95 | Core / model maximum |
+| --- | --- | --- | ---: | ---: | ---: |
+| 500 | Maximum | Off | 0.490 | 0.498 | 0.565 / 0.683 |
+| 500 | Maximum | On | 0.507 | 0.514 | 0.599 / 0.962 |
+| 1,000 | Maximum | Off | 0.957 | 0.953 | 1.593 / 1.523 |
+| 1,000 | Maximum | On | 0.995 | 0.986 | 1.990 / 2.022 |
+
+The 1,000-app empty-history run also had a 16.038 ms core wall sample with
+0.705 ms of thread CPU and an 8.625 ms model sample with 1.689 ms of CPU. As in
+earlier runs, most elapsed time in those samples was off the measured thread;
+the external cause remains unisolated. They are retained rather than treated as
+zero-delay evidence. This benchmark does not measure input delivery or drawing.
+The Release core suite passed 217 tests, and the isolated AppKit adaptive-search
+harness passed 52 checks, including the `it`/iTerm2 collision and persistence.
+The optimized app was installed and reopened on this Mac. Its existing `it`
+history placed iTerm2 first, ahead of Traditional Chinese conversion, without
+resetting history or adding a test launch to the user's data.
+
+### 正體中文補充
+
+上述是 2026-09-29 在其他建置與測試結束後，依序測量目前原始碼的結果，
+每格 3,000 次取樣，單位為毫秒；包含單位換算與這次的 App／指令合併，
+不是針對合併變更單獨做的成對比較。滿容量學習記錄下，1,000 個 App 的
+搜尋與 model 未命中快取 p95 約 0.95–1.00 ms。無學習記錄時也保留了
+16.038／8.625 ms 的長樣本，實際執行緒 CPU 為 0.705／1.689 ms，
+其餘等待原因尚未隔離；這些數字不代表按鍵到畫面更新保證沒有延遲。
+Release 核心測試 217 項與原生整合檢查 52 項通過，包含 `it` 選擇 iTerm2
+後跨過正體轉換指令，以及重新載入後保留排序。
+本機安裝最佳化版本並重開後，也確認既有 `it` 紀錄讓 iTerm2 排第一；
+沒有重設學習記錄，也沒有額外開啟真實 App 來增加測試次數。

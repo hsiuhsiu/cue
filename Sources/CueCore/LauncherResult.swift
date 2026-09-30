@@ -1,3 +1,7 @@
+public enum CurrencyConversionStatus: Hashable, Sendable {
+    case networkRequired, loading, unavailable, unsupported
+}
+
 /// A selectable application, built-in command, or action on the current query.
 public enum LauncherResult: Identifiable, Hashable, Sendable {
     case application(IndexedApplication)
@@ -15,9 +19,21 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
     case cleanLink
     case emojiSearch
     case calculation(CalculatorResult)
+    case conversion(ConversionResult)
+    case currencyStatus(CurrencyConversionStatus)
 
     /// Keep expressions and numeric results out of identifiers and usage history.
     public static let calculationID = "action:calculate"
+    public static let conversionIDPrefix = "action:convert:"
+    public static let currencyStatusID = "action:currency-status"
+
+    public var numericCopyValue: String? {
+        switch self {
+        case .calculation(let result): result.value
+        case .conversion(let result): result.value
+        default: nil
+        }
+    }
 
     public var id: String {
         switch self {
@@ -36,6 +52,8 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         case .cleanLink: "command:clean-link"
         case .emojiSearch: "command:emoji-search"
         case .calculation: Self.calculationID
+        case .conversion(let result): Self.conversionIDPrefix + result.targetID
+        case .currencyStatus: Self.currencyStatusID
         }
     }
 
@@ -56,6 +74,8 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         case .cleanLink: "Clean Link"
         case .emojiSearch: "Emoji Search"
         case .calculation(let result): result.value
+        case .conversion(let result): result.value + " " + result.unitSymbol
+        case .currencyStatus: "Currency Conversion"
         }
     }
 
@@ -137,11 +157,19 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         query: String,
         usage: SearchUsageSnapshot = .empty,
         conversionAliases: ChineseConversionAliases = .defaults,
-        includeGoogleFallback: Bool = false
+        includeGoogleFallback: Bool = false,
+        conversionResults: [ConversionResult]? = nil,
+        currencyStatus: CurrencyConversionStatus? = nil
     ) -> [LauncherResult] {
         // The calculator rejects ordinary text before parsing or allocating. Use
         // the original expression: search normalization is not math normalization.
         let calculation = Calculator.evaluate(query).map(Self.calculation)
+        let conversionQuery = ConversionQuery.parse(query)
+        var conversions = (conversionResults ?? conversionQuery.map { UnitConversion.convert($0) } ?? [])
+            .map(Self.conversion)
+        if conversionQuery?.source.isCurrency == true, conversions.isEmpty {
+            conversions = [.currencyStatus(currencyStatus ?? .networkRequired)]
+        }
         let normalizedQuery = SearchEngine.normalize(query)
         guard !normalizedQuery.isEmpty else {
             // Folding may erase a non-whitespace character (for example a lone
@@ -199,7 +227,62 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
             commands.removeAll { $0 == exactAlias }
             commands.insert(exactAlias, at: 0)
         }
-        if calculation == nil && commands.isEmpty && applications.isEmpty && includeGoogleFallback { return [.googleSearch] }
-        return calculation.map { [$0] + commands + applications } ?? (commands + applications)
+        if calculation == nil && conversions.isEmpty && commands.isEmpty && applications.isEmpty && includeGoogleFallback { return [.googleSearch] }
+        let matches: [LauncherResult]
+        if commands.isEmpty || applications.isEmpty || usage.isEmpty {
+            matches = commands + applications
+        } else {
+            let scorer = usage.scorer(normalizedQuery: query)
+            matches = scorer.hasQueryHistory
+                ? merge(commands: commands, applications: applications,
+                        scorer: scorer, pinnedCommand: exactAlias)
+                : commands + applications
+        }
+        return conversions + (calculation.map { [$0] } ?? []) + matches
+    }
+
+    /// A choice for this exact query may cross the command/app boundary. Keep
+    /// each group's existing order, so app text-match categories remain intact;
+    /// general popularity alone must not displace a command for a new query.
+    private static func merge(
+        commands: [LauncherResult], applications: [LauncherResult],
+        scorer: SearchUsageSnapshot.Scorer, pinnedCommand: LauncherResult?
+    ) -> [LauncherResult] {
+        var matches: [LauncherResult] = []
+        matches.reserveCapacity(commands.count + applications.count)
+        var commandIndex = 0
+        var applicationIndex = 0
+        if let pinnedCommand, commands.first == pinnedCommand {
+            matches.append(pinnedCommand)
+            commandIndex = 1
+        }
+        guard commandIndex < commands.count else {
+            matches.append(contentsOf: applications)
+            return matches
+        }
+
+        // Read each head's precomputed query score once. Merging is linear and
+        // does not sort the app values again or perform persistence work.
+        var commandScore = scorer.signal(for: commands[commandIndex].id).query
+        var applicationScore = scorer.signal(for: applications[applicationIndex].id).query
+        while commandIndex < commands.count && applicationIndex < applications.count {
+            if applicationScore > commandScore {
+                matches.append(applications[applicationIndex])
+                applicationIndex += 1
+                if applicationIndex < applications.count {
+                    applicationScore = scorer.signal(for: applications[applicationIndex].id).query
+                }
+            } else {
+                // Equal query scores retain the original command-first order.
+                matches.append(commands[commandIndex])
+                commandIndex += 1
+                if commandIndex < commands.count {
+                    commandScore = scorer.signal(for: commands[commandIndex].id).query
+                }
+            }
+        }
+        matches.append(contentsOf: commands[commandIndex...])
+        matches.append(contentsOf: applications[applicationIndex...])
+        return matches
     }
 }

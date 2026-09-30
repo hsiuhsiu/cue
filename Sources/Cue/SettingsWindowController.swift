@@ -29,7 +29,7 @@ private enum SettingsText {
     static let updatesHelp = L10n.string("updates.help", table: "Settings", value: "Checks run in the background without interrupting search. You choose when to install and restart Cue.")
     static let network = L10n.string("network.heading", table: "Settings", value: "Network")
     static let allowNetwork = L10n.string("network.allow", table: "Settings", value: "Allow Cue to access the network")
-    static let networkHelp = L10n.string("network.help", table: "Settings", value: "Controls Cue’s own network access, including updates. Manual browser searches are managed separately in Google Search Settings.")
+    static let networkHelp = L10n.string("network.help", table: "Settings", value: "Controls Cue’s own network access, including updates and currency rates. Manual browser searches are managed separately in Google Search Settings.")
     static let networkOff = L10n.string("network.updates_disabled", table: "Settings", value: "Network access is off. Update checks and downloads are disabled.")
     static let developmentBuild = L10n.string("updates.development_build", table: "Settings", value: "Development build")
     static let recorderLabel = L10n.string("recorder.label", table: "Settings", value: "Open Cue keyboard shortcut")

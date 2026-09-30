@@ -53,3 +53,10 @@
 "calculator.copying" = "正在拷貝結果⋯";
 "calculator.copyError" = "無法拷貝結果，請再試一次。";
 "calculator.accessDenied" = "剪貼簿存取已遭封鎖，請在系統設定中允許 Cue 後再試一次。";
+"currency.networkRequired" = "貨幣換算未開啟網路";
+"currency.loading" = "正在取得匯率⋯";
+"currency.unavailable" = "無法取得匯率";
+"currency.unsupported" = "匯率表未提供這種貨幣";
+"currency.retry" = "重試 ↵";
+"currency.disabled" = "網路已關閉";
+"currency.daily" = "每日參考匯率 · %@";

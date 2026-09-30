@@ -69,7 +69,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             .appendingPathComponent("Search/usage.json")
         let model = LauncherModel(usageStore: SearchUsageStore(fileURL: usageURL),
                                   conversionAliases: conversionPreferences.aliases,
-                                  awaitingInitialIndex: true)
+                                  awaitingInitialIndex: true,
+                                  currencyRates: CurrencyRatesController(policy: networkPolicy))
         launcher = LauncherPanelController(clipboard: clipboard, model: model, webSearchPreferences: webSearchPreferences)
         launcher.onSettings = { [weak self] in self?.showSettings() }
         launcher.onWebSearchSettings = { [weak self] in self?.showWebSearchSettings() }

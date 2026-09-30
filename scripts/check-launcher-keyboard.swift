@@ -83,8 +83,8 @@ struct CheckLauncherKeyboard {
                "The initial input must have no visible search prompt")
         expect(view.subviews.compactMap { $0 as? NSTextField }.filter { !$0.isHidden && !$0.stringValue.isEmpty }.isEmpty,
                "An idle launcher must not show branding, Escape, keyboard, or search instructions")
-        expect(view.subviews.compactMap { $0 as? NSButton }.isEmpty,
-               "The minimal launcher must not reserve a footer Settings button")
+        expect(view.subviews.compactMap { $0 as? NSButton }.allSatisfy { $0.isHidden },
+               "The idle launcher must not show footer buttons")
         expect(view.subviews.compactMap { $0 as? NSImageView }.isEmpty,
                "The initial input must not show a search icon")
         let idleHeight = view.preferredHeight
