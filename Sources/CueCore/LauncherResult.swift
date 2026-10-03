@@ -16,6 +16,10 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
     case googleSearch
     case googleSearchIn(WebSearchBrowser)
     case webSearchSettings
+    case chooseSearchBrowser
+    case askGPT
+    case translateGPT
+    case gptSettings
     case cleanLink
     case emojiSearch
     case calculation(CalculatorResult)
@@ -49,6 +53,10 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         case .googleSearch: "action:google-search"
         case .googleSearchIn(let browser): "action:google-search:\(browser.bundleIdentifier)"
         case .webSearchSettings: "command:web-search-settings"
+        case .chooseSearchBrowser: "action:google-search:browsers"
+        case .askGPT: "action:gpt-answer"
+        case .translateGPT: "action:gpt-translate"
+        case .gptSettings: "command:gpt-settings"
         case .cleanLink: "command:clean-link"
         case .emojiSearch: "command:emoji-search"
         case .calculation: Self.calculationID
@@ -71,6 +79,10 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         case .googleSearch: "Search Google"
         case .googleSearchIn(let browser): "Search Google in \(browser.name)"
         case .webSearchSettings: "Google Search Settings"
+        case .chooseSearchBrowser: "Choose Search Browser"
+        case .askGPT: "Ask GPT"
+        case .translateGPT: "Translate with GPT"
+        case .gptSettings: "GPT Settings"
         case .cleanLink: "Clean Link"
         case .emojiSearch: "Emoji Search"
         case .calculation(let result): result.value
@@ -86,6 +98,8 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         default: false
         }
     }
+
+    public var isGPTAction: Bool { self == .askGPT || self == .translateGPT }
 
     private static let updateIndexAliases = [
         "update app index", "update index", "refresh apps", "refresh index",
@@ -147,6 +161,11 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         "清理連結", "清理網址", "連結清理", "移除追蹤",
     ].map(SearchEngine.normalize)
 
+    private static let gptSettingsAliases = [
+        "gpt settings", "chatgpt settings", "openai settings", "api key",
+        "GPT 設定", "ChatGPT 設定", "翻譯設定", "翻译设置",
+    ].map(SearchEngine.normalize)
+
     private static let emojiAliases = [
         "emoji", "emoji search", "emoji finder", "emoticons",
         "表情符號", "表情", "表情搜尋", "搜尋表情符號", "繪文字",
@@ -177,7 +196,11 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
             return includeGoogleFallback && query.contains(where: { !$0.isWhitespace }) ? [.googleSearch] : []
         }
         let query = normalizedQuery
-        let applications = SearchEngine.search(applications, normalizedQuery: query, usage: usage).map(Self.application)
+        let matchingApplications = SearchEngine.search(applications, normalizedQuery: query, usage: usage)
+        // Exact user aliases form the first app rank category. Count that small
+        // prefix once so it can also precede ordinary built-in commands.
+        let pinnedApplicationCount = matchingApplications.prefix { $0.normalizedSearchAlias == query }.count
+        let applications = matchingApplications.map(Self.application)
         let exactAlias = conversionAliases.command(normalizedQuery: query)
 
         // Avoid crowding normal app searches with a command for one Latin letter.
@@ -213,6 +236,9 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
            webSearchSettingsAliases.contains(where: { $0.contains(query) }) {
             commands.append(.webSearchSettings)
         }
+        if gptSettingsAliases.contains(where: { $0.hasPrefix(query) }) {
+            commands.append(.gptSettings)
+        }
         if commands.count > 1 && !usage.isEmpty {
             let scorer = usage.scorer(normalizedQuery: query)
             commands = commands.enumerated().map { ($0.offset, $0.element, scorer.signal(for: $0.element.id)) }
@@ -229,7 +255,12 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         }
         if calculation == nil && conversions.isEmpty && commands.isEmpty && applications.isEmpty && includeGoogleFallback { return [.googleSearch] }
         let matches: [LauncherResult]
-        if commands.isEmpty || applications.isEmpty || usage.isEmpty {
+        if pinnedApplicationCount > 0 {
+            let scorer = usage.isEmpty ? nil : usage.scorer(normalizedQuery: query)
+            matches = merge(commands: commands, applications: applications,
+                            scorer: scorer?.hasQueryHistory == true ? scorer : nil,
+                            pinnedCommand: exactAlias, pinnedApplicationCount: pinnedApplicationCount)
+        } else if commands.isEmpty || applications.isEmpty || usage.isEmpty {
             matches = commands + applications
         } else {
             let scorer = usage.scorer(normalizedQuery: query)
@@ -246,7 +277,8 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
     /// general popularity alone must not displace a command for a new query.
     private static func merge(
         commands: [LauncherResult], applications: [LauncherResult],
-        scorer: SearchUsageSnapshot.Scorer, pinnedCommand: LauncherResult?
+        scorer: SearchUsageSnapshot.Scorer?, pinnedCommand: LauncherResult?,
+        pinnedApplicationCount: Int = 0
     ) -> [LauncherResult] {
         var matches: [LauncherResult] = []
         matches.reserveCapacity(commands.count + applications.count)
@@ -256,8 +288,11 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
             matches.append(pinnedCommand)
             commandIndex = 1
         }
-        guard commandIndex < commands.count else {
-            matches.append(contentsOf: applications)
+        matches.append(contentsOf: applications.prefix(pinnedApplicationCount))
+        applicationIndex = pinnedApplicationCount
+        guard let scorer, commandIndex < commands.count, applicationIndex < applications.count else {
+            matches.append(contentsOf: commands[commandIndex...])
+            matches.append(contentsOf: applications[applicationIndex...])
             return matches
         }
 

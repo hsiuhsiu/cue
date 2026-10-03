@@ -3,7 +3,7 @@ import Foundation
 // Validate the shipped resources as well as the source tables. No UI or preference writes.
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
 let source = root.appendingPathComponent("Sources/Cue/Resources")
-let tables = ["Localizable", "Settings", "Launcher", "Menu", "Clipboard", "ChineseConversion", "WebSearch", "Emoji"]
+let tables = ["Localizable", "Settings", "Launcher", "Menu", "Clipboard", "ChineseConversion", "WebSearch", "Emoji", "AppAliases", "GPT", "GPTSettings"]
 let languages = ["en", "zh-Hant"]
 let placeholder = try NSRegularExpression(pattern: #"%(?:([1-9][0-9]*)\$)?(ld|d|@)"#)
 var checked = 0

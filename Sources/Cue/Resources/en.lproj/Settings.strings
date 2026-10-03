@@ -1,6 +1,6 @@
 "window.title" = "Cue Settings";
 "shortcut.open_cue" = "Open Cue";
-"shortcut.invalid" = "Use ⌘, ⌥ or ⌃ with a key. ⌘, opens Settings; ⌘Return, ⌘Enter, and ⌘K are reserved for Google search.";
+"shortcut.invalid" = "Use ⌘, ⌥ or ⌃ with a key. ⌘, opens Settings; ⌘Return, ⌘Enter, and ⌘K are reserved for Google search; ⌘E edits app aliases.";
 "shortcut.error" = "Shortcut error: %@";
 "shortcut.heading" = "Keyboard Shortcut";
 "shortcut.help" = "Click the shortcut, then press a key with ⌘, ⌥ or ⌃. Press Esc to cancel.";

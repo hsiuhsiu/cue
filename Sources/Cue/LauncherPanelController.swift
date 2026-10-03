@@ -11,10 +11,12 @@ private final class LauncherPanel: NSPanel {
         if event.type == .keyDown {
             // Keep the direct-event fallback on the same route as native key equivalents.
             if (contentView as? LauncherView)?.handleSettingsShortcut(event) == true { return }
+            if (contentView as? LauncherView)?.handleAppAliasShortcut(event) == true { return }
             if (contentView as? LauncherView)?.handleSearchActionsShortcut(event) == true { return }
             if (contentView as? LauncherView)?.handleWebSearchShortcut(event) == true { return }
             if (contentView as? ClipboardView)?.handleSettingsShortcut(event) == true { return }
             if (contentView as? EmojiView)?.handleSettingsShortcut(event) == true { return }
+            if (contentView as? GPTView)?.handleKeyEquivalent(event) == true { return }
             if (contentView as? LauncherView)?.handleNumberShortcut(event) == true { return }
             if (contentView as? ClipboardView)?.handleNumberShortcut(event) == true { return }
             if (contentView as? EmojiView)?.handleNumberShortcut(event) == true { return }
@@ -35,6 +37,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private var launcherView: LauncherView!
     private let clipboard: ClipboardModel
     private let emoji: EmojiModel
+    private let gpt: GPTModel?
     private let performSystemAction: @MainActor (SystemAction) async throws -> Void
     private let openApplication: @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void
     private let openWebURL: @MainActor (URL, URL?, @escaping @MainActor (Error?) -> Void) -> Void
@@ -58,6 +61,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private var conversionRequest = 0
     private var showingClipboard = false
     private var showingEmoji = false
+    private var showingGPT = false
+    private var gptView: GPTView?
     private var isDismissing = false
     private lazy var emojiView: EmojiView = {
         let view = EmojiView(model: emoji, onCopy: { [weak self] index in
@@ -91,10 +96,13 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     var onSettings: (() -> Void)?
     var onConversionSettings: (() -> Void)?
     var onWebSearchSettings: (() -> Void)?
+    var onGPTSettings: (() -> Void)?
+    var onAppAlias: ((IndexedApplication) -> Void)?
 
     init(clipboard: ClipboardModel,
          model: LauncherModel = LauncherModel(),
          emoji: EmojiModel? = nil,
+         gpt: GPTModel? = nil,
          performSystemAction: @escaping @MainActor (SystemAction) async throws -> Void = SystemActions.perform,
          openApplication: @escaping @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemApplication,
          webSearchPreferences: WebSearchPreferences? = nil,
@@ -114,6 +122,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
          restoreSource: @escaping @MainActor (Int32) -> Bool = LauncherPanelController.activateSource) {
         self.clipboard = clipboard
         self.emoji = emoji ?? EmojiModel()
+        self.gpt = gpt
         self.model = model
         self.performSystemAction = performSystemAction
         self.openApplication = openApplication
@@ -160,7 +169,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             },
             onSettings: { [weak self] in self?.openContextSettings() },
             onWebSearch: { [weak self] in self?.searchGoogle() },
-            onSearchActions: { [weak self] in self?.model.toggleSearchActions() }
+            onSearchActions: { [weak self] in self?.model.toggleSearchActions() },
+            onAppAlias: { [weak self] application in self?.onAppAlias?(application) }
         )
         launcherView.onPreferredHeightChange = { [weak self] height in
             guard let self, !self.showingClipboard, self.panel.contentView === self.launcherView else { return }
@@ -233,7 +243,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         guard panel.isVisible, !isDismissing else { return }
         panel.makeKeyAndOrderFront(nil)
         // Feature settings own their focus; never target the hidden history field.
-        if showingEmoji {
+        if showingGPT {
+            gptView?.focusInput()
+        } else if showingEmoji {
             panel.makeFirstResponder(emojiView.searchField)
         } else if !showingClipboard || !clipboardView.isShowingSettings {
             panel.makeFirstResponder(showingClipboard ? clipboardView.searchField : launcherView.searchField)
@@ -298,6 +310,12 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             panel.contentView = launcherView
             panel.initialFirstResponder = launcherView.searchField
         }
+        if showingGPT {
+            gpt?.close()
+            showingGPT = false
+            panel.contentView = launcherView
+            panel.initialFirstResponder = launcherView.searchField
+        }
         model.reset()
         resizePanel(to: launcherView.preferredHeight)
         if returnToSource, let source { _ = restoreSource(source) }
@@ -313,6 +331,11 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     }
 
     private func showLauncher() {
+        let returningFromGPT = showingGPT
+        if showingGPT {
+            gpt?.close()
+            showingGPT = false
+        }
         if showingClipboard {
             clipboard.close()
             clipboardView.closeSettings()
@@ -322,7 +345,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             emoji.close()
             showingEmoji = false
         }
-        model.reset()
+        // Back from a reply keeps the original input for a different action.
+        if !returningFromGPT { model.reset() }
         panel.contentView = launcherView
         panel.initialFirstResponder = launcherView.searchField
         resizePanel(to: launcherView.preferredHeight)
@@ -338,6 +362,32 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         panel.makeFirstResponder(emojiView.searchField)
     }
 
+    private func showGPT(_ mode: GPTMode) {
+        guard let gpt else { onGPTSettings?(); return }
+        if gptView == nil {
+            let view = GPTView(model: gpt)
+            view.onBack = { [weak self] in self?.showLauncher() }
+            view.onSettings = { [weak self] in self?.onGPTSettings?() }
+            view.onPreferredHeightChange = { [weak self] height in
+                guard let self, self.showingGPT else { return }
+                self.resizePanel(to: height)
+            }
+            gptView = view
+        }
+        guard let view = gptView else { return }
+        showingGPT = true
+        panel.contentView = view
+        panel.initialFirstResponder = view
+        resizePanel(to: view.preferredHeight)
+        view.focusInput()
+        gpt.open(input: model.query, mode: mode)
+    }
+
+    func stopGPT() {
+        gpt?.stop()
+        gpt?.cancelPendingCopy()
+    }
+
     func windowDidResignKey(_ notification: Notification) {
         guard !isDismissing, panel.isVisible else { return }
         cancelCalculationCopy()
@@ -345,6 +395,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         cancelWebSearch()
         cancelConversion()
         emoji.cancelPendingCopy()
+        if showingGPT { stopGPT() }
         // The user chose another window; do not reactivate the invocation source.
         if preferences.dismissOnFocusLoss { dismiss(returnFocus: false) }
     }
@@ -367,6 +418,15 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         case .webSearchSettings:
             dismiss(returnFocus: false)
             onWebSearchSettings?()
+        case .chooseSearchBrowser:
+            model.showSearchBrowsers()
+        case .askGPT:
+            showGPT(.answer)
+        case .translateGPT:
+            showGPT(.translate)
+        case .gptSettings:
+            dismiss(returnFocus: false)
+            onGPTSettings?()
         case .convertToTraditional:
             runConversion(.traditionalTaiwan, resultID: result.id)
         case .convertToSimplified:
@@ -562,9 +622,12 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private func openContextSettings() {
         cancelCalculationCopy()
         switch model.selectedResult {
-        case .googleSearch, .googleSearchIn, .webSearchSettings:
+        case .googleSearch, .googleSearchIn, .webSearchSettings, .chooseSearchBrowser:
             dismiss(returnFocus: false)
             onWebSearchSettings?()
+        case .askGPT, .translateGPT, .gptSettings:
+            dismiss(returnFocus: false)
+            onGPTSettings?()
         case .convertToTraditional, .convertToSimplified, .chineseConversionSettings:
             dismiss(returnFocus: false)
             onConversionSettings?()

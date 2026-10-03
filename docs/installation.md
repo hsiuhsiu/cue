@@ -1,11 +1,11 @@
 # 安裝 Cue
 
-Cue 是選單列中的 macOS 啟動器，提供 App 搜尋、即時計算、單位與幣值換算、剪貼簿記錄、離線簡繁轉換與系統指令。按下 **Option+Space** 即可開始輸入；安裝不需要 Xcode 或終端機。
+Cue 是選單列中的 macOS 啟動器，提供 App 搜尋、GPT 問答與翻譯、即時計算、單位與幣值換算、剪貼簿記錄、離線簡繁轉換與系統指令。按下 **Option+Space** 即可開始輸入；安裝不需要 Xcode 或終端機。
 
 ## 下載
 
-- [下載 Cue 0.8.0 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v0.8.0/Cue-0.8.0-universal.dmg)
-- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v0.8.0)
+- [下載 Cue 0.9.0 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v0.9.0/Cue-0.9.0-universal.dmg)
+- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v0.9.0)
 
 儲存庫與下載現在都已公開，不需要 GitHub 帳號。版本說明同時提供 English／正體中文。
 
@@ -14,13 +14,13 @@ Cue 是選單列中的 macOS 啟動器，提供 App 搜尋、即時計算、單�
 ## 安裝與更新
 
 1. 若 Cue 正在執行，先從選單列的 Cue 圖示選擇**結束 Cue／Quit Cue**。
-2. 開啟下載的 **Cue-0.8.0-universal.dmg**。
+2. 開啟下載的 **Cue-0.9.0-universal.dmg**。
 3. 將 **Cue.app** 拖曳至 **Applications／應用程式**。若已有舊版本，選擇取代。
 4. 從「應用程式」開啟 Cue，再退出掛載的 Cue 磁碟映像。
 
 Cue 會出現在選單列，不會顯示 Dock 圖示。按下 **Option+Space**，或從選單列選擇**顯示 Cue／Show Cue**即可開啟搜尋面板。
 
-已有 Cue 且允許使用網路、選單提供「檢查更新」時，也可直接從 App 內更新至 0.8.0。若沒有此選項，依上方步驟安裝即可，原有設定會保留。
+已有 Cue 且允許使用網路、選單提供「檢查更新」時，也可直接從 App 內更新至 0.9.0。若沒有此選項，依上方步驟安裝即可，原有設定會保留。
 
 ## 從原始碼安裝
 
@@ -61,6 +61,8 @@ open "$HOME/Applications/Cue.app"
 | 直接輸入 App 名稱 | 搜尋應用程式 |
 | 上／下方向鍵、Enter | 選擇並開啟搜尋結果 |
 | Command+1–9 | 立即執行對應編號的結果；在剪貼簿頁會拷貝該筆記錄並關閉 Cue |
+| Command+K | 針對目前輸入選擇 Google、GPT 問答或翻譯 |
+| 選取 App 後按 Command+E | 編輯該 App 的搜尋別名 |
 | Escape | 關閉搜尋面板 |
 | Cue 中按 Command+, | 開啟設定 |
 
@@ -69,6 +71,16 @@ open "$HOME/Applications/Cue.app"
 設定頁可以更改全域快速鍵、顯示螢幕、切換 App 時是否隱藏面板、介面語言、登入時啟動、網路存取，以及更新檢查。按 **Command+,** 會將設定視窗帶到最前面並取得鍵盤焦點。設定會立即保存；除了語言需重新開啟 Cue，其餘設定立即生效。若預設快速鍵被其他 App 使用，請從 Cue 選單列的**設定⋯／Settings…** 更換。
 
 安裝或移除其他 App 後，在 Cue 輸入**更新索引**、`reindex` 或 `refresh apps`，選擇**更新應用程式索引／Update App Index** 並按 Enter，即可在背景重新掃描。
+
+Cue 會搜尋 App 的顯示名稱、Bundle 名稱及檔名，因此 **Code** 也可用 `vs` 或 `visual` 找到；Finder 也會加入索引。要設定自己的別名，選取 App 後按 **Command+E**，或點該列的 **…**。每個 App 可儲存一個別名，完整輸入時優先於一般符合結果；清空後儲存即可移除。
+
+### GPT 問答與翻譯
+
+輸入文字後，沒有本機符合結果時，可選擇 **Google 搜尋**、**問 GPT**或 **GPT 翻譯**；有 App 符合時也能按 **Command+K** 叫出這些動作。按顯示的 **Command+數字**立即執行。回答逐步顯示，**Command+Return** 拷貝，**停止**取消生成，**Esc** 返回原文字。
+
+先在 Cue 搜尋 `gpt settings`，將自己的 OpenAI API 金鑰存進 macOS 鑰匙圈，再於一般設定允許 Cue 自行連網。API 與 ChatGPT 訂閱分開計費。預設模型為 GPT-6 Luna，可在 GPT 設定更改；翻譯預設為中文→英文，其他語言→正體中文（台灣用詞），也可固定目標語言。
+
+只有執行 GPT 動作才會傳送文字，打字不會呼叫 API。Cue 不保存對話歷史，不將提問與回答加入搜尋學習；拷貝後適用一般剪貼簿記錄規則。此版本沒有即時網頁搜尋，最新資訊可選 Google。實際 API 回答品質、延遲與鑰匙圈授權尚未驗證；完整設定、用量上限與資料政策見 [GPT 說明](gpt.md)。
 
 ### 依使用習慣排序
 
@@ -114,7 +126,7 @@ Cue 支援英文與正體中文，包含所有設定、選單、搜尋提示，�
 
 從 Cue 選單列選擇**檢查更新⋯／Check for Updates…**，或在主啟動器按 **Command+, → 更新／Updates**，即可手動檢查、查看更新。選擇下載後，依更新視窗的安裝並重新啟動提示完成（英文介面為 **Install and Relaunch**）。請先把 Cue 安裝至「應用程式」等可寫入的位置再更新；直接從唯讀 DMG 執行無法自我更新，安裝需要額外權限時 macOS 可能要求授權。
 
-允許網路時，設定中的**自動檢查更新／Automatically check for updates** 可隨時關閉，手動檢查仍可使用。若關閉**允許使用網路**，手動、自動檢查及下載都會停用，幣值答案也會隱藏；自動檢查開關顯示關閉且無法操作，但會記住原本偏好，重新允許網路後可恢復。Cue 不會自動替你安裝或重啟，也不會傳送使用行為分析或系統資訊；更新檢查與下載會連線至 GitHub。
+允許網路時，設定中的**自動檢查更新／Automatically check for updates** 可隨時關閉，手動檢查仍可使用。若關閉**允許使用網路**，手動、自動檢查及下載都會停用，GPT 請求會取消，幣值答案也會隱藏；自動檢查開關顯示關閉且無法操作，但會記住原本偏好，重新允許網路後可恢復。Cue 不會自動替你安裝或重啟，也不會傳送使用行為分析或系統資訊；更新檢查與下載會連線至 GitHub。
 
 關閉網路不影響 App 搜尋、計算機、一般單位換算、剪貼簿記錄、系統指令或完整的簡繁轉換。適用範圍與進行中更新的取消行為，見[網路存取說明](network-policy.md)。
 

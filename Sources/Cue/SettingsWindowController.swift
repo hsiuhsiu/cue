@@ -5,7 +5,7 @@ import SwiftUI
 private enum SettingsText {
     static let windowTitle = L10n.string("window.title", table: "Settings", value: "Cue Settings")
     static let openCue = L10n.string("shortcut.open_cue", table: "Settings", value: "Open Cue")
-    static let invalidShortcut = L10n.string("shortcut.invalid", table: "Settings", value: "Use ⌘, ⌥ or ⌃ with a key. ⌘, opens Settings; ⌘Return, ⌘Enter, and ⌘K are reserved for Google search.")
+    static let invalidShortcut = L10n.string("shortcut.invalid", table: "Settings", value: "Use ⌘, ⌥ or ⌃ with a key. ⌘, opens Settings; ⌘Return, ⌘Enter, and ⌘K are reserved for Google search; ⌘E edits app aliases.")
     static let shortcutError = L10n.string("shortcut.error", table: "Settings", value: "Shortcut error: %@")
     static let keyboardShortcut = L10n.string("shortcut.heading", table: "Settings", value: "Keyboard Shortcut")
     static let shortcutHelp = L10n.string("shortcut.help", table: "Settings", value: "Click the shortcut, then press a key with ⌘, ⌥ or ⌃. Press Esc to cancel.")

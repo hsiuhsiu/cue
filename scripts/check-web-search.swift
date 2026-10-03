@@ -202,12 +202,17 @@ private final class BrowserResolverFixture: @unchecked Sendable {
         }
         boundedModel.setWebSearchPreferences(enabled: true, browsers: oversizedChoices)
         boundedModel.setQuery("unmatched bounded browser choices")
-        check(boundedModel.results.count == 9 && boundedModel.results.last == .googleSearchIn(oversizedChoices[7]),
-              "Even an oversized injected preference array produces at most nine ordered browser actions")
+        check(boundedModel.results == [.googleSearch, .askGPT, .translateGPT, .chooseSearchBrowser],
+              "Many browser choices use a submenu without crowding out GPT or exceeding nine rows")
         boundedModel.setResultLimit(1)
         check(boundedModel.results == [.googleSearch], "The ordinary browser fallback respects a reduced result limit")
         boundedModel.toggleSearchActions()
+        boundedModel.showSearchBrowsers()
         check(boundedModel.results.count == 9, "Explicit browser choices expose all eight curated browsers despite a reduced app result limit")
+        check(boundedModel.results.last == .googleSearchIn(oversizedChoices[7]), "The last curated browser stays reachable")
+        check(boundedModel.closeSearchActions() && boundedModel.isShowingSearchActions
+              && boundedModel.results == [.googleSearch, .askGPT, .translateGPT, .chooseSearchBrowser],
+              "Escape from browser choices preserves the query and returns to all text actions")
         let model = LauncherModel(applications: [app], usageStore: store)
         let resolver = BrowserResolverFixture()
         let browserURL = URL(fileURLWithPath: "/Synthetic/First Browser.app")
@@ -217,8 +222,14 @@ private final class BrowserResolverFixture: @unchecked Sendable {
         var sourceRestores = 0
         var searchSettings = 0
         var globalSettings = 0
+        var gptSettings = 0
+        var gptRequests: [(String, GPTMode)] = []
+        let gpt = GPTModel(configuration: { GPTConfiguration() }, stream: { input, mode, _, delta in
+            gptRequests.append((input, mode))
+            delta("Synthetic reply / 測試回答")
+        }, copier: { _ in })
         let controller = LauncherPanelController(
-            clipboard: clipboard, model: model,
+            clipboard: clipboard, model: model, gpt: gpt,
             performSystemAction: { _ in fatalError("Unexpected system action") },
             openApplication: { _, completion in appLaunches += 1; completion(nil) },
             webSearchPreferences: preferences,
@@ -228,6 +239,7 @@ private final class BrowserResolverFixture: @unchecked Sendable {
         )
         controller.onWebSearchSettings = { searchSettings += 1 }
         controller.onSettings = { globalSettings += 1 }
+        controller.onGPTSettings = { gptSettings += 1 }
         guard let window = application.windows.last(where: { $0.contentView is LauncherView }),
               let view = window.contentView as? LauncherView else { fatalError("Missing hidden launcher") }
         defer { window.contentView = nil; window.close() }
@@ -247,16 +259,16 @@ private final class BrowserResolverFixture: @unchecked Sendable {
         pending.setQuery("not indexed yet")
         check(pending.results.isEmpty, "An unknown initial index must not turn expected apps into external queries")
         check(!policy.allowsNetwork && model.allowsWebSearch, "Manual browser search is available while Cue-owned networking is disabled")
-        let choices: [LauncherResult] = [.googleSearch, .googleSearchIn(firstBrowser), .googleSearchIn(secondBrowser)]
+        let choices: [LauncherResult] = [.googleSearch, .askGPT, .translateGPT, .googleSearchIn(firstBrowser), .googleSearchIn(secondBrowser)]
         for value in ["", " ", "\n\t", "Cue Google 測試", "C++ & Swift #保留"] { model.setQuery(value) }
         check(opened.isEmpty && resolver.calls.isEmpty, "Typing and rendering never resolve a browser or hand text to one")
-        check(model.results == choices && model.selectedResult == .googleSearch, "Unmatched queries show only default and explicitly added browsers")
-        model.select(choices[2].id)
+        check(model.results == choices && model.selectedResult == .googleSearch, "Unmatched queries show Google, GPT actions, and explicitly added browsers")
+        model.select(LauncherResult.googleSearchIn(secondBrowser).id)
         preferences.remove(id: firstBrowser.id)
-        check(model.results == [.googleSearch, .googleSearchIn(secondBrowser)] && model.selectedResult == .googleSearchIn(secondBrowser),
+        check(model.results == [.googleSearch, .askGPT, .translateGPT, .googleSearchIn(secondBrowser)] && model.selectedResult == .googleSearchIn(secondBrowser),
               "Removing another browser invalidates cached fallback rows without shuffling the selected browser")
         try preferences.add(firstBrowser)
-        check(model.results == [.googleSearch, .googleSearchIn(secondBrowser), .googleSearchIn(firstBrowser)],
+        check(model.results == [.googleSearch, .askGPT, .translateGPT, .googleSearchIn(secondBrowser), .googleSearchIn(firstBrowser)],
               "Re-added browser choices follow their newly saved order")
         preferences.remove(id: secondBrowser.id)
         try preferences.add(secondBrowser)
@@ -296,7 +308,7 @@ private final class BrowserResolverFixture: @unchecked Sendable {
         model.setWebSearchPreferences(enabled: true, browsers: preferences.browsers)
         submit()
         _ = view.handleWebSearchShortcut(key(36, "\r"))
-        _ = view.handleNumberShortcut(key(19, "2"))
+        _ = view.handleNumberShortcut(key(21, "4"))
         check(opened.count == 3 && resolver.calls.isEmpty && model.launchError == LauncherText.shared.webSearchDisabled,
               "A stale presentation flag cannot bypass the authoritative feature switch through any execution path")
         check(view.handleSettingsShortcut(key(43, ",")) && searchSettings == 1 && globalSettings == 0,
@@ -331,11 +343,12 @@ private final class BrowserResolverFixture: @unchecked Sendable {
               && model.launchError == L10n.format(LauncherText.shared.browserUnavailable, firstBrowser.name),
               "An unavailable curated browser shows a useful error without silently falling back or losing the query")
 
-        for cancellation in ["query", "remove", "disable", "dismiss", "invocation", "actions"] {
+        for cancellation in ["query", "remove", "disable", "dismiss", "invocation", "actions", "browser back"] {
             if !preferences.isEnabled { preferences.setEnabled(true) }
             if !preferences.browsers.contains(firstBrowser) { try preferences.add(firstBrowser) }
             controller.prepareInvocation()
             model.setQuery("cancel \(cancellation) browser search")
+            if cancellation == "browser back" { model.showSearchBrowsers() }
             let beforeCalls = resolver.calls.count
             let beforeFinished = resolver.completed
             let beforeOpened = opened.count
@@ -350,6 +363,7 @@ private final class BrowserResolverFixture: @unchecked Sendable {
             case "disable": preferences.setEnabled(false)
             case "dismiss": controller.dismiss(returnFocus: false)
             case "invocation": controller.prepareInvocation()
+            case "browser back": _ = model.closeSearchActions()
             default: model.toggleSearchActions()
             }
             let preservedQuery = model.query
@@ -390,6 +404,30 @@ private final class BrowserResolverFixture: @unchecked Sendable {
                   "Blank queries neither offer nor execute web actions")
         }
 
+        // Shared text actions route to the native answer page only on execution.
+        model.setQuery("Private GPT fixture text"); model.toggleSearchActions()
+        check(gptRequests.isEmpty, "Typing and opening text actions never starts GPT work")
+        check(view.handleNumberShortcut(key(19, "2")), "Command-2 executes the GPT answer action")
+        await eventually("Explicit answer reaches the injected GPT worker once") { gptRequests.count == 1 && !gpt.isLoading }
+        check(gptRequests[0].0 == "Private GPT fixture text" && gptRequests[0].1 == .answer,
+              "The answer receives the exact original query and explicit question mode")
+        guard let answerView = window.contentView as? GPTView else { fatalError("Missing native GPT answer view") }
+        check(answerView.handleKeyEquivalent(key(53, "", modifiers: [])) && window.contentView === view
+              && model.query == "Private GPT fixture text" && gpt.output.isEmpty,
+              "Escape clears the answer and returns to the unchanged original query")
+        check(view.handleNumberShortcut(key(20, "3")), "Command-3 executes translation")
+        await eventually("Explicit translation reaches the GPT worker once") { gptRequests.count == 2 && !gpt.isLoading }
+        check(gptRequests[1].1 == .translate, "Translation uses its own mode, not question answering")
+        check(answerView.handleKeyEquivalent(key(43, ",")) && gptSettings == 1,
+              "Command-comma from the answer opens GPT-specific settings")
+        controller.dismiss(returnFocus: false)
+        check(!gpt.isPresented && gpt.input.isEmpty && gpt.output.isEmpty,
+              "Dismissing Cue clears both GPT input and response")
+        model.setQuery("gpt settings")
+        check(model.selectedResult == .gptSettings, "GPT settings is locally searchable")
+        submit()
+        check(gptSettings == 2 && gptRequests.count == 2, "Opening GPT settings does not submit a question")
+
         // Guard future call sites as well as the actual controller handoff path.
         let privateStore = SearchUsageStore(fileURL: folder.appendingPathComponent("private-usage.json"))
         let privateModel = LauncherModel(usageStore: privateStore)
@@ -398,7 +436,7 @@ private final class BrowserResolverFixture: @unchecked Sendable {
         }
         await privateModel.prepareForTermination()
         let privateUsage = await privateStore.load()
-        check(privateUsage == .empty, "Default and every named browser action stay out of learned usage history")
+        check(privateUsage == .empty, "Google and GPT actions stay out of learned usage history")
         await model.prepareForTermination()
         if let data = try? Data(contentsOf: folder.appendingPathComponent("usage.json")), let text = String(data: data, encoding: .utf8) {
             check(!text.contains("private search") && !text.contains("C++") && !text.contains("action:google-search"),

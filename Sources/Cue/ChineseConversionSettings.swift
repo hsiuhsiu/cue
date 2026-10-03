@@ -46,6 +46,7 @@ enum ChineseConversionText {
 final class ChineseConversionPreferences: ObservableObject {
     @Published private(set) var aliases: ChineseConversionAliases
     var onChange: ((ChineseConversionAliases) -> Void)?
+    var validateAliases: ((ChineseConversionAliases) -> String?)?
     private let defaults: UserDefaults
     private static let key = "chineseConversion.aliases"
 
@@ -60,10 +61,16 @@ final class ChineseConversionPreferences: ObservableObject {
 
     func save(traditional: String, simplified: String) throws {
         let value = try ChineseConversionAliases(traditional: traditional, simplified: simplified)
+        if let message = validateAliases?(value) { throw AliasConflict(message: message) }
         guard aliases != value else { return }
         defaults.set(["traditional": value.traditional, "simplified": value.simplified], forKey: Self.key)
         aliases = value
         onChange?(value)
+    }
+
+    struct AliasConflict: LocalizedError {
+        let message: String
+        var errorDescription: String? { message }
     }
 }
 
@@ -171,6 +178,8 @@ private struct ChineseConversionSettingsView: View {
                     do {
                         try preferences.save(traditional: traditional, simplified: simplified)
                         close()
+                    } catch let conflict as ChineseConversionPreferences.AliasConflict {
+                        self.error = conflict.message
                     } catch { self.error = ChineseConversionText.invalid }
                 }.keyboardShortcut(.defaultAction)
             }

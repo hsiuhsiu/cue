@@ -1,0 +1,12 @@
+"action.edit" = "編輯搜尋別名⋯";
+"window.title" = "搜尋別名 — %@";
+"alias.label" = "搜尋別名";
+"alias.help" = "在 Cue 輸入完整別名，即可優先顯示這個 App。請以文字開頭，使用最多 32 個文字、數字、- 或 _，不可含空白。留空即可移除別名。";
+"error.invalid" = "請以文字開頭，使用最多 32 個文字、數字、- 或 _，不可含空白。";
+"error.duplicate" = "其他 App 已使用這個別名，請換一個。";
+"error.conversionConflict" = "簡繁互轉已使用這個別名。請換一個，或先到「簡繁互轉」設定中修改。";
+"error.appConflict" = "已有 App 使用「%@」作為搜尋別名。請選擇其他轉換別名，或先修改該 App 的別名。";
+"error.limit" = "最多可為 256 個 App 儲存別名。請先移除其他別名再新增。";
+"error.invalidApp" = "這個 App 的資訊無效，請更新 App 索引後再試。";
+"action.save" = "儲存";
+"action.cancel" = "取消";

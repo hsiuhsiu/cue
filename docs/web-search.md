@@ -3,17 +3,17 @@
 ## English
 
 Available in Cue 0.6.0. Search with your Mac's default browser or browsers
-you explicitly add in Google Search Settings. Translation is not implemented.
+you explicitly add in Google Search Settings. Cue 0.9.0 adds [GPT answers and translation](gpt.md).
 
 ### Search from the launcher
 
 1. Invoke Cue with Option+Space and type your query.
 2. After the initial app index has loaded, a nonempty query with no matching app
-   or built-in command shows Google search actions: the system default first,
+   or built-in command shows text actions: the system default Google search first, GPT answers and translation,
    followed by your added browsers. Press **Return**, click a result, or use
-   **Command+1–9** to search with that browser.
+   **Command+1–9** to execute the selected action.
 3. If there are local results but you want Google, press **Command+Return** to
-   use the system default, or **Command+K** to show the browser search actions
+   use the system default, or **Command+K** to show text actions
    for the text already entered. Ordinary Return still executes the selected
    app or command while the normal local result list is showing.
 
@@ -30,7 +30,8 @@ open **Google Search Settings**. **Command+,** opens the same feature settings
 when a Google action is selected. These options stay out of Cue-wide Settings.
 
 The system default is always the first action and cannot be removed. Add up to
-**eight browsers** to keep every action within the nine numbered results. The
+**eight browsers**. With more than six added browsers, Cue
+puts the full browser list under **Other Browsers…** so each page stays within nine results. The
 Add Browser interface discovers installed apps that can open HTTPS links; only
 the browsers you explicitly add appear in search actions. Detection does not
 automatically enroll every installed browser. Remove a browser from this list
@@ -63,26 +64,26 @@ the submitted query and use their own history, account, and privacy settings.
 After handoff, changing either Cue setting cannot stop that browser's
 navigation or recall text already sent. See the [network policy](network-policy.md).
 
-### Later text actions
+### GPT text actions
 
-**Command+K** currently offers Google search with your configured browsers.
-Translation and other text actions remain future directions; this feature does
-not contact a translation or AI service. Any future API request made by Cue
-must obey the global network setting. See [future directions](future-directions.md).
+Cue 0.9.0 adds **Ask GPT** and **Translate with GPT** to
+Command+K and unmatched-query fallback. These send text directly to OpenAI only
+when executed, require a user-supplied API key, and obey the global network
+setting. Google browser actions retain their independent permission. See [GPT](gpt.md).
 
 ## 正體中文
 
 自 Cue 0.6.0 起提供。可用這台 Mac 的
-預設瀏覽器，或在 Google 搜尋設定中自行加入的瀏覽器搜尋。翻譯動作尚未實作。
+預設瀏覽器，或在 Google 搜尋設定中自行加入的瀏覽器搜尋。Cue 0.9.0 另加入 [GPT 問答與翻譯](gpt.md)。
 
 ### 從主視窗搜尋
 
 1. 按 Option+Space 叫出 Cue，輸入要搜尋的文字。
 2. 初次 App 索引載入後，若非空白查詢沒有符合的 App 或內建指令，就會顯示
-   Google 搜尋動作：第一個是系統預設，接著是你自行加入的瀏覽器。按
-   **Return**、點選結果或按 **Command+1–9**，用對應瀏覽器執行搜尋。
+   文字動作：依序提供系統預設 Google、GPT 問答與翻譯，接著是自行加入的瀏覽器。按
+   **Return**、點選結果或按 **Command+1–9**，執行選取的動作。
 3. 若已有本機結果，但你想搜尋 Google，按 **Command+Return** 使用系統預設，
-   或按 **Command+K** 針對已輸入文字顯示瀏覽器搜尋動作。顯示一般本機結果時，
+   或按 **Command+K** 針對已輸入文字顯示可用動作。顯示一般本機結果時，
    普通 Return 仍執行選取的 App 或指令。
 
 瀏覽器依 macOS 設定的預設值開啟，因此每台電腦可以使用自己的預設瀏覽器，
@@ -96,8 +97,9 @@ must obey the global network setting. See [future directions](future-directions.
 開啟 **Google 搜尋設定**。選到 Google 搜尋動作時按 **Command+,** 也會開啟
 這個功能的設定，不會把這些選項塞進 Cue 的整體設定。
 
-系統預設固定在第一項，不能移除；另外最多可加入 **八個瀏覽器**，讓所有動作
-都能用九個編號直接選擇。「加入瀏覽器」介面會偵測已安裝且能開啟 HTTPS 連結
+系統預設固定在第一項，不能移除；另外最多可加入 **八個瀏覽器**。超過六個時，
+完整瀏覽器清單收進**其他瀏覽器⋯**，每頁仍能以九個編號選擇。「加入瀏覽器」
+介面會偵測已安裝且能開啟 HTTPS 連結
 的 App，但只有你明確加入的瀏覽器才會出現在搜尋動作中，不會自動加入所有
 偵測結果。移除清單中的瀏覽器只會隱藏該動作，不會解除安裝 App。
 
@@ -122,8 +124,9 @@ Google 搜尋網址，並在開啟前再次確認瀏覽器搜尋開關。該開�
 及隱私設定處理。交給瀏覽器後，更改 Cue 的任一開關都無法停止該瀏覽器的導覽，也
 無法收回已傳出的文字。詳見[網路政策](network-policy.md)。
 
-### 之後的文字動作
+### GPT 文字動作
 
-**Command+K** 目前提供使用已設定瀏覽器的 Google 搜尋。翻譯及其他文字動作
-仍屬未來方向，此功能不會連到翻譯或 AI 服務。未來若由 Cue 自己發出 API
-請求，必須遵守全域網路開關。詳見[未來方向](future-directions.md)。
+Cue 0.9.0 的 Command+K 與無符合結果時，加入**問 GPT**與**GPT 翻譯**。
+只有執行才會將文字傳到 OpenAI，需要自行提供 API 金鑰，並遵守全域網路開關；
+Google 瀏覽器搜尋繼續使用獨立許可。額外瀏覽器超過六個時會收進**其他瀏覽器⋯**，
+每頁仍維持最多九項，所有已加入瀏覽器都可使用。詳見 [GPT 說明](gpt.md)。

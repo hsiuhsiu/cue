@@ -38,6 +38,11 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/EmojiModel.swift" \
     "$repo_root/Sources/Cue/EmojiView.swift" \
     "$repo_root/Sources/Cue/CalculatorCopyService.swift" \
+    "$repo_root/Sources/Cue/GPTKeychain.swift" \
+    "$repo_root/Sources/Cue/GPTClient.swift" \
+    "$repo_root/Sources/Cue/GPTSettings.swift" \
+    "$repo_root/Sources/Cue/GPTModel.swift" \
+    "$repo_root/Sources/Cue/GPTView.swift" \
     "$repo_root/Sources/Cue/LauncherPanelController.swift" \
     "$repo_root/Sources/Cue/NetworkPolicy.swift" \
     "$repo_root/scripts/check-web-search.swift" \

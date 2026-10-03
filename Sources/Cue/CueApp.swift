@@ -51,8 +51,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var settingsController: SettingsWindowController?
     private let webSearchPreferences = WebSearchPreferences()
     private var webSearchSettingsController: WebSearchSettingsController?
+    private let gptPreferences = GPTPreferences()
+    private var gptSettingsController: GPTSettingsController?
+    private var gptNetworkSubscription: AnyCancellable?
     private let conversionPreferences = ChineseConversionPreferences()
     private var conversionSettingsController: ChineseConversionSettingsController?
+    private let appAliasPreferences = AppAliasPreferences()
+    private var appAliasSettingsController: AppAliasSettingsController?
     private lazy var loginItem = LoginItemController()
     private var preferencesSubscription: AnyCancellable?
     private var updates: UpdateController!
@@ -69,12 +74,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             .appendingPathComponent("Search/usage.json")
         let model = LauncherModel(usageStore: SearchUsageStore(fileURL: usageURL),
                                   conversionAliases: conversionPreferences.aliases,
+                                  applicationAliases: appAliasPreferences.aliases,
                                   awaitingInitialIndex: true,
                                   currencyRates: CurrencyRatesController(policy: networkPolicy))
-        launcher = LauncherPanelController(clipboard: clipboard, model: model, webSearchPreferences: webSearchPreferences)
+        let gpt = GPTModel(client: GPTClient(policy: networkPolicy), preferences: gptPreferences)
+        launcher = LauncherPanelController(clipboard: clipboard, model: model, gpt: gpt,
+                                           webSearchPreferences: webSearchPreferences)
         launcher.onSettings = { [weak self] in self?.showSettings() }
         launcher.onWebSearchSettings = { [weak self] in self?.showWebSearchSettings() }
+        launcher.onGPTSettings = { [weak self] in self?.showGPTSettings() }
+        gptPreferences.onChange = { [weak self] in self?.launcher.stopGPT() }
+        gptNetworkSubscription = networkPolicy.changes.prepend(networkPolicy.allowsNetwork)
+            .sink { [weak model] allowed in model?.setAllowsGPTNetwork(allowed) }
         launcher.onConversionSettings = { [weak self] in self?.showConversionSettings() }
+        launcher.onAppAlias = { [weak self] application in self?.showAppAliasSettings(for: application) }
+        appAliasPreferences.onChange = { [weak model] aliases in model?.setApplicationAliases(aliases) }
+        conversionPreferences.validateAliases = { [weak self] aliases in
+            self?.appAliasPreferences.conflict(with: aliases)
+        }
         conversionPreferences.onChange = { [weak model] aliases in model?.setConversionAliases(aliases) }
         configureMenuBar()
         configureEditingMenu()
@@ -154,6 +171,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if settingsController?.window?.isVisible != true,
            conversionSettingsController?.window?.isVisible != true,
+           appAliasSettingsController?.window?.isVisible != true,
+           gptSettingsController?.window?.isVisible != true,
            webSearchSettingsController?.window?.isVisible != true { launcher.show() }
         return false
     }
@@ -200,12 +219,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         webSearchSettingsController?.show()
     }
 
+    private func showGPTSettings() {
+        launcher.dismiss(returnFocus: false)
+        if gptSettingsController == nil {
+            let controller = GPTSettingsController(preferences: gptPreferences, policy: networkPolicy)
+            controller.onOpenGeneralSettings = { [weak self] in self?.showSettings() }
+            controller.onCredentialsChange = { [weak self] in self?.launcher.stopGPT() }
+            gptSettingsController = controller
+        }
+        gptSettingsController?.show()
+    }
+
     private func showConversionSettings() {
         launcher.dismiss(returnFocus: false)
         if conversionSettingsController == nil {
             conversionSettingsController = ChineseConversionSettingsController(preferences: conversionPreferences)
         }
         conversionSettingsController?.show()
+    }
+
+    private func showAppAliasSettings(for application: IndexedApplication) {
+        launcher.dismiss(returnFocus: false)
+        appAliasSettingsController?.close()
+        appAliasSettingsController = AppAliasSettingsController(
+            application: application, preferences: appAliasPreferences,
+            conversionAliases: { [weak self] in self?.conversionPreferences.aliases ?? .defaults }
+        )
+        appAliasSettingsController?.show()
     }
 
     private func settingsMenuItem() -> NSMenuItem {

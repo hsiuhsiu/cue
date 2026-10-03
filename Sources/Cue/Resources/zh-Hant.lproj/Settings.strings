@@ -1,6 +1,6 @@
 "window.title" = "Cue 設定";
 "shortcut.open_cue" = "叫出 Cue";
-"shortcut.invalid" = "請搭配 ⌘、⌥ 或 ⌃ 按下另一個按鍵。⌘, 用於設定；⌘Return、⌘Enter 與 ⌘K 保留用於 Google 搜尋。";
+"shortcut.invalid" = "請搭配 ⌘、⌥ 或 ⌃ 與一個按鍵。⌘, 開啟設定；⌘Return、⌘Enter 與 ⌘K 保留給 Google 搜尋；⌘E 編輯 App 別名。";
 "shortcut.error" = "快速鍵錯誤：%@";
 "shortcut.heading" = "快速鍵";
 "shortcut.help" = "點一下快速鍵，再搭配 ⌘、⌥ 或 ⌃ 按下另一個按鍵。按 Esc 取消。";

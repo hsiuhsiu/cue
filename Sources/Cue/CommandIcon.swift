@@ -7,6 +7,7 @@ enum CommandIcon: CaseIterable, Sendable {
     case updateIndex, clipboardHistory, sleep, lockScreen, screenOff
     case convertToTraditional, convertToSimplified, chineseConversionSettings
     case googleSearch, webSearchSettings, cleanLink, emojiSearch, calculator
+    case askGPT, translateGPT, gptSettings
 
     init?(_ result: LauncherResult) {
         switch result {
@@ -14,7 +15,10 @@ enum CommandIcon: CaseIterable, Sendable {
         case .calculation, .conversion, .currencyStatus: self = .calculator
         case .cleanLink: self = .cleanLink
         case .emojiSearch: self = .emojiSearch
-        case .googleSearch, .googleSearchIn: self = .googleSearch
+        case .googleSearch, .googleSearchIn, .chooseSearchBrowser: self = .googleSearch
+        case .askGPT: self = .askGPT
+        case .translateGPT: self = .translateGPT
+        case .gptSettings: self = .gptSettings
         case .webSearchSettings: self = .webSearchSettings
         case .updateIndex: self = .updateIndex
         case .clipboardHistory: self = .clipboardHistory
@@ -33,6 +37,9 @@ enum CommandIcon: CaseIterable, Sendable {
         case .cleanLink: LauncherResult.cleanLink.id
         case .emojiSearch: LauncherResult.emojiSearch.id
         case .googleSearch: LauncherResult.googleSearch.id
+        case .askGPT: LauncherResult.askGPT.id
+        case .translateGPT: LauncherResult.translateGPT.id
+        case .gptSettings: LauncherResult.gptSettings.id
         case .webSearchSettings: LauncherResult.webSearchSettings.id
         case .updateIndex: LauncherResult.updateIndex.id
         case .clipboardHistory: LauncherResult.clipboardHistory.id
@@ -132,6 +139,24 @@ enum CommandIcon: CaseIterable, Sendable {
         }
 
         switch self {
+        case .askGPT, .gptSettings:
+            rounded(CGRect(x: 5.5, y: 10, width: 17, height: 12), radius: 3)
+            line([CGPoint(x: 9, y: 10), CGPoint(x: 8, y: 6), CGPoint(x: 13, y: 10)])
+            for x: CGFloat in [10, 14, 18] {
+                c.fillEllipse(in: CGRect(x: x - 0.8, y: 15.2, width: 1.6, height: 1.6))
+            }
+            if self == .gptSettings {
+                c.setFillColor(CGColor(gray: 1, alpha: 1))
+                c.fillEllipse(in: CGRect(x: 15.5, y: 3, width: 10, height: 10))
+                c.setLineWidth(1)
+                gear(center: CGPoint(x: 20.5, y: 8))
+            }
+        case .translateGPT:
+            character("A", size: 11, center: CGPoint(x: 9, y: 18))
+            character("譯", size: 11, center: CGPoint(x: 19, y: 10))
+            c.setLineWidth(1.1)
+            arrow(from: CGPoint(x: 15, y: 21), to: CGPoint(x: 22, y: 21), head: 1.5)
+            arrow(from: CGPoint(x: 13, y: 7), to: CGPoint(x: 6, y: 7), head: 1.5)
         case .calculator:
             rounded(CGRect(x: 7, y: 5, width: 14, height: 18), radius: 2)
             rounded(CGRect(x: 10, y: 16, width: 8, height: 4), radius: 0.5)

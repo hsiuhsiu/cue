@@ -45,8 +45,8 @@
 "search.settings" = "Google Search Settings";
 "search.browserUnavailable" = "%@ is unavailable. Install it again or choose another browser.";
 "search.openingBrowser" = "Opening browser…";
-"search.actions" = "Google search · Esc to return · ⌘, for search settings";
-"search.choices" = "Choose a search browser (⌘K) · Search settings (⌘,)";
+"search.actions" = "Choose an action · Esc to return · ⌘, for its settings";
+"search.choices" = "More actions (⌘K) · Search settings (⌘,)";
 
 /* Inline calculator */
 "calculator.copy" = "Copy result ↵";
@@ -60,3 +60,22 @@
 "currency.retry" = "Retry ↵";
 "currency.disabled" = "Network off";
 "currency.daily" = "Daily rates · %@";
+
+"app.editAlias" = "Edit Search Alias…";
+"app.aliasHelp" = "Edit search alias (⌘E)";
+
+"search.chooseBrowser" = "Other Browsers…";
+
+"gpt.answer" = "Ask GPT";
+
+"gpt.translate" = "Translate with GPT";
+
+"gpt.settings" = "GPT Settings";
+
+"gpt.answer.detail" = "Quick answer";
+
+"gpt.translate.detail" = "Translation";
+
+"gpt.networkOff" = "Network off";
+
+"gpt.help" = "Send this text to OpenAI · GPT settings (⌘,)";

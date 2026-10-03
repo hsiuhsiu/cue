@@ -8,8 +8,8 @@ itself. Since Cue 0.6.0, explicit Google browser searches use a
 separate feature-local switch.
 App discovery, local app/command search and learning, Clipboard History, system
 commands, Chinese conversion, link cleaning, emoji search, the calculator, and
-physical-unit conversion remain available. Currency conversion in the current
-source build requires this global permission, even when rates are cached.
+physical-unit conversion remain available. GPT answers and translation require
+this global permission, as does currency conversion even when rates are cached.
 
 ### Defaults and saved choices
 
@@ -43,7 +43,7 @@ Cue also offers explicit Google search in the default
 browser or browsers the user adds. After the first app index is ready, a
 nonempty query with no local match shows those actions; Return, a click, or
 Command+1–9 executes one. Command+Return searches in the default browser even
-if local matches exist; Command+K shows the browser actions for the current text.
+if local matches exist; Command+K shows text actions for the current text.
 Cue makes no Google requests or suggestions while typing. Only executing the
 action hands the query to the browser, which sends it to Google. Cue does not
 persist Google query text in its search-learning history; the browser and Google
@@ -68,9 +68,9 @@ installation that has already started.
 
 ### Currency rates and local unit conversion
 
-The current source build adds currency conversion; it is not included in the
-0.7.0 download. With Cue's global network access enabled, a recognized currency
-query can fetch the fixed HTTPS table at `https://open.er-api.com/v6/latest/USD`.
+Cue 0.8.0 introduced currency conversion. With Cue's global network access
+enabled, a recognized currency query can fetch the fixed HTTPS table at
+`https://open.er-api.com/v6/latest/USD`.
 Cue downloads the same USD-based table for every query and calculates locally:
 it does not send the amount, entered text, source currency or target currency.
 The provider still sees ordinary connection information, including the IP address.
@@ -91,6 +91,14 @@ explicit Google actions continue to use their own separate permission.
 Conversion queries and results are excluded from search learning. Ordinary
 physical-unit conversions, including Taiwan's 坪, stay fully offline. See
 [unit and currency conversion](unit-conversion.md).
+
+### GPT answers and translation
+
+GPT is available in Cue 0.9.0. Only explicitly choosing **Ask GPT**, **Translate with GPT**, or **Retry** sends the current text to `https://api.openai.com/v1/responses`. Typing, rendering choices, opening GPT settings and changing the model do not request answers. The request contains that text, the selected model, and short task instructions; it does not include app inventory, search-learning data, clipboard history, other windows, or previous replies. No live web-search tool is enabled. Credentials stay in the user's macOS Keychain, not preferences or the app bundle.
+
+The global network permission is checked before reading the key and again before starting a request. Turning it off cancels the active stream; older callbacks cannot restore the answer or start another request. Stop, returning from a reply, closing Cue's panel, and changing credentials cancel pending work. A retry is always explicit, and re-enabling networking never resubmits a question. Cancellation cannot recall text OpenAI already received or guarantee that server-side generation or billing stops immediately.
+
+Cue uses an ephemeral session without cookies or a disk cache, refuses redirects, sends `store: false`, and does not save questions or replies as conversation history or search-learning data. Copying a reply writes it to the system clipboard, where normal Clipboard History rules apply. `store: false` is not a promise of zero retention at OpenAI: its [API data controls](https://developers.openai.com/api/docs/guides/your-data) still apply. See [GPT setup and behavior](gpt.md).
 
 ### Chinese conversion stays fully offline
 
@@ -132,7 +140,7 @@ browser-search preference, not `NetworkPolicy.allowsNetwork`. Once a link is
 handed over, that browser controls its own network activity. Merely launching
 a browser application from local app results remains an app-launch action;
 these switches are not a firewall for that app. Any future network API request
-made by Cue, such as translation, must use the global gate just as currency
+made by Cue must use the global gate just as GPT and currency
 rates do.
 
 Developer tools are separate: cloning the repository, fetching the pinned
@@ -146,8 +154,17 @@ Unicode/CLDR source data; the running app never downloads these resources.
 Cue 在設定中提供全域網路存取開關，管理 Cue 自己發出的請求。關閉後，
 自動與手動檢查更新都會停用。自 Cue 0.6.0 起提供的 Google 瀏覽器搜尋使用獨立
 功能開關。App 索引、本機 App／指令搜尋與學習、剪貼簿記錄、系統指令、
-簡繁轉換、連結清理、emoji 搜尋、計算機與一般單位換算仍可使用。目前原始碼版
-加入的幣值換算需要這項全域許可，即使已快取匯率也一樣。
+簡繁轉換、連結清理、emoji 搜尋、計算機與一般單位換算仍可使用。GPT 問答與
+翻譯需要這項全域許可；幣值換算也一樣，即使已快取匯率也需要允許連網。
+
+### GPT 問答與翻譯
+
+Cue 0.9.0 起提供 GPT。只有明確選擇**問 GPT**、**GPT 翻譯**或**重試**，才會將目前文字傳送至 `https://api.openai.com/v1/responses`；打字、顯示選項、開啟 GPT 設定或更改模型都不會請求答案。請求包含該段文字、模型與簡短的任務指示，不包含 App 清單、搜尋學習資料、剪貼簿歷史、其他視窗或先前回答，也不啟用即時網頁搜尋工具。金鑰存於使用者的 macOS 鑰匙圈，不放進偏好設定或 App 套件。
+
+讀取金鑰前與開始請求前都會檢查全域網路許可。關閉網路會取消回答串流，過期回呼不能恢復答案或發出新請求。停止、返回、收起 Cue 視窗及修改金鑰也會取消進行中的工作；重試必須明確操作，重新允許網路不會自動重送。取消無法收回 OpenAI 已收到的文字，也不能保證伺服器端生成或計費立即停止。
+
+連線不使用 Cookie 或磁碟快取，拒絕重新導向，且傳送 `store: false`。Cue 不會將提問或回答存成對話歷史或搜尋學習資料；拷貝答案則會寫入系統剪貼簿，適用一般剪貼簿記錄規則。`store: false` 不代表 OpenAI 端完全零保留，仍適用其 [API 資料政策](https://developers.openai.com/api/docs/guides/your-data)。詳見 [GPT 設定與行為](gpt.md)。
+
 
 ### 預設值與已儲存的選擇
 
@@ -173,7 +190,7 @@ User-Agent 等連線資訊；允許檢查更新並不代表匿名連線。
 Cue 也提供在預設或自行加入瀏覽器執行的 Google 搜尋。初次 App 索引
 完成後，若非空白查詢沒有本機結果，就會顯示這些動作；按 Return、點選或
 Command+1–9 才會執行。即使已有本機結果，也可用 Command+Return 在預設瀏覽器
-搜尋，或按 Command+K 顯示目前文字的瀏覽器動作。
+搜尋，或按 Command+K 顯示目前文字的可用動作。
 打字時不會向 Google 發送請求或取得搜尋建議；只有執行動作時，才將查詢交給
 瀏覽器送至 Google。Cue 不會將 Google 搜尋字詞存入搜尋學習記錄；瀏覽器與
 Google 依各自的歷史記錄、帳號及隱私設定處理。空白輸入與輸入法組字期間都
@@ -193,7 +210,7 @@ Google 搜尋在交給瀏覽器前會再次檢查自己的瀏覽器搜尋開關�
 
 ### 匯率與本機單位換算
 
-目前原始碼版加入幣值換算，尚未包含在 0.7.0 下載版。允許 Cue 自行連網時，
+Cue 0.8.0 起提供幣值換算。允許 Cue 自行連網時，
 辨識出的幣值查詢可觸發下載固定的 HTTPS 匯率表：
 `https://open.er-api.com/v6/latest/USD`。每次都取得同一份以美元為基準的資料，
 換算在本機完成；不會送出金額、輸入文字、來源或目標幣別。服務提供者仍會
@@ -241,8 +258,8 @@ Emoji 及其英文／正體中文名稱與關鍵字隨 Cue 內附，不需服務
 剪貼簿管理程式仍依各自設定運作。明確將 Google 查詢交給瀏覽器的動作遵守
 獨立的瀏覽器搜尋偏好，不受 `NetworkPolicy.allowsNetwork` 控制；交接後的
 網路活動由瀏覽器自行管理。單純從本機 App 結果開啟瀏覽器仍屬於啟動 App，
-這些開關不是該 App 的防火牆。未來若由 Cue 自己發出翻譯等 API 請求，
-也必須像匯率功能一樣遵守全域網路開關。
+這些開關不是該 App 的防火牆。未來由 Cue 自己發出的其他 API 請求，
+也必須像 GPT 與匯率功能一樣遵守全域網路開關。
 
 開發工具另計：取得 Git 儲存庫、首次建置下載固定版本的 Sparkle，以及發布版本
 都需要網路。一般建置直接使用儲存庫內附的中文詞庫與 emoji 目錄；重新產生

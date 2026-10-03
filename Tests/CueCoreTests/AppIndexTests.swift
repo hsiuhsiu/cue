@@ -26,6 +26,25 @@ final class AppIndexTests: XCTestCase {
         XCTAssertEqual(Set(applications.map(\.url.path)), Set([outer.path, nested.path]))
     }
 
+    func testDefaultIndexIncludesSearchableSystemFinderExactlyOnce() {
+        let applications = AppIndex.scan()
+        let finder = applications.filter { $0.bundleIdentifier == "com.apple.finder" }
+        XCTAssertEqual(finder.count, 1)
+        XCTAssertEqual(finder.first?.url.path, "/System/Library/CoreServices/Finder.app")
+        XCTAssertEqual(SearchEngine.search(applications, query: "finder").first?.bundleIdentifier,
+                       "com.apple.finder")
+    }
+
+    func testDirectApplicationRootDoesNotIncludeBundledHelpers() throws {
+        let finder = try makeApplication("CoreServices/Finder.app", identifier: "test.finder")
+        _ = try makeApplication("CoreServices/Finder.app/Contents/Helpers/Helper.app", identifier: "test.helper")
+        _ = try makeApplication("CoreServices/BackgroundService.app", identifier: "test.background")
+
+        let applications = AppIndex.scan(roots: [finder])
+        XCTAssertEqual(applications.map(\.url), [finder])
+        XCTAssertEqual(applications.map(\.bundleIdentifier), ["test.finder"])
+    }
+
     func testSkipsHiddenFoldersAndOtherPackages() throws {
         _ = try makeApplication(".Hidden/Secret.app", identifier: "test.hidden")
         _ = try makeApplication(".Hidden.app", identifier: "test.hidden-app")
@@ -91,6 +110,35 @@ final class AppIndexTests: XCTestCase {
             AppIndex.scan(roots: [temporaryDirectory], preferredLanguages: []).map(\.name),
             ["English name"]
         )
+    }
+
+    func testFilenameFullNameFindsCodeWhileKeepingBundleDisplayName() throws {
+        let url = try makeApplication("Visual Studio Code.app", identifier: "com.microsoft.VSCode", name: "Code")
+        let applications = AppIndex.scan(roots: [temporaryDirectory])
+        XCTAssertEqual(applications.map(\.name), ["Code"])
+        for query in ["v", "vs", "vsc", "visual", "code"] {
+            XCTAssertEqual(SearchEngine.search(applications, query: query).map(\.url), [url], query)
+        }
+    }
+
+    func testSearchUsesRawAndSelectedLocalizedNamesWithSingleResult() throws {
+        _ = try makeApplication("Image Tool.app", displayName: "Raw Display", name: "Raw Bundle",
+                                localizations: [
+                                    "en": ["CFBundleDisplayName": "English Display", "CFBundleName": "English Bundle"],
+                                    "zh-Hant": ["CFBundleDisplayName": "影像工具", "CFBundleName": "圖片編輯"],
+                                ])
+        let applications = AppIndex.scan(roots: [temporaryDirectory], preferredLanguages: ["zh-Hant"])
+        XCTAssertEqual(applications.map(\.name), ["影像工具"])
+        for query in ["image", "raw display", "raw bundle", "影像", "圖片"] {
+            XCTAssertEqual(SearchEngine.search(applications, query: query), applications, query)
+        }
+        // Do not read every localization from disk or expose a stale previous
+        // language merely because Cue's own interface language changed.
+        XCTAssertEqual(SearchEngine.search(applications, query: "English Display"), [])
+        let english = AppIndex.scan(roots: [temporaryDirectory], preferredLanguages: ["en"])
+        XCTAssertEqual(english.map(\.name), ["English Display"])
+        XCTAssertEqual(SearchEngine.search(english, query: "English Bundle"), english)
+        XCTAssertEqual(SearchEngine.search(english, query: "圖片"), [])
     }
 
     func testTaiwanLanguagePreferenceFindsTraditionalChineseBundleName() throws {

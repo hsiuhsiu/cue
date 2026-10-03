@@ -20,6 +20,9 @@ struct CheckCommandIcons {
         (.webSearchSettings, .webSearchSettings, "Search settings"),
         (.cleanLink, .cleanLink, "Clean link"),
         (.emojiSearch, .emojiSearch, "Emoji search"),
+        (.askGPT, .askGPT, "Ask GPT"),
+        (.translateGPT, .translateGPT, "GPT translation"),
+        (.gptSettings, .gptSettings, "GPT settings"),
         (.calculator, .calculation(Calculator.evaluate("1+1")!), "Calculator"),
     ]
 
@@ -430,6 +433,7 @@ struct CheckCommandIcons {
         let dataSource = CountingDataSource(view)
         table.dataSource = dataSource
         model.setQuery("synthetic unmatched browser rows")
+        model.showSearchBrowsers()
         model.select(LauncherResult.googleSearchIn(browser).id)
         window.setContentSize(NSSize(width: 640, height: view.preferredHeight))
         view.layoutSubtreeIfNeeded()

@@ -3,8 +3,13 @@ import Carbon
 import CueCore
 
 private final class ResultsTable: NSTableView {
+    var menuForRow: ((Int) -> NSMenu?)?
     // Result clicks keep the search field ready for the next keystroke.
     override var acceptsFirstResponder: Bool { false }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        menuForRow?(row(at: convert(event.locationInWindow, from: nil)))
+    }
 }
 
 private final class ResultRow: NSTableRowView {
@@ -22,6 +27,8 @@ private final class ResultCell: NSTableCellView {
     let detail = NSTextField(labelWithString: "")
     let number = NSTextField(labelWithString: "")
     let icon = NSImageView()
+    let aliasButton = NSButton()
+    var hasAppActions = false
     var preferredDetailWidth: CGFloat = 86
     private var titleHeight: CGFloat = 0
     private var detailHeight: CGFloat = 0
@@ -44,10 +51,16 @@ private final class ResultCell: NSTableCellView {
         detailHeight = ceil(detail.intrinsicContentSize.height)
         numberHeight = ceil(number.intrinsicContentSize.height)
         icon.imageScaling = .scaleProportionallyDown
+        aliasButton.isBordered = false
+        aliasButton.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: nil)
+        aliasButton.contentTintColor = .secondaryLabelColor
+        aliasButton.isHidden = true
+        aliasButton.refusesFirstResponder = true
         addSubview(icon)
         addSubview(title)
         addSubview(detail)
         addSubview(number)
+        addSubview(aliasButton)
         textField = title
         imageView = icon
     }
@@ -58,10 +71,12 @@ private final class ResultCell: NSTableCellView {
         super.layout()
         icon.frame = NSRect(x: 8, y: (bounds.height - 28) / 2, width: 28, height: 28)
         let detailWidth: CGFloat = detail.stringValue.isEmpty ? 0 : preferredDetailWidth
+        let actionWidth: CGFloat = hasAppActions ? 32 : 0
         title.frame = NSRect(x: 46, y: (bounds.height - titleHeight) / 2,
-                             width: max(0, bounds.width - 102 - detailWidth), height: titleHeight)
-        detail.frame = NSRect(x: bounds.width - detailWidth - 56, y: (bounds.height - detailHeight) / 2,
+                             width: max(0, bounds.width - 102 - detailWidth - actionWidth), height: titleHeight)
+        detail.frame = NSRect(x: bounds.width - detailWidth - 56 - actionWidth, y: (bounds.height - detailHeight) / 2,
                               width: detailWidth, height: detailHeight)
+        aliasButton.frame = NSRect(x: bounds.width - 82, y: (bounds.height - 28) / 2, width: 28, height: 28)
         number.frame = NSRect(x: bounds.width - 48, y: (bounds.height - numberHeight) / 2,
                               width: 38, height: numberHeight)
     }
@@ -79,6 +94,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private let onSettings: () -> Void
     private let onWebSearch: () -> Void
     private let onSearchActions: () -> Void
+    private let onAppAlias: (IndexedApplication) -> Void
     private let material = LauncherBackdrop()
     private let table = ResultsTable()
     private let scroll = NSScrollView()
@@ -90,6 +106,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private var displayedResults: [LauncherResult] = []
     private var displayedQuery = ""
     private var displayedAllowsWebSearch = false
+    private var displayedAllowsGPTNetwork = false
     private var isQueryEmpty = true
     private var isUpdating = false
     private var lastPreferredHeight: CGFloat = 56
@@ -106,13 +123,15 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     init(model: LauncherModel, onSubmit: @escaping () -> Void,
          onCancel: @escaping () -> Void, onSettings: @escaping () -> Void,
          onWebSearch: @escaping () -> Void = {},
-         onSearchActions: @escaping () -> Void = {}) {
+         onSearchActions: @escaping () -> Void = {},
+         onAppAlias: @escaping (IndexedApplication) -> Void = { _ in }) {
         self.model = model
         self.onSubmit = onSubmit
         self.onCancel = onCancel
         self.onSettings = onSettings
         self.onWebSearch = onWebSearch
         self.onSearchActions = onSearchActions
+        self.onAppAlias = onAppAlias
         super.init(frame: NSRect(x: 0, y: 0, width: 640, height: 56))
         wantsLayer = true
         layer?.cornerRadius = 16
@@ -142,6 +161,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         table.dataSource = self
         table.target = self
         table.action = #selector(clickedResult)
+        table.menuForRow = { [weak self] row in self?.appMenu(for: row) }
         table.setAccessibilityLabel(text.resultsAccessibility)
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("result"))
         column.resizingMask = .autoresizingMask
@@ -179,10 +199,21 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         // Command keys take this path before window.sendEvent, including when Cue is inactive.
         if handleSettingsShortcut(event) { return true }
+        if handleAppAliasShortcut(event) { return true }
         if handleSearchActionsShortcut(event) { return true }
         if handleWebSearchShortcut(event) { return true }
         if handleNumberShortcut(event) { return true }
         return super.performKeyEquivalent(with: event)
+    }
+
+    func handleAppAliasShortcut(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+              event.keyCode == UInt16(kVK_ANSI_E),
+              (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true,
+              case .application(let application) = model.selectedResult else { return false }
+        if !event.isARepeat { onAppAlias(application) }
+        return true
     }
 
     func handleSearchActionsShortcut(_ event: NSEvent) -> Bool {
@@ -252,8 +283,11 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         let visibleResults = isQueryEmpty ? [] : model.results
         let resultsChanged = displayedResults != visibleResults
         let availabilityChanged = displayedAllowsWebSearch != model.allowsWebSearch
+        let gptAvailabilityChanged = displayedAllowsGPTNetwork != model.allowsGPTNetwork
         displayedAllowsWebSearch = model.allowsWebSearch
-        if resultsChanged || (availabilityChanged && visibleResults.contains(where: \.isWebSearch)) {
+        displayedAllowsGPTNetwork = model.allowsGPTNetwork
+        if resultsChanged || (availabilityChanged && visibleResults.contains(where: \.isWebSearch))
+            || (gptAvailabilityChanged && visibleResults.contains(where: \.isGPTAction)) {
             displayedResults = visibleResults
             table.reloadData()
         }
@@ -264,6 +298,10 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
             if selectionChanged || resultsChanged || queryChanged { table.scrollRowToVisible(row) }
         } else if row == nil {
             table.deselectAll(nil)
+        }
+        for index in displayedResults.indices {
+            guard let cell = table.view(atColumn: 0, row: index, makeIfNecessary: false) as? ResultCell else { continue }
+            cell.aliasButton.isHidden = !cell.hasAppActions || index != row
         }
         scroll.isHidden = displayedResults.isEmpty
         emptyLabel.isHidden = isQueryEmpty || !displayedResults.isEmpty
@@ -306,6 +344,8 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         cell.number.stringValue = ResultShortcut.label(for: row)
         cell.title.textColor = .labelColor
         cell.toolTip = nil
+        cell.hasAppActions = false
+        cell.aliasButton.isHidden = true
         cell.preferredDetailWidth = result.isWebSearch ? 140 : 86
         switch result {
         case .conversion(let conversion):
@@ -330,8 +370,15 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
             cell.toolTip = cell.title.stringValue
         case .application(let application):
             cell.title.stringValue = application.name
-            cell.detail.stringValue = ""
+            cell.detail.stringValue = application.searchAlias ?? ""
             cell.icon.image = model.icons.image(for: application)
+            cell.hasAppActions = true
+            cell.aliasButton.isHidden = result.id != model.selectedID
+            cell.aliasButton.toolTip = text.appAliasHelp
+            cell.aliasButton.setAccessibilityLabel(text.editAppAlias + " " + application.name)
+            cell.aliasButton.target = self
+            cell.aliasButton.action = #selector(editAppAlias(_:))
+            cell.aliasButton.tag = row
         case .googleSearch, .googleSearchIn:
             cell.title.stringValue = text.googleSearch
             let browserName: String
@@ -342,6 +389,19 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
             cell.toolTip = model.allowsWebSearch ? text.browserChoices : text.webSearchDisabled
         case .webSearchSettings:
             cell.title.stringValue = text.webSearchSettings
+            cell.detail.stringValue = text.command
+        case .chooseSearchBrowser:
+            cell.title.stringValue = text.chooseSearchBrowser
+            cell.detail.stringValue = "↵"
+        case .askGPT, .translateGPT:
+            cell.title.stringValue = result == .askGPT ? text.askGPT : text.translateGPT
+            cell.detail.stringValue = model.allowsGPTNetwork
+                ? (result == .askGPT ? text.gptAnswerDetail : text.gptTranslateDetail) : text.gptNetworkOff
+            cell.title.textColor = model.allowsGPTNetwork ? .labelColor : .secondaryLabelColor
+            cell.toolTip = text.gptHelp
+            cell.preferredDetailWidth = 120
+        case .gptSettings:
+            cell.title.stringValue = text.gptSettings
             cell.detail.stringValue = text.command
         case .updateIndex:
             cell.title.stringValue = text.updateIndex
@@ -377,6 +437,36 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         if result.isWebSearch { cell.icon.image = model.icons.image(forWebSearch: result) }
         else if let command = CommandIcon(result) { cell.icon.image = model.icons.image(for: command) }
         return cell
+    }
+
+    private func appMenu(for row: Int) -> NSMenu? {
+        guard displayedResults.indices.contains(row),
+              case .application = displayedResults[row],
+              (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return nil }
+        model.select(displayedResults[row].id)
+        let menu = NSMenu()
+        let item = NSMenuItem(title: text.editAppAlias, action: #selector(editAppAlias(_:)), keyEquivalent: "e")
+        item.keyEquivalentModifierMask = .command
+        item.target = self
+        // A background reindex can finish while a native menu is open. Bind
+        // the action to the app identity rather than a row that may have moved.
+        item.representedObject = displayedResults[row].id
+        menu.addItem(item)
+        return menu
+    }
+
+    @objc private func editAppAlias(_ sender: AnyObject) {
+        let row: Int
+        if let button = sender as? NSButton { row = button.tag }
+        else if let item = sender as? NSMenuItem,
+                let id = item.representedObject as? String,
+                let index = displayedResults.firstIndex(where: { $0.id == id }) { row = index }
+        else { return }
+        guard displayedResults.indices.contains(row),
+              case .application(let application) = displayedResults[row],
+              (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }
+        model.select(displayedResults[row].id)
+        onAppAlias(application)
     }
 
     @objc private func openRateProvider() {

@@ -7,6 +7,9 @@ public enum AppIndex {
         URL(fileURLWithPath: "/System/Applications", isDirectory: true),
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications", isDirectory: true),
         URL(fileURLWithPath: "/System/Library/CoreServices/Applications", isDirectory: true),
+        // Finder lives beside Applications. Index this bundle directly so
+        // CoreServices' background helpers do not become launcher results.
+        URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app", isDirectory: true),
     ]
 
     /// Run this filesystem work away from the main actor. Earlier roots win when
@@ -45,11 +48,20 @@ public enum AppIndex {
                 }
 
                 seenPaths.insert(canonicalURL.path)
+                // Read the selected localization only once. Keep all declared
+                // names searchable without changing the system display name.
+                let localizedInfo = bundle.flatMap { Self.localizedInfo(for: $0, preferredLanguages: preferredLanguages) }
+                let info = bundle?.infoDictionary
+                let searchNames = ["CFBundleDisplayName", "CFBundleName"].flatMap { key in
+                    [nonemptyString(localizedInfo?[key] as? String), nonemptyString(info?[key] as? String)]
+                        .compactMap { $0 }
+                } + [canonicalURL.deletingPathExtension().lastPathComponent]
                 applications.append(IndexedApplication(
                     id: canonicalURL.path,
-                    name: displayName(for: bundle, at: canonicalURL, preferredLanguages: preferredLanguages),
+                    name: displayName(localizedInfo: localizedInfo, info: info, at: canonicalURL),
                     url: canonicalURL,
-                    bundleIdentifier: bundleIdentifier
+                    bundleIdentifier: bundleIdentifier,
+                    searchNames: searchNames
                 ))
             }
         }
@@ -108,9 +120,7 @@ public enum AppIndex {
         return urls.sorted { $0.path < $1.path }
     }
 
-    private static func displayName(for bundle: Bundle?, at url: URL, preferredLanguages: [String]) -> String {
-        let localizedInfo = bundle.flatMap { Self.localizedInfo(for: $0, preferredLanguages: preferredLanguages) }
-        let info = bundle?.infoDictionary
+    private static func displayName(localizedInfo: [String: Any]?, info: [String: Any]?, at url: URL) -> String {
         for key in ["CFBundleDisplayName", "CFBundleName"] {
             if let name = nonemptyString(localizedInfo?[key] as? String)
                 ?? nonemptyString(info?[key] as? String) {

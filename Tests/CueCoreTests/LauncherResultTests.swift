@@ -269,6 +269,55 @@ final class LauncherResultTests: XCTestCase {
                        [.convertToSimplified, .application(applications[1])])
     }
 
+    func testExactApplicationAliasPrecedesCommandsRegardlessOfLearnedOrdering() {
+        let code = app("Code").withSearchAlias("sleep")
+        let companion = app("Sleep Monitor")
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var usage = SearchUsage()
+        for _ in 0..<100 { usage.record(resultID: LauncherResult.sleep.id, query: "sleep", at: now) }
+        for snapshot in [SearchUsageSnapshot.empty, usage.snapshot(at: now)] {
+            XCTAssertEqual(LauncherResult.search([companion, code], query: "ＳＬＥＥＰ", usage: snapshot),
+                           [.application(code), .sleep, .application(companion)])
+            XCTAssertEqual(LauncherResult.search([code], query: "slee", usage: snapshot).first, .sleep)
+        }
+    }
+
+    func testConversionAliasesRetainPrecedenceInLegacyApplicationAliasCollisions() throws {
+        for alias in ["st", "sleep", "q"] {
+            let code = app("Code").withSearchAlias(alias)
+            let aliases = try ChineseConversionAliases(traditional: alias, simplified: "ts")
+            let now = Date(timeIntervalSince1970: 1_800_000_000)
+            var usage = SearchUsage()
+            for _ in 0..<100 { usage.record(resultID: LauncherResult.application(code).id, query: alias, at: now) }
+            for snapshot in [SearchUsageSnapshot.empty, usage.snapshot(at: now)] {
+                let result = LauncherResult.search([code], query: alias, usage: snapshot, conversionAliases: aliases)
+                XCTAssertEqual(Array(result.prefix(2)), [.convertToTraditional, .application(code)], alias)
+                XCTAssertEqual(result.filter { $0 == .convertToTraditional }.count, 1)
+                XCTAssertEqual(result.filter { $0 == .application(code) }.count, 1)
+            }
+        }
+    }
+
+    func testNumericAnswersStillPrecedeLegacyApplicationAliases() throws {
+        let calculation = try XCTUnwrap(Calculator.evaluate("2+3"))
+        let calculatorAlias = app("Code").withSearchAlias("2+3")
+        XCTAssertEqual(LauncherResult.search([calculatorAlias], query: "2+3"),
+                       [.calculation(calculation), .application(calculatorAlias)])
+        let unitAlias = app("Code").withSearchAlias("5m")
+        let query = try XCTUnwrap(ConversionQuery.parse("5m"))
+        let conversions = UnitConversion.convert(query).map(LauncherResult.conversion)
+        XCTAssertEqual(LauncherResult.search([unitAlias], query: "5m"), conversions + [.application(unitAlias)])
+    }
+
+    func testAliasRemovalRestoresNormalOrderingAndAutomaticMatches() {
+        let code = app("Code").withSearchAlias("clipboard")
+        XCTAssertEqual(LauncherResult.search([code], query: "clipboard"), [.application(code), .clipboardHistory])
+        let removed = code.withSearchAlias(nil)
+        XCTAssertEqual(LauncherResult.search([removed], query: "clipboard"), [.clipboardHistory])
+        XCTAssertEqual(LauncherResult.search([removed], query: "code"), [.application(removed)])
+        XCTAssertEqual(LauncherResult.search([code], query: ""), [])
+    }
+
     func testNumericAnswersRemainAheadOfPinnedAliasesAndLearnedApplications() throws {
         let aliases = try ChineseConversionAliases(traditional: "2+3", simplified: "5m")
         let applications = [app("2+3"), app("5m")]

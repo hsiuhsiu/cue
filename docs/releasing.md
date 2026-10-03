@@ -55,7 +55,7 @@ App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使�
 
 1. Set `CFBundleShortVersionString` and increment `CFBundleVersion` in
    `Resources/Info.plist`. Sparkle compares the monotonically increasing build
-   number; for example, 0.8.0 uses build 9 after 0.7.0's build 8. Never reset
+   number; for example, 0.9.0 uses build 10 after 0.8.0's build 9. Never reset
    the build number when changing the displayed version. Write **both English and Traditional Chinese** sections in
    `docs/releases/v<version>.md`, with equivalent changes and limitations.
    Start with one `# Cue <version> — ...` title, then the language sections.
@@ -73,7 +73,7 @@ App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使�
    `appcast.xml`, and `SHA256SUMS.txt`. Do not edit the generated signed feed,
    notes, or DMG afterward. SHA-256 is a transfer check, not a publisher identity.
 4. Run the optimized launcher, command-icon, adaptive-search, clipboard, settings,
-   localization, web-search, link-cleaner, emoji, calculator, unit-conversion, currency-rate, system-action, selected-text, conversion-lifecycle, network-policy,
+   localization, web-search, GPT, app-alias, link-cleaner, emoji, calculator, unit-conversion, currency-rate, system-action, selected-text, conversion-lifecycle, network-policy,
    and updater checks. Clipboard checks must use synthetic data and private pasteboards.
    Run `scripts/check-unit-conversion.sh` and `scripts/check-currency-rates.sh`
    with their synthetic queries, injected transport and private cache/pasteboards.
@@ -85,6 +85,14 @@ App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使�
    live provider request; record either honestly. The optional
    `scripts/check-currency-live.sh --live` makes one fixed USD-table request with
    an isolated policy and no disk cache; it is not part of the offline checks.
+   Run `scripts/check-gpt.sh`, `scripts/check-gpt-settings.sh`, and
+   `scripts/check-gpt-ui.sh` with injected transports and isolated credentials.
+   Verify no API requests or Keychain reads while typing, offline startup,
+   permission changes while awaiting a key, cancellation and stale-stream
+   rejection. Test the native answer/settings pages in both languages.
+   Never embed a real API key in source, tests, notes or release assets.
+   Record live GPT testing separately from simulated checks; a missing
+   maintainer API key does not turn mocked answers into a live validation.
    Run `scripts/check-login-item.sh` with its injected service; it must not change
    the operator's login items. For manual login testing, install Cue in a stable
    Applications location, check registration and state after reopening Settings,
@@ -117,21 +125,21 @@ an already-published build with different bytes.
 ## Publish assets before the feed
 
 Commit and push the reviewed source. Create and push an annotated version tag
-on that commit. Publish the tested assets and bilingual notes; for 0.8.0:
+on that commit. Publish the tested assets and bilingual notes; for 0.9.0:
 
 ```sh
-git tag -a v0.8.0 -m "Cue 0.8.0 Unit and currency conversion"
+git tag -a v0.9.0 -m "Cue 0.9.0 GPT and app search"
 git push origin main
-git push origin v0.8.0
-./scripts/github-release-notes.sh --body docs/releases/v0.8.0.md \
-  > .build/github-release-v0.8.0.md
-gh release create v0.8.0 \
-  .build/releases/0.8.0/Cue-0.8.0-universal.dmg \
-  .build/releases/0.8.0/appcast.xml \
-  .build/releases/0.8.0/SHA256SUMS.txt \
+git push origin v0.9.0
+./scripts/github-release-notes.sh --body docs/releases/v0.9.0.md \
+  > .build/github-release-v0.9.0.md
+gh release create v0.9.0 \
+  .build/releases/0.9.0/Cue-0.9.0-universal.dmg \
+  .build/releases/0.9.0/appcast.xml \
+  .build/releases/0.9.0/SHA256SUMS.txt \
   --repo hsiuhsiu/cue --verify-tag --latest \
-  --title "$(./scripts/github-release-notes.sh --title docs/releases/v0.8.0.md)" \
-  --notes-file .build/github-release-v0.8.0.md
+  --title "$(./scripts/github-release-notes.sh --title docs/releases/v0.9.0.md)" \
+  --notes-file .build/github-release-v0.9.0.md
 ```
 
 Never upload the complete titled source file as GitHub's release body. Confirm

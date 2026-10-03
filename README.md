@@ -6,7 +6,7 @@
 
 <p align="center">Fast, simple, lightweight.</p>
 
-Cue is a small native macOS launcher with an instant calculator, unit and currency conversion, emoji search, Google search, link cleaning, searchable clipboard history, offline Chinese conversion, and system commands. It runs in the menu bar, opens with **Option+Space**, and searches installed applications using an in-memory index.
+Cue is a small native macOS launcher with quick GPT answers and translation, an instant calculator, unit and currency conversion, emoji search, Google search, link cleaning, searchable clipboard history, offline Chinese conversion, and system commands. It runs in the menu bar, opens with **Option+Space**, and searches installed applications using an in-memory index.
 
 <p>
   <picture>
@@ -18,7 +18,7 @@ Cue is a small native macOS launcher with an instant calculator, unit and curren
 
 ## Download and install
 
-[Download Cue 0.8.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.8.0/Cue-0.8.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.8.0) · [正體中文安裝說明](docs/installation.md)
+[Download Cue 0.9.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.9.0/Cue-0.9.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.9.0) · [正體中文安裝說明](docs/installation.md)
 
 The repository and release downloads are public.
 
@@ -34,15 +34,25 @@ The interface supports **English and Traditional Chinese (正體中文)**, inclu
 
 The blue app icon appears in Finder and **About Cue**. The matching menu bar icon supports light and dark appearances and shows a small dot when an update is available. **Command+,** brings Settings to the front with keyboard focus, including when Settings was already open or minimized.
 
-Cue discovers applications under `/Applications`, `/System/Applications`, and `~/Applications`, including nested folders. Results show application names and icons. Ranking prefers exact, prefix, word-prefix, substring, then subsequence matches. The global shortcut uses the system hot-key API and does not require Accessibility permission.
+Cue discovers applications under `/Applications`, `/System/Applications`, `~/Applications`, and `/System/Library/CoreServices/Applications`, including nested folders. It also indexes Finder directly from `/System/Library/CoreServices/Finder.app`. Results show application names and icons. Ranking prefers exact, prefix, word-prefix, substring, then subsequence matches. The global shortcut uses the system hot-key API and does not require Accessibility permission.
+
+### App names and search aliases / App 名稱與搜尋別名
+
+**Available in Cue 0.9.0.** Cue searches an app’s display name, local bundle names, and `.app` filename while showing one result. For example, **Code** can also be found with **`visual`**, **`vs`**, or **`vsc`** through its `Visual Studio Code.app` filename. **Finder** is now included in the app index.
+
+For a personal shortcut, select an app and press **Command+E**, click its **…** button, or right-click it and choose **Edit Search Alias…**. Save one alias such as `vs` or `term`; entering it exactly puts that app before ordinary app and command matches. Clear the field and save to remove it. Aliases start with a letter and allow up to 32 letters, numbers, `-`, or `_`, without spaces. Duplicate app aliases and conflicts with Chinese conversion aliases are rejected. Aliases stay on this Mac, survive reindexing, and follow an app moved to another indexed folder when it has the same bundle identifier. Name preparation happens during background indexing; typing does not read app files or settings.
+
+**Cue 0.9.0 起提供。** Cue 同時搜尋 App 的顯示名稱、本機 Bundle 名稱及 `.app` 檔名，同一個 App 只顯示一次。例如 **Code** 的檔名是 `Visual Studio Code.app`，因此也能用 **`visual`**、**`vs`** 或 **`vsc`** 找到。**Finder** 現在也會加入 App 索引。
+
+要設定個人習慣的縮寫，選取 App 後按 **Command+E**、點該列的 **…**，或按右鍵選擇**編輯搜尋別名…**。每個 App 可儲存一個別名，例如 `vs` 或 `term`；完整輸入時，會優先於一般 App 與指令符合結果。清空欄位後儲存即可移除。別名以字母開頭，最多 32 個字母、數字、`-` 或 `_`，不含空白；不能與其他 App 或簡繁轉換別名重複。別名只存本機，更新索引後仍保留；App 移至另一個索引資料夾時，只要 Bundle 識別碼相同就會沿用。名稱整理在背景建立索引時完成，打字時不讀取 App 檔案或設定。
 
 ### Personalized search
 
-Cue learns from applications and commands you successfully open through the launcher. Within the same app matching category, it prefers the item you usually choose for that query, followed by usage frequency weighted toward recent use; exact app matches stay ahead of weaker app matches. A successful choice for the same query can also promote an app above a matching built-in command—for example, choosing iTerm2 for `it` can move it ahead of the incidental Traditional Chinese conversion match on the next invocation. Overall popularity alone does not change the order between apps and commands, and explicitly configured exact command aliases still come first. Merely typing, moving the selection, canceling, or a failed launch does not teach it anything. Clipboard contents, searches inside Clipboard History, and Google search queries are excluded.
+Cue learns from applications and commands you successfully open through the launcher. Within the same app matching category, it prefers the item you usually choose for that query, followed by usage frequency weighted toward recent use; exact app matches stay ahead of weaker app matches. A successful choice for the same query can also promote an app above a matching built-in command—for example, choosing iTerm2 for `it` can move it ahead of the incidental Traditional Chinese conversion match on the next invocation. Overall popularity alone does not change the order between apps and commands, and explicitly configured exact command aliases still come first. Merely typing, moving the selection, canceling, or a failed launch does not teach it anything. Clipboard contents, searches inside Clipboard History, Google queries, and GPT questions, translations and replies are excluded.
 
 Learning stays on this Mac. Only successful queries, selected result identifiers, scores, and timestamps are saved in a small local file. Search uses a prepared in-memory snapshot; loading, score calculation, and saving happen in the background. An arriving update never moves the current rows while you are choosing a result. See [adaptive search behavior and performance](docs/performance-adaptive-search.md).
 
-Cue 會記住你在啟動器中成功開啟的 App 與指令。同一 App 符合程度內，優先考慮「這個關鍵字通常選哪個項目」，再參考使用頻率與近期使用情況；完全符合的 App 仍排在較弱的 App 符合結果前面。相同關鍵字的成功選擇也能讓 App 超過內建指令，例如用 `it` 成功開啟 iTerm2 後，下次叫出時就能超過碰巧符合的正體轉換指令；一般使用頻率本身不會改變 App 與指令之間的順序，明確設定的完整指令別名仍優先。單純打字、移動選取、取消或開啟失敗不會留下學習記錄，也不記錄剪貼簿內容、剪貼簿頁面的搜尋或 Google 搜尋字詞。資料只存本機，搜尋使用記憶體中的分數，背景更新不會讓正在選擇的列表突然跳動。
+Cue 會記住你在啟動器中成功開啟的 App 與指令。同一 App 符合程度內，優先考慮「這個關鍵字通常選哪個項目」，再參考使用頻率與近期使用情況；完全符合的 App 仍排在較弱的 App 符合結果前面。相同關鍵字的成功選擇也能讓 App 超過內建指令，例如用 `it` 成功開啟 iTerm2 後，下次叫出時就能超過碰巧符合的正體轉換指令；一般使用頻率本身不會改變 App 與指令之間的順序，明確設定的完整指令別名仍優先。單純打字、移動選取、取消或開啟失敗不會留下學習記錄，也不記錄剪貼簿內容、剪貼簿頁面的搜尋、Google 搜尋字詞，或 GPT 提問、翻譯與回答。資料只存本機，搜尋使用記憶體中的分數，背景更新不會讓正在選擇的列表突然跳動。
 
 ### Instant calculator / 即時計算
 
@@ -58,17 +68,17 @@ Cue 會記住你在啟動器中成功開啟的 App 與指令。同一 App 符合
 
 ### Google search / Google 搜尋
 
-After the initial app index is ready, a nonempty launcher query with no matching app or command shows Google search actions: your Mac's **default browser** first, followed by the browsers you add. Press **Return**, click a result, or use **Command+1–9** to execute it. **Command+Return** searches the current text in the default browser even when local results exist; **Command+K** shows the browser actions for the same text. In the normal result list, ordinary Return still executes the selected app or command. Blank input and input-method composition do not submit a search.
+After the initial app index is ready, a nonempty launcher query with no matching app or command shows text actions: your Mac's **default browser** first, followed by GPT answers, translation, and the browsers you add. Press **Return**, click a result, or use **Command+1–9** to execute it. **Command+Return** searches the current text in the default browser even when local results exist; **Command+K** shows these text actions for the same text. In the normal result list, ordinary Return still executes the selected app or command. Blank input and input-method composition do not submit a search.
 
 Type **`google settings`** or **`Google 搜尋設定`**, or press **Command+,** on a Google action, to open this feature's settings. Keep the system default and add or remove up to **eight browsers**; installed candidates appear only in the add interface and are never enrolled automatically. Each Mac keeps its own list. Browser search has a separate switch, **on by default**, and works even when Cue's own network access is off. Turning this feature switch off prevents new browser handoffs.
 
-Typing remains local: Cue sends no live queries, requests no suggestions, and opens nothing until you execute a search. Google queries are not saved in Cue's search-learning history. Your browser and Google receive the submitted text. See the [Google search guide](docs/web-search.md) for browser choices and privacy. Translation remains a [future direction](docs/future-directions.md).
+Typing remains local: Cue sends no live queries, requests no suggestions, and opens nothing until you execute a search. Google queries are not saved in Cue's search-learning history. Your browser and Google receive the submitted text. See the [Google search guide](docs/web-search.md) for browser choices and privacy, or [GPT answers and translation](docs/gpt.md) for the API actions.
 
-初次 App 索引完成後，非空白文字若沒有符合的 App 或指令，就會顯示 Google 搜尋動作：第一個是這台 Mac 的**預設瀏覽器**，接著是自行加入的瀏覽器。按 **Return**、點選結果或按 **Command+1–9** 執行。即使已有本機結果，也可按 **Command+Return** 使用預設瀏覽器搜尋，或按 **Command+K** 針對同一段文字顯示瀏覽器動作。一般結果列表中的 Return 仍執行選取的 App 或指令；空白輸入及輸入法組字期間不會送出搜尋。
+初次 App 索引完成後，非空白文字若沒有符合的 App 或指令，就會顯示文字動作：第一個是這台 Mac 的**預設瀏覽器**，接著是 GPT 問答、翻譯與自行加入的瀏覽器。按 **Return**、點選結果或按 **Command+1–9** 執行。即使已有本機結果，也可按 **Command+Return** 使用預設瀏覽器搜尋，或按 **Command+K** 針對同一段文字顯示可用動作。一般結果列表中的 Return 仍執行選取的 App 或指令；空白輸入及輸入法組字期間不會送出搜尋。
 
 輸入 **`google settings`**／**`Google 搜尋設定`**，或選到 Google 動作時按 **Command+,**，即可開啟此功能的設定。系統預設固定保留，另外最多可自行加入、移除**八個瀏覽器**；偵測到的 App 只出現在加入介面，不會自動加入搜尋列表。每台 Mac 保留自己的清單。瀏覽器搜尋有獨立開關，**預設開啟**，關閉 Cue 自己的網路仍可使用；關閉此功能開關才會阻止新的瀏覽器交接。
 
-打字時只在本機處理，不會即時傳送查詢、取得搜尋建議或自行開啟瀏覽器。Google 搜尋字詞不會存入 Cue 的搜尋學習記錄；執行後的文字由瀏覽器及 Google 接收。詳見 [Google 搜尋說明](docs/web-search.md)。翻譯仍是[未來方向](docs/future-directions.md)。
+打字時只在本機處理，不會即時傳送查詢、取得搜尋建議或自行開啟瀏覽器。Google 搜尋字詞不會存入 Cue 的搜尋學習記錄；執行後的文字由瀏覽器及 Google 接收。瀏覽器選擇與隱私詳見 [Google 搜尋說明](docs/web-search.md)，API 動作見 [GPT 問答與翻譯](docs/gpt.md)。
 
 ### Link cleaner / 連結清理
 
@@ -89,6 +99,20 @@ The catalog and bilingual keywords are bundled with Cue. Search works fully offl
 在 Cue 輸入 **`emoji`** 或 **`表情符號`**，開啟 **表情符號搜尋**。用英文或正體中文關鍵字搜尋，以**上下方向鍵**選取後按 **Return**、按兩下結果、按**拷貝**，或按 **Command+1–9**，即可拷貝編號對應的 emoji 並收起 Cue。到需要的位置按 **Command+V** 貼上，Cue 不會自動貼入。**Esc** 返回主搜尋。結果最多九列、不顯示捲軸；可縮小搜尋範圍來找其他結果。
 
 圖示目錄與雙語關鍵字隨 App 內附，首次使用也完全離線，不需下載或額外設定。資料範圍與搜尋方式詳見 [Emoji 說明](docs/emoji.md)。
+
+### GPT answers and translation / GPT 問答與翻譯
+
+**Available in Cue 0.9.0.** Enter text in Cue. If no local result matches, choose **Search Google**, **Ask GPT**, or **Translate with GPT**; **Command+K** offers these actions even when apps match. Google remains the first choice. Press the shown **Command+number** to run an action immediately. Added browsers remain available; with more than six, **Other Browsers…** opens the complete list.
+
+Search **`gpt settings`**, or press **Command+,** on a GPT action or reply, to save your own OpenAI API key in macOS Keychain. Enable Cue's global network access to use GPT; typing alone never sends text. API usage is billed separately from a ChatGPT subscription. The default is **GPT-6 Luna**, with extra reasoning disabled for quick replies; the model ID can be changed in GPT Settings. Translation defaults to **Chinese → English; other languages → Traditional Chinese with Taiwan terminology**, with fixed Chinese or English options.
+
+Replies stream into a compact, selectable text view. **Copy / Command+Return** copies the reply; **Stop** cancels generation; **Retry** explicitly starts a new request. **Esc** returns to the original text so you can choose Google instead. GPT has no live web search in this version; use Google for current information. Questions, translations and responses are not added to search learning or a saved conversation history. See [GPT setup, privacy and limits](docs/gpt.md).
+
+**Cue 0.9.0 起提供。** 在 Cue 輸入文字；沒有本機符合結果時，可選擇 **Google 搜尋**、**問 GPT** 或 **GPT 翻譯**。有 App 符合時也能按 **Command+K** 選擇，或用顯示的 **Command+數字** 立即執行。Google 保持第一個選項；自行加入的瀏覽器仍可使用，超過六個時會收進**其他瀏覽器⋯**。
+
+輸入 **`gpt settings`**，或在 GPT 動作／回答頁按 **Command+,**，即可將自己的 OpenAI API 金鑰存進 macOS 鑰匙圈。GPT 需要允許 Cue 的全域網路存取；單純打字不會傳送文字。API 與 ChatGPT 訂閱分開計費。預設採用 **GPT-6 Luna**、關閉額外推理，也可在 GPT 設定更改模型。翻譯預設為**中文→英文，其他語言→正體中文（台灣用詞）**，亦可固定翻成正體中文或英文。
+
+回答逐步顯示且可選取；按**拷貝／Command+Return**複製、按**停止**取消生成，或按**重試**重新送出一次。**Esc** 保留原始文字並返回，方便改用 Google。此版本 GPT 沒有即時網頁搜尋，最新資訊請用 Google。提問、翻譯與回答不會加入搜尋學習或對話歷史。詳見 [GPT 設定、隱私與限制](docs/gpt.md)。
 
 ### Chinese conversion
 
@@ -157,11 +181,11 @@ See the [English / 正體中文 source installation guide](docs/building.md) for
 
 Use **Settings → Network → Allow Cue to access the network** to control network requests made by Cue itself. Source builds—including SwiftPM, Xcode Debug/Release, and the local build/install scripts—default to **off**; official release DMGs default to **on**. Missing build metadata means off. An explicit choice saved in Settings takes precedence and survives updates, reinstalls, and switching between source and published builds.
 
-Turning network access off disables both manual and automatic update checks and downloads. It also stops currency-rate work and hides currency answers, including cached ones. The automatic-check toggle displays **off** and is disabled while offline, but Cue remembers its separate preference and can resume the chosen schedule when access is allowed again. Local app/command search, Clipboard History, system commands, Chinese conversion, link cleaning, emoji search, the calculator, and physical-unit conversion remain fully available. Explicit Google searches use a separate browser-search switch in **Google Search Settings**, on by default; the browser handles those network requests. See [network behavior and scope](docs/network-policy.md).
+Turning network access off disables both manual and automatic update checks and downloads. It also stops GPT requests and currency-rate work and hides currency answers, including cached ones. The automatic-check toggle displays **off** and is disabled while offline, but Cue remembers its separate preference and can resume the chosen schedule when access is allowed again. Local app/command search, Clipboard History, system commands, Chinese conversion, link cleaning, emoji search, the calculator, and physical-unit conversion remain fully available. Explicit Google searches use a separate browser-search switch in **Google Search Settings**, on by default; the browser handles those network requests. See [network behavior and scope](docs/network-policy.md).
 
 在**設定 → 網路 → 允許 Cue 自行連網**管理 Cue 自己發出的網路請求。原始碼建置（包含 SwiftPM、Xcode Debug／Release 與本機建置／安裝腳本）預設**關閉**，正式下載的 DMG 預設**開啟**；缺少建置資料也視為關閉。在設定中明確儲存的選擇優先，更新、重新安裝或切換自行建置與下載版都會保留。
 
-關閉網路會停用手動、自動檢查更新及下載；也會停止匯率工作並隱藏幣值答案，包含已有快取的情況。自動檢查開關會顯示**關閉**且無法操作，但原先的偏好仍會保留，重新允許網路後可依原設定恢復排程。本機 App／指令搜尋、剪貼簿記錄、系統指令、簡繁轉換、連結清理、emoji 搜尋、計算機與一般單位換算仍可完整使用。明確執行的 Google 搜尋由瀏覽器連線，受 **Google 搜尋設定**內獨立且預設開啟的瀏覽器搜尋開關控制；詳見[網路行為與適用範圍](docs/network-policy.md)。
+關閉網路會停用手動、自動檢查更新及下載；也會停止 GPT 請求與匯率工作，並隱藏幣值答案，包含已有快取的情況。自動檢查開關會顯示**關閉**且無法操作，但原先的偏好仍會保留，重新允許網路後可依原設定恢復排程。本機 App／指令搜尋、剪貼簿記錄、系統指令、簡繁轉換、連結清理、emoji 搜尋、計算機與一般單位換算仍可完整使用。明確執行的 Google 搜尋由瀏覽器連線，受 **Google 搜尋設定**內獨立且預設開啟的瀏覽器搜尋開關控制；詳見[網路行為與適用範圍](docs/network-policy.md)。
 
 ## Updates
 
@@ -192,6 +216,10 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-currency-rates.sh
 ./scripts/check-command-icons.sh
 ./scripts/check-adaptive-search.sh
+./scripts/check-app-aliases.sh
+./scripts/check-gpt.sh
+./scripts/check-gpt-settings.sh
+./scripts/check-gpt-ui.sh
 ./scripts/check-clipboard.sh
 ./scripts/check-system-actions.sh
 ./scripts/check-selected-text.sh
@@ -253,14 +281,15 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 | Up / Down | Select a result |
 | Enter | Launch the selected application or run the selected command |
 | Command+Return | Search the current main-launcher text with Google in the default browser / 在預設瀏覽器以 Google 搜尋主視窗文字 |
-| Command+K | Show Google search actions for the current text using the default and added browsers / 針對目前文字顯示預設及自行加入瀏覽器的 Google 搜尋動作 |
+| Command+E | Edit the selected app’s search alias / 編輯所選 App 的搜尋別名 |
+| Command+K | Choose Google, GPT answers, or GPT translation for the current text / 針對目前文字選擇 Google、GPT 問答或翻譯 |
 | Command+1–9 | Immediately execute the numbered result; in Clipboard History or Emoji Search, copy it and close Cue |
 | Escape | Return from Clipboard History or Emoji Search to the launcher; dismiss Cue from the launcher |
 | Menu bar → Show Cue / Settings… / Quit Cue | Open the launcher, configure Cue, or exit |
 
 Type `reindex`, `update index`, `refresh apps`, or `更新索引` to find **Update App Index**, then press Enter. Cue scans again in the background, keeps the launcher usable, and shows the updated application count when finished. You can install or remove applications and refresh without restarting Cue.
 
-Press **Command+,** in the launcher (or choose the menu-bar Settings item) to configure the global shortcut, pointer/main display placement, dismissal on focus loss, launch at login, language, network access, and update checks. On a Google action, **Command+,** opens Google Search Settings; inside Clipboard History, its gear and **Command+,** open clipboard-specific settings. Preferences are saved immediately and persist across restarts; language changes take effect when Cue reopens. If a new shortcut conflicts, Cue keeps the previous working shortcut. Command-comma, Command+Return/keypad Enter, and Command+K are reserved for Cue's own controls.
+Press **Command+,** in the launcher (or choose the menu-bar Settings item) to configure the global shortcut, pointer/main display placement, dismissal on focus loss, launch at login, language, network access, and update checks. On a GPT action or reply, **Command+,** opens GPT Settings. On a Google action, **Command+,** opens Google Search Settings; inside Clipboard History, its gear and **Command+,** open clipboard-specific settings. Preferences are saved immediately and persist across restarts; language changes take effect when Cue reopens. If a new shortcut conflicts, Cue keeps the previous working shortcut. Command-comma, Command+Return/keypad Enter, Command+K, and Command+E are reserved for Cue's own controls.
 
 Pressing Enter on an app dismisses Cue immediately; launch failures reopen the query with an error. The default placement follows the mouse pointer. The index is built at startup; use Update App Index after installing or removing applications. Show Cue remains available from the menu bar if another app occupies the saved shortcut.
 

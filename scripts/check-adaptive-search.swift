@@ -57,7 +57,7 @@ struct CheckAdaptiveSearch {
         check(conversionPreferences.aliases == .defaults, "New preferences use st/ts conversion aliases")
         let aliasModel = LauncherModel()
         aliasModel.setQuery("xy")
-        check(aliasModel.results == [.googleSearch], "Unknown alias starts with cached Google fallback")
+        check(aliasModel.results == [.googleSearch, .askGPT, .translateGPT], "Unknown alias starts with cached Google fallback")
         var aliasChanges = 0
         conversionPreferences.onChange = { aliases in
             aliasChanges += 1
@@ -79,7 +79,7 @@ struct CheckAdaptiveSearch {
                   "Rejected aliases must not alter persisted preferences or the live search model")
         }
         try conversionPreferences.save(traditional: "z", simplified: "ts")
-        check(aliasModel.results == [.googleSearch], "Changing an alias also removes its old cached result")
+        check(aliasModel.results == [.googleSearch, .askGPT, .translateGPT], "Changing an alias also removes its old cached result")
         aliasModel.setQuery("z")
         check(aliasModel.selectedResult == .convertToTraditional, "An explicitly saved one-character alias remains usable")
         defaults.set(["traditional": "ST", "simplified": "ｓｔ"], forKey: "chineseConversion.aliases")

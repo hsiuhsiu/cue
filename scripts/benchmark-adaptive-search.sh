@@ -15,7 +15,9 @@ model_dependencies=(
     "$repo_root/Sources/Cue/CurrencyRatesController.swift"
     "$repo_root/Sources/Cue/NetworkPolicy.swift"
 )
-if [[ "${1:-}" == "--baseline-ref" && $# -eq 2 ]]; then
+if [[ "${1:-}" == "--app-aliases" && $# -eq 1 ]]; then
+    build_flags+=(-D APP_ALIAS_BENCHMARK)
+elif [[ "${1:-}" == "--baseline-ref" && $# -eq 2 ]]; then
     source_root="$benchmark_directory/baseline"
     mkdir -p "$source_root"
     git -C "$repo_root" archive "$2" Sources/CueCore Sources/Cue/LauncherModel.swift Sources/Cue/Localization.swift \
@@ -23,7 +25,7 @@ if [[ "${1:-}" == "--baseline-ref" && $# -eq 2 ]]; then
     build_flags=(-D BASELINE_SEARCH)
     model_dependencies=()
 elif [[ $# -ne 0 ]]; then
-    printf 'Usage: %s [--baseline-ref <git-ref-before-adaptive-search>]\n' "$0" >&2
+    printf 'Usage: %s [--app-aliases | --baseline-ref <git-ref-before-adaptive-search>]\n' "$0" >&2
     exit 2
 fi
 

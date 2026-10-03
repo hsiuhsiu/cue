@@ -65,11 +65,22 @@ enum AdaptiveSearchBenchmark {
             "Café Editor", "備忘錄", "音樂", "更新工具", "Developer Utilities",
         ]
         return (0..<count).map { index in
+            #if APP_ALIAS_BENCHMARK
+            IndexedApplication(
+                name: "\(names[index % names.count]) \(index)",
+                url: URL(fileURLWithPath: "/SyntheticCueSearch/\(index).app"),
+                bundleIdentifier: "invalid.cue.benchmark.app\(index)",
+                searchNames: index % 4 == 0 ? ["\(names[index % names.count]) Desktop \(index)",
+                                               "Company \(names[index % names.count]) \(index)"] : [],
+                searchAlias: index < 256 ? "quickapp\(index)" : nil
+            )
+            #else
             IndexedApplication(
                 name: "\(names[index % names.count]) \(index)",
                 url: URL(fileURLWithPath: "/SyntheticCueSearch/\(index).app"),
                 bundleIdentifier: "invalid.cue.benchmark.app\(index)"
             )
+            #endif
         }
     }
 
@@ -143,6 +154,11 @@ enum AdaptiveSearchBenchmark {
         var reports: [[String: Any]] = []
         for count in [500, 1_000] {
             let applications = applications(count: count)
+            #if APP_ALIAS_BENCHMARK
+            let applicationAliases = Dictionary(uniqueKeysWithValues: applications.compactMap { app in
+                app.searchAlias.map { (app.aliasPreferenceID, $0) }
+            })
+            #endif
             #if ADAPTIVE_SEARCH
             let history = fullUsage(applications: applications)
             let snapshotStart = DispatchTime.now().uptimeNanoseconds
@@ -155,7 +171,11 @@ enum AdaptiveSearchBenchmark {
             for (scenario, usage) in scenarios {
                 #if ADAPTIVE_SEARCH
                 let search: (String) -> [LauncherResult] = { LauncherResult.search(applications, query: $0, usage: usage) }
+                #if APP_ALIAS_BENCHMARK
+                let createModel = { LauncherModel(applications: applications, usage: usage, applicationAliases: applicationAliases) }
+                #else
                 let createModel = { LauncherModel(applications: applications, usage: usage) }
+                #endif
                 #else
                 _ = usage
                 let search: (String) -> [LauncherResult] = { LauncherResult.search(applications, query: $0) }
@@ -218,7 +238,11 @@ enum AdaptiveSearchBenchmark {
             // includes releasing the old score dictionaries and cached results.
             var adoptionSamples: [Sample] = []
             for _ in 0..<100 {
+                #if APP_ALIAS_BENCHMARK
+                let model = LauncherModel(applications: applications, usage: history.snapshot(at: Date(timeIntervalSince1970: 1_800_000_000)), applicationAliases: applicationAliases)
+                #else
                 let model = LauncherModel(applications: applications, usage: history.snapshot(at: Date(timeIntervalSince1970: 1_800_000_000)))
+                #endif
                 for query in queries { model.setQuery(query) }
                 model.updateUsage(history.snapshot(at: Date(timeIntervalSince1970: 1_800_000_001)))
                 let sample = measure("s") {
@@ -239,10 +263,15 @@ enum AdaptiveSearchBenchmark {
         #else
         let mode = "baseline"
         #endif
+        #if APP_ALIAS_BENCHMARK
+        let indexDescription = "deterministic synthetic apps; two extra names for 25% of apps; 256 app aliases"
+        #else
+        let indexDescription = "deterministic synthetic applications only"
+        #endif
         let report: [String: Any] = [
             "mode": mode,
             "build": "swiftc -O, Swift 6, native architecture",
-            "index": "deterministic synthetic applications only",
+            "index": indexDescription,
             "timing_scope": "Core search and synchronous LauncherModel.setQuery, no input event delivery, icon work, drawing, activation or app launch",
             "reports": reports, "checksum": checksum,
         ]

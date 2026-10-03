@@ -43,7 +43,9 @@ public enum SearchEngine {
         return candidates.map { applications[$0.index] }
     }
 
-    static func normalize(_ value: String) -> String {
+    /// Use at index/preference preparation and once at the query boundary, not
+    /// repeatedly for each application while searching.
+    public static func normalize(_ value: String) -> String {
         value.folding(
             options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
             locale: Locale(identifier: "en_US_POSIX")
@@ -83,16 +85,43 @@ public enum SearchEngine {
         query: String,
         characters queryCharacters: [Character]
     ) -> Rank? {
-        let name = application.searchableName
-        let characters = application.searchableCharacters
+        var best: Rank?
+        if let alias = application.normalizedSearchAlias {
+            if alias == query {
+                return Rank(category: -1, penalty: 0, position: 0, length: application.searchAliasLength)
+            }
+            if alias.hasPrefix(query) {
+                best = Rank(category: 1, penalty: 0, position: 0, length: application.searchAliasLength)
+            }
+        }
+        for name in application.searchNames {
+            guard let candidate = rank(name, query: query, characters: queryCharacters) else { continue }
+            if let previous = best {
+                if candidate < previous { best = candidate }
+            } else {
+                best = candidate
+            }
+            // An automatic exact match cannot be improved by another name.
+            if candidate.category == 0 { return candidate }
+        }
+        return best
+    }
+
+    private static func rank(
+        _ searchName: SearchName,
+        query: String,
+        characters queryCharacters: [Character]
+    ) -> Rank? {
+        let name = searchName.name
+        let characters = searchName.characters
         let length = characters.count
         if name == query { return Rank(category: 0, penalty: 0, position: 0, length: length) }
         if name.hasPrefix(query) {
             return Rank(category: 1, penalty: 0, position: 0, length: length)
         }
-        for (index, suffix) in application.wordSuffixes.enumerated() {
+        for (index, suffix) in searchName.wordSuffixes.enumerated() {
             if suffix.hasPrefix(query) {
-                let start = application.wordStarts[index + 1]
+                let start = searchName.wordStarts[index + 1]
                 return Rank(category: 2, penalty: 0, position: start, length: length)
             }
         }
@@ -104,14 +133,14 @@ public enum SearchEngine {
         guard queryCharacters.count >= 2, queryCharacters.count <= length else { return nil }
 
         // Initials can span long words: "vsc" should find "Visual Studio Code".
-        if subsequenceEnd(queryCharacters, in: application.initials, startingAt: 0) != nil {
+        if subsequenceEnd(queryCharacters, in: searchName.initials, startingAt: 0) != nil {
             return Rank(category: 4, penalty: 0, position: 0, length: length)
         }
 
         // Otherwise anchor fuzzy matches to a word, and cap skipped characters so
         // short queries do not pull in names with only a distant accidental match.
         var best: Rank?
-        for start in application.wordStarts where characters[start] == queryCharacters[0] {
+        for start in searchName.wordStarts where characters[start] == queryCharacters[0] {
             guard let end = subsequenceEnd(queryCharacters, in: characters, startingAt: start) else {
                 continue
             }

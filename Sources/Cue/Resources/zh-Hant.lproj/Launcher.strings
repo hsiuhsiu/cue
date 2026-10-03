@@ -45,8 +45,8 @@
 "search.settings" = "Google 搜尋設定";
 "search.browserUnavailable" = "無法使用 %@。請重新安裝或選擇其他瀏覽器。";
 "search.openingBrowser" = "正在開啟瀏覽器…";
-"search.actions" = "Google 搜尋 · Esc 返回 · ⌘, 搜尋設定";
-"search.choices" = "選擇搜尋瀏覽器（⌘K）· 搜尋設定（⌘,）";
+"search.actions" = "選擇動作 · Esc 返回 · ⌘, 開啟此功能設定";
+"search.choices" = "更多動作（⌘K）· 搜尋設定（⌘,）";
 
 /* Inline calculator */
 "calculator.copy" = "拷貝結果 ↵";
@@ -60,3 +60,22 @@
 "currency.retry" = "重試 ↵";
 "currency.disabled" = "網路已關閉";
 "currency.daily" = "每日參考匯率 · %@";
+
+"app.editAlias" = "編輯搜尋別名…";
+"app.aliasHelp" = "編輯搜尋別名（⌘E）";
+
+"search.chooseBrowser" = "其他瀏覽器⋯";
+
+"gpt.answer" = "問 GPT";
+
+"gpt.translate" = "GPT 翻譯";
+
+"gpt.settings" = "GPT 設定";
+
+"gpt.answer.detail" = "快速回答";
+
+"gpt.translate.detail" = "翻譯";
+
+"gpt.networkOff" = "網路已關閉";
+
+"gpt.help" = "將這段文字傳送至 OpenAI · GPT 設定（⌘,）";

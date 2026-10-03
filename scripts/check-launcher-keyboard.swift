@@ -344,16 +344,16 @@ struct CheckLauncherKeyboard {
         let beforeChoicesSettings = settingsActions
         expect(route(key("k", keyCode: 40)), "Command-K must open browser choices through real key-equivalent routing")
         expect(searchActions == 1 && model.isShowingSearchActions
-               && model.results == [.googleSearch] + browsers.map { .googleSearchIn($0) },
-               "Command-K must show only the default and explicitly added browsers even when apps match")
+               && model.results == [.googleSearch, .askGPT, .translateGPT] + browsers.map { .googleSearchIn($0) },
+               "Command-K must show Google, GPT actions, and explicitly added browsers even when apps match")
         expect(model.query == "Shortcut Fixture", "Opening browser choices must preserve the original query")
         expect(route(key("k", keyCode: 40, repeated: true)), "A held Command-K must be consumed")
         expect(searchActions == 1 && model.isShowingSearchActions, "A held Command-K must not toggle repeatedly")
         let beforeBrowserNumber = submittedIDs.count
-        expect(route(key("2", keyCode: 19)), "Curated browser choices must retain numbered execution")
+        expect(route(key("4", keyCode: 21)), "Curated browser choices must retain numbered execution")
         expect(submittedIDs.count == beforeBrowserNumber + 1
                && submittedIDs.last == LauncherResult.googleSearchIn(browsers[0]).id,
-               "Command-2 must execute exactly the first curated browser choice")
+               "Command-4 must execute exactly the first curated browser choice")
         expect(view.control(view.searchField, textView: NSTextView(), doCommandBy: #selector(NSResponder.cancelOperation(_:))),
                "Escape must route through the action list's cancel callback")
         expect(!model.isShowingSearchActions && model.results == localResults && model.query == "Shortcut Fixture"
@@ -362,7 +362,7 @@ struct CheckLauncherKeyboard {
         model.setResultLimit(1)
         model.setQuery("unmatched browser-choice fixture")
         expect(model.results == [.googleSearch], "Ordinary fallback must honor the user's reduced result limit")
-        expect(route(key("k", keyCode: 40)) && model.results == [.googleSearch] + browsers.map { .googleSearchIn($0) },
+        expect(route(key("k", keyCode: 40)) && model.results == [.googleSearch, .askGPT, .translateGPT] + browsers.map { .googleSearchIn($0) },
                "Explicit Command-K must expose every curated browser even with the app result limit set to one")
         _ = model.closeSearchActions()
         model.setResultLimit(9)
@@ -394,7 +394,7 @@ struct CheckLauncherKeyboard {
         model.setWebSearchPreferences(enabled: false, browsers: browsers)
         expect(route(key("k", keyCode: 40)) && model.isShowingSearchActions,
                "Disabled search remains discoverable so its own settings are reachable")
-        expect(model.results == [.googleSearch] + browsers.map { .googleSearchIn($0) }
+        expect(model.results == [.googleSearch, .askGPT, .translateGPT] + browsers.map { .googleSearchIn($0) }
                && !model.allowsWebSearch && webActions.count == beforeChoicesWebActions,
                "Discovering disabled browser choices must not execute a search")
         _ = model.closeSearchActions()

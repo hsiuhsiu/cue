@@ -80,7 +80,7 @@ final class LauncherPreferencesTests: XCTestCase {
     }
 
     func testQueryActionShortcutsAreReservedButExtraModifiersRemainAvailable() {
-        let actionKeys: [(UInt32, String)] = [(36, "Return"), (76, "Enter"), (40, "K")]
+        let actionKeys: [(UInt32, String)] = [(36, "Return"), (76, "Enter"), (40, "K"), (14, "E")]
         let additionalModifiers: [LauncherShortcut.Modifiers] = [.shift, .option, .control]
         for (keyCode, key) in actionKeys {
             let reserved = LauncherShortcut(keyCode: keyCode, modifiers: .command, key: key)
@@ -103,7 +103,7 @@ final class LauncherPreferencesTests: XCTestCase {
     }
 
     func testLegacySavedQueryActionShortcutsAreSanitizedWithoutLosingOtherPreferences() throws {
-        for (keyCode, key) in [(36, "Return"), (76, "Enter"), (40, "K")] {
+        for (keyCode, key) in [(36, "Return"), (76, "Enter"), (40, "K"), (14, "E")] {
             let data = Data("""
                 {"maxResults":9,"display":"main","dismissOnFocusLoss":false,
                  "shortcut":{"keyCode":\(keyCode),"modifiers":1,"key":"\(key)"}}

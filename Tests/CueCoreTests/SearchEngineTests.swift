@@ -83,4 +83,57 @@ final class SearchEngineTests: XCTestCase {
         XCTAssertEqual(app("Example", path: "/CueTestApplications/Utilities/../Example.app").id,
                        "/CueTestApplications/Example.app")
     }
+
+    func testAlternateNamesFindCodeWithoutChangingNameIdentityOrReturningDuplicates() {
+        let code = IndexedApplication(name: "Code", url: URL(fileURLWithPath: "/Applications/Visual Studio Code.app"),
+                                      searchNames: ["Visual Studio Code", " CODE ", "Ｖｉｓｕａｌ　Ｓｔｕｄｉｏ　Ｃｏｄｅ", ""])
+        for query in ["v", "vs", "vsc", "visual", "studio", "code", "Visual Studio Code"] {
+            XCTAssertEqual(SearchEngine.search([code], query: query), [code], query)
+        }
+        XCTAssertEqual(code.name, "Code")
+        XCTAssertEqual(code.id, "/Applications/Visual Studio Code.app")
+    }
+
+    func testBestAutomaticNameDeterminesRankIndependentlyOfNameOrder() {
+        let code = IndexedApplication(name: "Code", url: URL(fileURLWithPath: "/Applications/Code.app"),
+                                      searchNames: ["Visual Studio Code", "VS"])
+        let reordered = IndexedApplication(name: "Code", url: code.url, searchNames: ["VS", "Visual Studio Code"])
+        let prefix = app("VS Preview")
+        XCTAssertEqual(names([prefix, code], query: "vs"), ["Code", "VS Preview"])
+        XCTAssertEqual(names([prefix, reordered], query: "vs"), ["Code", "VS Preview"])
+    }
+
+    func testExactCustomAliasOverridesNamesAndUsageButPrefixUsesOrdinaryRanking() {
+        let aliased = app("Code").withSearchAlias("Ｔｅｒｍ")
+        let exact = app("Term")
+        var usage = SearchUsage()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        for _ in 0..<100 {
+            usage.record(resultID: LauncherResult.application(exact).id, query: "term", at: now)
+        }
+        XCTAssertEqual(SearchEngine.search([exact, aliased], query: "term", usage: usage.snapshot(at: now)),
+                       [aliased, exact])
+        XCTAssertEqual(names([aliased, app("Ter")], query: "ter"), ["Ter", "Code"])
+        XCTAssertEqual(names([aliased], query: "erm"), [])
+    }
+
+    func testChangingAndRemovingAliasPreservesAutomaticNamesAndUsageIdentity() {
+        let original = IndexedApplication(name: "Code", url: URL(fileURLWithPath: "/Applications/Code.app"),
+                                          bundleIdentifier: "Com.Microsoft.VSCode", searchNames: ["Visual Studio Code"])
+        let aliased = original.withSearchAlias("editor")
+        XCTAssertEqual(aliased.searchAlias, "editor")
+        XCTAssertEqual(aliased.aliasPreferenceID, "bundle:com.microsoft.vscode")
+        XCTAssertEqual(aliased.id, original.id)
+        XCTAssertEqual(LauncherResult.application(aliased).id, LauncherResult.application(original).id)
+        XCTAssertEqual(SearchEngine.search([aliased], query: "editor"), [aliased])
+        XCTAssertEqual(SearchEngine.search([aliased], query: "vsc"), [aliased])
+        let changed = aliased.withSearchAlias("coding")
+        XCTAssertEqual(SearchEngine.search([changed], query: "editor"), [])
+        XCTAssertEqual(SearchEngine.search([changed], query: "coding"), [changed])
+        XCTAssertEqual(aliased.withSearchAlias(nil), original)
+        XCTAssertEqual(aliased.withSearchAlias("  \n  "), original)
+        let unnamed = IndexedApplication(id: "custom-id", name: "Example",
+                                         url: URL(fileURLWithPath: "/Applications/Utilities/../Example.app"))
+        XCTAssertEqual(unnamed.aliasPreferenceID, "path:/Applications/Example.app")
+    }
 }

@@ -25,8 +25,18 @@ struct LauncherText {
     let webSearchSettings = L10n.string("search.settings", table: "Launcher", value: "Google Search Settings")
     let browserUnavailable = L10n.string("search.browserUnavailable", table: "Launcher", value: "%@ is unavailable. Install it again or choose another browser.")
     let openingBrowser = L10n.string("search.openingBrowser", table: "Launcher", value: "Opening browser…")
-    let searchActions = L10n.string("search.actions", table: "Launcher", value: "Google search · Esc to return · ⌘, for search settings")
-    let browserChoices = L10n.string("search.choices", table: "Launcher", value: "Choose a search browser (⌘K) · Search settings (⌘,)")
+    let searchActions = L10n.string("search.actions", table: "Launcher", value: "Choose an action · Esc to return · ⌘, for its settings")
+    let browserChoices = L10n.string("search.choices", table: "Launcher", value: "More actions (⌘K) · Search settings (⌘,)")
+    let chooseSearchBrowser = L10n.string("search.chooseBrowser", table: "Launcher", value: "Other Browsers…")
+    let askGPT = L10n.string("gpt.answer", table: "Launcher", value: "Ask GPT")
+    let translateGPT = L10n.string("gpt.translate", table: "Launcher", value: "Translate with GPT")
+    let gptSettings = L10n.string("gpt.settings", table: "Launcher", value: "GPT Settings")
+    let gptAnswerDetail = L10n.string("gpt.answer.detail", table: "Launcher", value: "Quick answer")
+    let gptTranslateDetail = L10n.string("gpt.translate.detail", table: "Launcher", value: "Translation")
+    let gptNetworkOff = L10n.string("gpt.networkOff", table: "Launcher", value: "Network off")
+    let gptHelp = L10n.string("gpt.help", table: "Launcher", value: "Send this text to OpenAI · GPT settings (⌘,)")
+    let editAppAlias = L10n.string("app.editAlias", table: "Launcher", value: "Edit Search Alias…")
+    let appAliasHelp = L10n.string("app.aliasHelp", table: "Launcher", value: "Edit search alias (⌘E)")
     let updateIndex = L10n.string("command.updateIndex", table: "Launcher", value: "Update App Index")
     let cleanLink = L10n.string("command.cleanLink", table: "Launcher", value: "Clean Link")
     let emojiSearch = L10n.string("command.emojiSearch", table: "Launcher", value: "Emoji Search")
@@ -79,6 +89,8 @@ final class LauncherModel {
     private(set) var allowsWebSearch = true
     private(set) var searchBrowsers: [WebSearchBrowser] = []
     private(set) var isShowingSearchActions = false
+    private(set) var isShowingBrowserActions = false
+    private(set) var allowsGPTNetwork = false
     var launchError: String? { didSet { if launchError != oldValue { onChange?() } } }
     var shortcutError: String? { didSet { if shortcutError != oldValue { onChange?() } } }
     var actionStatus: String? { didSet { if actionStatus != oldValue { onChange?() } } }
@@ -89,6 +101,7 @@ final class LauncherModel {
 
     private let text = LauncherText.shared
     private var applications: [IndexedApplication] = []
+    private var applicationAliases: [String: String]
     private var cachedQueries: [String: [LauncherResult]] = [:]
     private var maxResults = LauncherPreferences.maximumVisibleResults
     private var usage: SearchUsageSnapshot
@@ -107,11 +120,15 @@ final class LauncherModel {
     init(applications: [IndexedApplication] = [], usage: SearchUsageSnapshot = .empty,
          usageStore: SearchUsageStore? = nil,
          conversionAliases: ChineseConversionAliases = .defaults,
+         applicationAliases: [String: String] = [:],
          awaitingInitialIndex: Bool = false,
          currencyRates: CurrencyRatesController? = nil,
          icons: AppIconCache = AppIconCache()) {
         self.icons = icons
-        self.applications = applications
+        self.applications = applications.map {
+            $0.withSearchAlias(applicationAliases[$0.aliasPreferenceID] ?? $0.searchAlias)
+        }
+        self.applicationAliases = applicationAliases
         self.usage = usage
         self.usageStore = usageStore
         self.conversionAliases = conversionAliases
@@ -146,6 +163,7 @@ final class LauncherModel {
         // Expressions stay private even when the user chooses a matching app or
         // command below the answer. This check runs only after an explicit action.
         guard !isStopping, !resultID.hasPrefix(LauncherResult.googleSearch.id),
+              !resultID.hasPrefix("action:gpt-"),
               resultID != LauncherResult.calculationID,
               !resultID.hasPrefix(LauncherResult.conversionIDPrefix),
               resultID != LauncherResult.currencyStatusID,
@@ -166,7 +184,10 @@ final class LauncherModel {
         onQueryChange?()
         adoptPendingUsage()
         query = value
-        if value.allSatisfy(\.isWhitespace) { isShowingSearchActions = false }
+        if value.allSatisfy(\.isWhitespace) {
+            isShowingSearchActions = false
+            isShowingBrowserActions = false
+        }
         updateCurrencyActivity()
         launchError = nil
         indexStatus = nil
@@ -202,6 +223,7 @@ final class LauncherModel {
         guard !query.allSatisfy(\.isWhitespace) else { return }
         onQueryChange?() // Cancel a pending handoff before changing the available actions.
         isShowingSearchActions.toggle()
+        isShowingBrowserActions = false
         updateCurrencyActivity()
         launchError = nil
         updateResults()
@@ -210,6 +232,13 @@ final class LauncherModel {
 
     @discardableResult
     func closeSearchActions() -> Bool {
+        if isShowingBrowserActions {
+            onQueryChange?() // Leaving this page invalidates a pending browser handoff.
+            isShowingBrowserActions = false
+            updateResults()
+            onChange?()
+            return true
+        }
         guard isShowingSearchActions else { return false }
         toggleSearchActions()
         return true
@@ -219,9 +248,43 @@ final class LauncherModel {
         [.googleSearch] + searchBrowsers.map { .googleSearchIn($0) }
     }
 
+    /// Pure in-memory choices; API setup and credentials never enter search.
+    private var queryActions: [LauncherResult] {
+        let primary: [LauncherResult] = [.googleSearch, .askGPT, .translateGPT]
+        let browsers = searchBrowsers.map { LauncherResult.googleSearchIn($0) }
+        return browsers.count + primary.count <= LauncherPreferences.maximumVisibleResults
+            ? primary + browsers : primary + [.chooseSearchBrowser]
+    }
+
+    func showSearchBrowsers() {
+        guard !query.allSatisfy(\.isWhitespace) else { return }
+        onQueryChange?()
+        isShowingSearchActions = true
+        isShowingBrowserActions = true
+        updateCurrencyActivity()
+        updateResults()
+        onChange?()
+    }
+
+    func setAllowsGPTNetwork(_ allowed: Bool) {
+        guard allowed != allowsGPTNetwork else { return }
+        allowsGPTNetwork = allowed
+        onChange?()
+    }
+
     func setConversionAliases(_ aliases: ChineseConversionAliases) {
         guard aliases != conversionAliases else { return }
         conversionAliases = aliases
+        cachedQueries.removeAll(keepingCapacity: true)
+        updateResults(preservingSelection: true)
+        onChange?()
+    }
+
+    /// Explicit edits update prepared app values once, never preferences during typing.
+    func setApplicationAliases(_ aliases: [String: String]) {
+        guard aliases != applicationAliases else { return }
+        applicationAliases = aliases
+        applications = applications.map { $0.withSearchAlias(aliases[$0.aliasPreferenceID]) }
         cachedQueries.removeAll(keepingCapacity: true)
         updateResults(preservingSelection: true)
         onChange?()
@@ -235,7 +298,8 @@ final class LauncherModel {
         launchError = nil
         onChange?()
         let discovered = await Task.detached(priority: .userInitiated) { AppIndex.scan() }.value
-        applications = discovered
+        // Use the current choices even if an alias was edited during the scan.
+        applications = discovered.map { $0.withSearchAlias(applicationAliases[$0.aliasPreferenceID]) }
         hasLoadedApplications = true
         cachedQueries.removeAll(keepingCapacity: true)
         icons.invalidate()
@@ -250,6 +314,7 @@ final class LauncherModel {
         adoptPendingUsage()
         query = ""
         isShowingSearchActions = false
+        isShowingBrowserActions = false
         updateCurrencyActivity()
         launchError = nil
         indexStatus = nil
@@ -277,7 +342,7 @@ final class LauncherModel {
             return
         }
         if isShowingSearchActions {
-            results = webSearchResults
+            results = isShowingBrowserActions ? webSearchResults : queryActions
         } else if currencyQuery == nil, let cached = cachedQueries[query] {
             results = cached
         } else {
@@ -299,7 +364,7 @@ final class LauncherModel {
                 includeGoogleFallback: hasLoadedApplications,
                 conversionResults: converted, currencyStatus: currencyStatus
             ).prefix(maxResults))
-            if results == [.googleSearch] { results = Array(webSearchResults.prefix(maxResults)) }
+            if results == [.googleSearch] { results = Array(queryActions.prefix(maxResults)) }
             if cachedQueries.count >= 64 { cachedQueries.removeAll(keepingCapacity: true) }
             if currencyQuery == nil { cachedQueries[query] = results }
         }

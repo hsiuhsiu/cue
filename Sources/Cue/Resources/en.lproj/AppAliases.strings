@@ -1,0 +1,12 @@
+"action.edit" = "Edit Search Alias…";
+"window.title" = "Search Alias — %@";
+"alias.label" = "Search alias";
+"alias.help" = "Enter this alias in Cue to put this app first. Start with a letter; use up to 32 letters, numbers, - or _, without spaces. Leave it empty to remove the alias.";
+"error.invalid" = "Start with a letter and use up to 32 letters, numbers, - or _, without spaces.";
+"error.duplicate" = "Another app already uses this alias. Choose a different one.";
+"error.conversionConflict" = "Chinese Conversion already uses this alias. Choose a different one or change it in Chinese Conversion Settings.";
+"error.appConflict" = "An app already uses “%@” as its search alias. Choose a different conversion alias or edit that app’s alias first.";
+"error.limit" = "You can save aliases for up to 256 apps. Remove an existing alias before adding another.";
+"error.invalidApp" = "This app’s information is invalid. Update the app index and try again.";
+"action.save" = "Save";
+"action.cancel" = "Cancel";

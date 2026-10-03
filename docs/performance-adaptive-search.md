@@ -2,11 +2,14 @@
 
 Learning was introduced in Cue 0.4.0. The ranking rules below describe the current
 source. Dated measurements and installed-app verification later in this document
-are historical runs; they do not measure the current app/command merge change.
+are historical runs; the final section measures the current app-name and alias changes.
 
 ## Ranking behavior
 
-For applications, text matching remains the first criterion: exact name, name prefix, word prefix,
+For applications, an exact custom search alias comes first. Automatic names include
+the display name, local bundle names, and the `.app` filename, prepared once during
+indexing. Each app appears once, using its strongest name match. Other text
+matching follows: exact name, name prefix, word prefix,
 substring, then initials/fuzzy matches. Within a matching category, ranking uses
 the score for the exact normalized query and selected result, followed by the
 result's overall score. Existing match penalties, positions, name lengths, names,
@@ -21,8 +24,9 @@ matches a substring of `traditional`, but a successful iTerm2 selection for `it`
 can put the app ahead of that incidental conversion command on the next
 invocation. There is no minimum repeat count: one successful choice suffices when
 the competing result has no history for that query. An explicitly configured
-exact command alias remains first, and numeric answers keep their leading
-position.
+exact app alias is placed ahead of ordinary commands and app matches. An explicit
+conversion-command alias wins any legacy collision; new collisions are rejected
+in both alias editors. Numeric answers keep their leading position.
 
 Each successful selection adds one point. Older points decay with a 14-day
 half-life, combining frequency and recency without a clock read on every key.
@@ -331,3 +335,51 @@ Release 核心測試 217 項與原生整合檢查 52 項通過，包含 `it` 選
 後跨過正體轉換指令，以及重新載入後保留排序。
 本機安裝最佳化版本並重開後，也確認既有 `it` 紀錄讓 iTerm2 排第一；
 沒有重設學習記錄，也沒有額外開啟真實 App 來增加測試次數。
+
+
+## App names and aliases, 2026-09-30
+
+Automatic name forms are deduplicated and tokenized during the background app
+scan. Search compares those prepared forms and returns each app only once.
+Explicit aliases use a separate pre-normalized exact/prefix comparison. Alias
+preferences are limited to 256 apps, keyed by bundle identifier (or standardized
+path for bundles without an identifier), and read outside the typing path.
+Saving/removing an alias replaces the in-memory app values and invalidates cached
+queries. It does not erase learned usage or reread application bundles.
+
+Optimized native builds on this Apple silicon Mac used the same deterministic
+500/1,000-app benchmark and 3,000 samples per model workload. The comparison
+baseline was commit `4ca7aad` (Cue 0.8.0 with the published update feed). Baseline,
+current single-name, and expanded-name binaries ran sequentially after compilation.
+The expanded fixture gives 25% of apps two additional names and fills all 256
+custom-alias slots. Ranges below cover empty/maximum usage and with/without the
+synthetic background indexing/writing worker, for **1,000 apps**:
+
+| Fixture | Model cache-miss p95 | Highest model wall sample | Thread CPU time for that sample |
+| --- | ---: | ---: | ---: |
+| Cue 0.8.0, original names | 0.972–1.003 ms | 14.785 ms | 2.132 ms |
+| Current code, same names | 0.947–0.982 ms | 7.669 ms | 1.712 ms |
+| Current code, extra names and aliases | 1.601–1.682 ms | 28.823 ms | 2.632 ms |
+
+Current model cache-hit p95 was at most 0.000833 ms in these runs. Extra names
+have a measurable uncached cost; the original single-name workload did not
+regress in this run. The largest wall samples include considerable time not
+spent executing on the measured thread. These results do not establish an
+absence of input stalls or include event delivery, rendering, or window focus.
+
+Reproduce the current fixtures, serially:
+
+```sh
+./scripts/benchmark-adaptive-search.sh
+./scripts/benchmark-adaptive-search.sh --app-aliases
+```
+
+The optimized installed app was also exercised with the actual Visual Studio
+Code bundle: `vs`/`visual` matched Code, Return opened the app, Command+E and the
+selected row's button opened a focused alias editor, conversion-alias collisions
+showed an error, clearing/saving removed the alias, and `vs` persisted across a
+normal quit/relaunch. Core tests (227), existing native keyboard checks (206),
+adaptive-search checks (52), and the new app-alias checks (78) passed. The new
+checks include a menu opened before rows change, so a completed background
+refresh cannot redirect its edit action to a different app. Release packaging
+runs these checks through `scripts/check-app-aliases.sh`.
