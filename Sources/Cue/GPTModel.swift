@@ -86,6 +86,23 @@ final class GPTModel {
         onChange?()
     }
 
+    /// Settings are a temporary detour, not the end of this ephemeral conversation.
+    /// Stop transport/copy work but keep the original text and response in memory.
+    func suspendForSettings() {
+        let wasLoading = isLoading
+        cancelRequest()
+        cancelCopy()
+        isPresented = false
+        if wasLoading { status = .stopped }
+        onChange?()
+    }
+
+    func resumeAfterSettings() {
+        isPresented = true
+        // Even after a key/model/network change, sending again requires Retry.
+        onChange?()
+    }
+
     func stop() {
         guard isPresented, isLoading else { return }
         cancelRequest()

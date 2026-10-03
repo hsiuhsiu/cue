@@ -237,9 +237,18 @@ private final class BrowserResolverFixture: @unchecked Sendable {
             resolveBrowser: { resolver.resolve($0) },
             frontmostProcess: { nil }, restoreSource: { _ in sourceRestores += 1; return true }
         )
-        controller.onWebSearchSettings = { searchSettings += 1 }
-        controller.onSettings = { globalSettings += 1 }
-        controller.onGPTSettings = { gptSettings += 1 }
+        controller.onWebSearchSettings = {
+            searchSettings += 1
+            check(controller.suspendForSettings(), "Browser settings preserve the current invocation")
+        }
+        controller.onSettings = {
+            globalSettings += 1
+            check(controller.suspendForSettings(), "General settings preserve the current invocation")
+        }
+        controller.onGPTSettings = {
+            gptSettings += 1
+            check(controller.suspendForSettings(), "Opening GPT settings suspends the current invocation")
+        }
         guard let window = application.windows.last(where: { $0.contentView is LauncherView }),
               let view = window.contentView as? LauncherView else { fatalError("Missing hidden launcher") }
         defer { window.contentView = nil; window.close() }
@@ -315,13 +324,19 @@ private final class BrowserResolverFixture: @unchecked Sendable {
               "Command-comma on a disabled browser choice opens feature settings")
         preferences.setEnabled(true)
         check(model.allowsWebSearch && model.launchError == nil, "Re-enabling the feature clears its disabled state")
+        check(controller.restoreSettingsContext() && model.query == "newer query must remain",
+              "Returning from browser settings preserves the original query without a browser handoff")
         model.setQuery("google search settings")
         check(model.selectedResult == .webSearchSettings, "Feature settings remain searchable as a command")
         submit()
         check(searchSettings == 2 && opened.count == 3, "The settings command opens its own page without a browser handoff")
+        check(controller.restoreSettingsContext() && model.query == "google search settings",
+              "Closing searchable browser settings restores its invocation")
         model.setQuery("safari")
         _ = view.handleSettingsShortcut(key(43, ","))
         check(globalSettings == 1 && searchSettings == 2, "Command-comma on local apps keeps Cue-wide Settings")
+        check(controller.restoreSettingsContext() && model.selectedResult == .application(app),
+              "General settings return keeps the selected application")
 
         // Named browser resolution is asynchronous, explicit, and cancellable.
         _ = resolver.configure(result: browserURL)
@@ -420,6 +435,13 @@ private final class BrowserResolverFixture: @unchecked Sendable {
         check(gptRequests[1].1 == .translate, "Translation uses its own mode, not question answering")
         check(answerView.handleKeyEquivalent(key(43, ",")) && gptSettings == 1,
               "Command-comma from the answer opens GPT-specific settings")
+        check(controller.isSuspendedForSettings && !gpt.isPresented
+              && model.query == "Private GPT fixture text" && gpt.output == "Synthetic reply / 測試回答",
+              "Settings preserve exact question and reply without a visible panel")
+        check(controller.restoreSettingsContext() && gpt.isPresented && window.contentView === answerView
+              && gptRequests.count == 2,
+              "Returning from settings restores the reply page without another request or activation")
+        check(!controller.restoreSettingsContext(), "An old settings close cannot reopen an already restored context")
         controller.dismiss(returnFocus: false)
         check(!gpt.isPresented && gpt.input.isEmpty && gpt.output.isEmpty,
               "Dismissing Cue clears both GPT input and response")
@@ -427,6 +449,9 @@ private final class BrowserResolverFixture: @unchecked Sendable {
         check(model.selectedResult == .gptSettings, "GPT settings is locally searchable")
         submit()
         check(gptSettings == 2 && gptRequests.count == 2, "Opening GPT settings does not submit a question")
+        controller.prepareInvocation()
+        check(!controller.restoreSettingsContext() && model.query.isEmpty,
+              "A new invocation invalidates an older settings return")
 
         // Guard future call sites as well as the actual controller handoff path.
         let privateStore = SearchUsageStore(fileURL: folder.appendingPathComponent("private-usage.json"))

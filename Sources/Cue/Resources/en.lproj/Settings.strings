@@ -1,6 +1,6 @@
 "window.title" = "Cue Settings";
 "shortcut.open_cue" = "Open Cue";
-"shortcut.invalid" = "Use ⌘, ⌥ or ⌃ with a key. ⌘, opens Settings; ⌘Return, ⌘Enter, and ⌘K are reserved for Google search; ⌘E edits app aliases.";
+"shortcut.invalid" = "Use ⌘, ⌥ or ⌃ with a key. Choose a shortcut that is not reserved for Cue actions or standard editing.";
 "shortcut.error" = "Shortcut error: %@";
 "shortcut.heading" = "Keyboard Shortcut";
 "shortcut.help" = "Click the shortcut, then press a key with ⌘, ⌥ or ⌃. Press Esc to cancel.";
@@ -36,5 +36,8 @@
 "startup.error" = "Could not update launch at login: %@";
 "network.heading" = "Network";
 "network.allow" = "Allow Cue to access the network";
-"network.help" = "Controls Cue’s own network access, including updates and currency rates. Manual browser searches are managed separately in Google Search Settings.";
+"network.help" = "Controls Cue’s own network access, including updates, currency rates, and GPT. Manual browser searches are managed separately in Google Search Settings.";
 "network.updates_disabled" = "Network access is off. Update checks and downloads are disabled.";
+"general.heading" = "General & Interaction";
+"network_updates.heading" = "Network & Updates";
+"action.done" = "Done";

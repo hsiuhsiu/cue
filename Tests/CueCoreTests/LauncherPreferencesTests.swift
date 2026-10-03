@@ -3,6 +3,49 @@ import XCTest
 import CueCore
 
 final class LauncherPreferencesTests: XCTestCase {
+    func testReservedResultClipboardAndEditingShortcutsCannotBecomeGlobalHotkeys() throws {
+        let reserved: [(UInt32, String)] = [
+            (18, "1"), (19, "2"), (20, "3"), (21, "4"), (23, "5"),
+            (22, "6"), (26, "7"), (28, "8"), (25, "9"),
+            (83, "1"), (84, "2"), (85, "3"), (86, "4"), (87, "5"),
+            (88, "6"), (89, "7"), (91, "8"), (92, "9"),
+            (8, "C"), (51, "Delete"), (117, "Forward Delete"), (16, "Y"),
+            (0, "A"), (9, "V"), (7, "X"), (6, "Z"),
+            (123, "Left"), (124, "Right"), (125, "Down"), (126, "Up"),
+        ]
+        for (keyCode, key) in reserved {
+            let shortcut = LauncherShortcut(keyCode: keyCode, modifiers: .command, key: key)
+            XCTAssertFalse(shortcut.isValid, shortcut.displayName)
+            let encoded = try JSONEncoder().encode(LauncherPreferences(shortcut: shortcut, display: .main))
+            let restored = try JSONDecoder().decode(LauncherPreferences.self, from: encoded)
+            XCTAssertEqual(restored.shortcut, .default)
+            XCTAssertEqual(restored.display, .main)
+            XCTAssertTrue(LauncherShortcut(keyCode: keyCode, modifiers: [.command, .option], key: key).isValid)
+        }
+        XCTAssertFalse(LauncherShortcut(keyCode: 6, modifiers: [.command, .shift], key: "Z").isValid)
+        XCTAssertTrue(LauncherShortcut.default.isValid)
+        let legacy = Data(#"{"shortcut":{"keyCode":8,"modifiers":1,"key":"C"},"display":"main","dismissOnFocusLoss":false}"#.utf8)
+        let restored = try JSONDecoder().decode(LauncherPreferences.self, from: legacy)
+        XCTAssertEqual(restored.shortcut, .default)
+        XCTAssertEqual(restored.display, .main)
+        XCTAssertFalse(restored.dismissOnFocusLoss)
+    }
+
+    func testResultNumberMappingIsSharedWithShortcutReservation() {
+        let keys: [UInt32] = [18, 19, 20, 21, 23, 22, 26, 28, 25]
+        let keypad: [UInt32] = [83, 84, 85, 86, 87, 88, 89, 91, 92]
+        for index in 0..<9 {
+            XCTAssertEqual(CueKeyboardShortcut.resultIndex(keyCode: keys[index]), index)
+            XCTAssertEqual(CueKeyboardShortcut.resultIndex(keyCode: keypad[index]), index)
+            XCTAssertEqual(CueKeyboardShortcut.resultIndex(keyCode: 49, characters: String(index + 1)), index)
+            XCTAssertTrue(CueKeyboardShortcut.isReserved(keyCode: keys[index], modifiers: .command))
+            XCTAssertTrue(CueKeyboardShortcut.isReserved(keyCode: 49, modifiers: .command,
+                                                       characters: String(index + 1)))
+        }
+        XCTAssertNil(CueKeyboardShortcut.resultIndex(keyCode: 29, characters: "0"))
+        XCTAssertNil(CueKeyboardShortcut.resultIndex(keyCode: 49, characters: "10"))
+    }
+
     func testDefaultsUseNineResultsAndPreserveShortcutAndDisplayBehavior() {
         let preferences = LauncherPreferences()
         XCTAssertEqual(preferences.shortcut.keyCode, 49)

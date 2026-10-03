@@ -58,6 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var conversionSettingsController: ChineseConversionSettingsController?
     private let appAliasPreferences = AppAliasPreferences()
     private var appAliasSettingsController: AppAliasSettingsController?
+    private enum SettingsPage { case general, webSearch, gpt, conversion, appAlias }
+    private var settingsOwner: SettingsPage?
+    private var returnToGPTSettings = false
     private lazy var loginItem = LoginItemController()
     private var preferencesSubscription: AnyCancellable?
     private var updates: UpdateController!
@@ -195,7 +198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     @objc private func showSettings() {
-        launcher.dismiss(returnFocus: false)
+        prepareSettings(.general)
         if settingsController == nil {
             settingsController = SettingsWindowController(settings: settings, updates: updates, loginItem: loginItem,
                                                           networkPolicy: networkPolicy) { [weak self] shortcut in
@@ -207,45 +210,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 self.launcher.model.shortcutError = nil
                 return nil
             }
+            settingsController?.onClose = { [weak self] in self?.finishSettings(.general) }
         }
         settingsController?.show()
     }
 
     private func showWebSearchSettings() {
-        launcher.dismiss(returnFocus: false)
+        prepareSettings(.webSearch)
         if webSearchSettingsController == nil {
             webSearchSettingsController = WebSearchSettingsController(preferences: webSearchPreferences)
+            webSearchSettingsController?.onClose = { [weak self] in self?.finishSettings(.webSearch) }
         }
         webSearchSettingsController?.show()
     }
 
     private func showGPTSettings() {
-        launcher.dismiss(returnFocus: false)
+        prepareSettings(.gpt)
         if gptSettingsController == nil {
             let controller = GPTSettingsController(preferences: gptPreferences, policy: networkPolicy)
-            controller.onOpenGeneralSettings = { [weak self] in self?.showSettings() }
+            controller.onOpenGeneralSettings = { [weak self] in
+                guard let self else { return }
+                self.showSettings()
+                self.returnToGPTSettings = true
+            }
             controller.onCredentialsChange = { [weak self] in self?.launcher.stopGPT() }
+            controller.onClose = { [weak self] in self?.finishSettings(.gpt) }
             gptSettingsController = controller
         }
         gptSettingsController?.show()
     }
 
     private func showConversionSettings() {
-        launcher.dismiss(returnFocus: false)
+        prepareSettings(.conversion)
         if conversionSettingsController == nil {
             conversionSettingsController = ChineseConversionSettingsController(preferences: conversionPreferences)
+            conversionSettingsController?.onClose = { [weak self] in self?.finishSettings(.conversion) }
         }
         conversionSettingsController?.show()
     }
 
     private func showAppAliasSettings(for application: IndexedApplication) {
-        launcher.dismiss(returnFocus: false)
+        prepareSettings(.appAlias)
+        appAliasSettingsController?.onClose = nil
         appAliasSettingsController?.close()
         appAliasSettingsController = AppAliasSettingsController(
             application: application, preferences: appAliasPreferences,
             conversionAliases: { [weak self] in self?.conversionPreferences.aliases ?? .defaults }
         )
+        appAliasSettingsController?.onClose = { [weak self] in self?.finishSettings(.appAlias) }
         appAliasSettingsController?.show()
+    }
+
+    private func prepareSettings(_ page: SettingsPage) {
+        _ = launcher.suspendForSettings()
+        settingsOwner = page
+        returnToGPTSettings = false
+    }
+
+    private func finishSettings(_ page: SettingsPage) {
+        guard !isTerminating, settingsOwner == page else { return }
+        if page == .general, returnToGPTSettings, gptSettingsController?.window?.isVisible == true {
+            returnToGPTSettings = false
+            settingsOwner = .gpt
+            gptSettingsController?.show()
+            return
+        }
+        settingsOwner = nil
+        returnToGPTSettings = false
+        launcher.resumeAfterSettings()
     }
 
     private func settingsMenuItem() -> NSMenuItem {

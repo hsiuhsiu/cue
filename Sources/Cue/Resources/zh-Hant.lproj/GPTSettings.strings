@@ -18,7 +18,7 @@
 "model.heading" = "模型";
 "model.help" = "預設使用 GPT-6 Luna，適合快速、低成本的問答與翻譯。也可以輸入其他支援 OpenAI Responses API 的模型 ID。";
 "model.invalid" = "請輸入有效的模型 ID，例如 gpt-6-luna；限 128 個英文字母、數字、句點、連字號、底線或冒號。";
-"model.apply" = "套用模型";
+"model.apply" = "儲存模型";
 "model.reset" = "使用預設模型";
 "translation.heading" = "翻譯目標";
 "translation.automatic" = "自動：中文 ↔ 英文";
@@ -28,3 +28,4 @@
 "privacy.help" = "只有執行動作才會將文字傳送至 OpenAI，打字時不會傳送。不保存 GPT 對話歷史；拷貝的回答適用剪貼簿記錄設定。不提供即時網頁搜尋。";
 "billing.help" = "OpenAI API 用量與 ChatGPT 訂閱分開計費；更換模型可能影響費用。";
 "action.done" = "完成";
+"model.unsaved" = "儲存後才會套用這個模型；關閉設定會保留原本的模型。";

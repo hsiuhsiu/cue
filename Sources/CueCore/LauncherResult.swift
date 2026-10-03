@@ -1,3 +1,5 @@
+import Foundation
+
 public enum CurrencyConversionStatus: Hashable, Sendable {
     case networkRequired, loading, unavailable, unsupported
 }
@@ -180,6 +182,11 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         conversionResults: [ConversionResult]? = nil,
         currencyStatus: CurrencyConversionStatus? = nil
     ) -> [LauncherResult] {
+        guard SearchEngine.acceptsQuery(query) else {
+            return includeGoogleFallback && query.unicodeScalars.contains(where: {
+                !CharacterSet.whitespacesAndNewlines.contains($0)
+            }) ? [.googleSearch] : []
+        }
         // The calculator rejects ordinary text before parsing or allocating. Use
         // the original expression: search normalization is not math normalization.
         let calculation = Calculator.evaluate(query).map(Self.calculation)

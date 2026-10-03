@@ -102,6 +102,11 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private let status = NSTextField(labelWithString: "")
     private let rateProvider = NSButton(title: "Rates By Exchange Rate API", target: nil, action: nil)
     private let separator = NSBox()
+    private let actionsButton = NSButton(
+        title: L10n.string("search.actionsButton", table: "Launcher", value: "Actions ⌘K"),
+        target: nil, action: nil
+    )
+    private var actionsButtonWidth: CGFloat = 100
     private var inputLineHeight: CGFloat = 0
     private var displayedResults: [LauncherResult] = []
     private var displayedQuery = ""
@@ -148,6 +153,16 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         // below its caret. Resolve this once, outside the typing/layout path.
         inputLineHeight = ceil(searchField.intrinsicContentSize.height)
         separator.boxType = .separator
+        actionsButton.bezelStyle = .rounded
+        actionsButton.controlSize = .small
+        actionsButton.font = .systemFont(ofSize: 12)
+        actionsButton.target = self
+        actionsButton.action = #selector(showActions)
+        let actionsDescription = L10n.string("search.actionsAccessibility", table: "Launcher", value: "Actions for this text (Command-K)")
+        actionsButton.toolTip = actionsDescription
+        actionsButton.setAccessibilityLabel(actionsDescription)
+        actionsButtonWidth = max(86, actionsButton.fittingSize.width)
+        actionsButton.isHidden = true
         table.headerView = nil
         table.style = .plain
         table.autoresizingMask = [.width]
@@ -186,7 +201,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         rateProvider.target = self
         rateProvider.action = #selector(openRateProvider)
         rateProvider.isHidden = true
-        for view in [searchField, separator, scroll, emptyLabel, status, rateProvider] { addSubview(view) }
+        for view in [searchField, separator, scroll, emptyLabel, status, rateProvider, actionsButton] { addSubview(view) }
         model.onChange = { [weak self] in self?.render() }
         model.icons.onLoad = { [weak self] id in self?.updateIcon(id) }
         render()
@@ -221,7 +236,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
               event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
               event.keyCode == UInt16(kVK_ANSI_K),
               (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return false }
-        if !event.isARepeat && !model.query.allSatisfy(\.isWhitespace) { onSearchActions() }
+        if !event.isARepeat && !model.isQueryEmpty { onSearchActions() }
         return true
     }
 
@@ -231,7 +246,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
               event.keyCode == UInt16(kVK_Return) || event.keyCode == UInt16(kVK_ANSI_KeypadEnter),
               (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return false }
         // Never submit provisional IME text or repeat a browser handoff when held.
-        if !event.isARepeat && !model.query.allSatisfy(\.isWhitespace) { onWebSearch() }
+        if !event.isARepeat && !model.isQueryEmpty { onWebSearch() }
         return true
     }
 
@@ -258,8 +273,11 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     override func layout() {
         super.layout()
         material.frame = bounds
+        let actionsWidth = actionsButton.isHidden ? 0 : actionsButtonWidth + 12
         searchField.frame = NSRect(x: 18, y: (56 - inputLineHeight) / 2,
-                                  width: max(0, bounds.width - 36), height: inputLineHeight)
+                                  width: max(0, bounds.width - 36 - actionsWidth), height: inputLineHeight)
+        actionsButton.frame = NSRect(x: bounds.width - actionsButtonWidth - 16, y: 15,
+                                     width: actionsButtonWidth, height: 26)
         separator.frame = NSRect(x: 0, y: 56, width: bounds.width, height: 1)
         let statusHeight: CGFloat = status.isHidden && rateProvider.isHidden ? 0 : 26
         scroll.frame = NSRect(x: 6, y: 60, width: bounds.width - 12,
@@ -278,7 +296,8 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         defer { isUpdating = false }
         let queryChanged = displayedQuery != model.query
         displayedQuery = model.query
-        isQueryEmpty = model.query.allSatisfy(\.isWhitespace)
+        isQueryEmpty = model.isQueryEmpty
+        actionsButton.isHidden = isQueryEmpty
         if searchField.stringValue != model.query { searchField.stringValue = model.query }
         let visibleResults = isQueryEmpty ? [] : model.results
         let resultsChanged = displayedResults != visibleResults
@@ -504,6 +523,13 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         guard table.clickedRow >= 0,
               (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }
         onSubmit()
+    }
+
+    @objc private func showActions() {
+        guard !model.isQueryEmpty,
+              (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }
+        onSearchActions()
+        window?.makeFirstResponder(searchField)
     }
 
     func controlTextDidChange(_ notification: Notification) {

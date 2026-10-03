@@ -34,3 +34,9 @@
 "error.load" = "Couldn’t load clipboard history. The saved file has been left untouched.";
 "error.copy" = "Couldn’t copy this item. Please try again.";
 "error.access" = "Clipboard access is blocked. Allow Cue in System Settings to record new copies.";
+"preview" = "Preview";
+"preview.help" = "Preview the full item (⌘Y)";
+"preview.title" = "Clipboard Preview";
+"preview.accessibility" = "Full clipboard text";
+"copying" = "Copying…";
+"back.preview" = "Back to clipboard preview (Esc)";

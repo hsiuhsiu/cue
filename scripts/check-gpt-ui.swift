@@ -68,6 +68,7 @@ struct CheckGPTUI {
         NSApplication.shared.setActivationPolicy(.prohibited)
         NSApplication.shared.mainMenu = nil
         await checkLifecycle()
+        await checkSettingsDetour()
         await checkCopy()
         await checkErrors()
         await checkView()
@@ -120,6 +121,50 @@ struct CheckGPTUI {
         check(model.input == "new" && model.output == "New answer", "Superseded request never contaminates latest answer")
         check(fixture.cancelCount >= 4, "All close/stop/supersede paths cancel underlying transport")
         model.close()
+    }
+
+    @MainActor static func checkSettingsDetour() async {
+        let fixture = StreamFixture()
+        let config = ConfigurationFixture()
+        let writer = CopyFixture()
+        let model = GPTModel(configuration: { config.value }, stream: fixture.stream,
+                             cancelStream: { fixture.cancelCount += 1 },
+                             copier: { try await writer.copy($0) })
+        model.open(input: "Keep this original text\n保留原文", mode: .translate)
+        await eventually("Settings fixture starts only on explicit use") { fixture.requests.count == 1 }
+        fixture.requests[0].delta("Partial translation")
+        model.suspendForSettings()
+        check(!model.isPresented && model.status == .stopped && model.output == "Partial translation",
+              "Settings stop transport without losing a partial reply")
+        fixture.requests[0].delta("STALE")
+        fixture.finish(0)
+        config.value.model = "new-model"
+        model.retry()
+        await Task.yield()
+        check(fixture.requests.count == 1 && model.output == "Partial translation",
+              "Hidden settings context rejects late tokens and cannot retry")
+        model.resumeAfterSettings()
+        check(model.input == "Keep this original text\n保留原文" && model.mode == .translate && model.canCopy,
+              "Returning restores the original input, direction, and marked partial reply")
+        check(fixture.requests.count == 1, "Returning from settings never resubmits or incurs a new request")
+        model.retry()
+        await eventually("Explicit retry after settings starts a new request") { fixture.requests.count == 2 }
+        check(fixture.requests[1].configuration.model == "new-model" && fixture.requests[1].input == model.input,
+              "Retry uses updated settings with the same original text")
+        fixture.requests[1].delta("Complete translation")
+        fixture.finish(1)
+        await eventually("Fixture completes") { model.status == .completed }
+        model.copyResult()
+        await eventually("Copy waits in isolated writer") { await writer.calls == 1 }
+        model.suspendForSettings()
+        await writer.resume()
+        await Task.yield()
+        check(await writer.written.isEmpty, "Entering settings cancels a pending copy before its write")
+        model.resumeAfterSettings()
+        check(model.status == .completed && model.output == "Complete translation",
+              "Completed replies survive a settings detour without being relabeled incomplete")
+        model.close()
+        check(model.input.isEmpty && model.output.isEmpty, "Actual dismissal still clears all private text")
     }
 
     @MainActor static func checkCopy() async {

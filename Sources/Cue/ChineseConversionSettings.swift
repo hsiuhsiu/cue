@@ -76,6 +76,7 @@ final class ChineseConversionPreferences: ObservableObject {
 
 @MainActor
 final class ChineseConversionSettingsController: NSWindowController, NSWindowDelegate {
+    var onClose: (() -> Void)?
     private let preferences: ChineseConversionPreferences
     private var accessGranted = false
 
@@ -96,7 +97,7 @@ final class ChineseConversionSettingsController: NSWindowController, NSWindowDel
 
     func show() {
         accessGranted = AXIsProcessTrusted()
-        rebuildContent()
+        prepareContent()
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
@@ -113,10 +114,15 @@ final class ChineseConversionSettingsController: NSWindowController, NSWindowDel
         }
     }
 
-    private func rebuildContent() {
+    func windowWillClose(_ notification: Notification) {
+        window?.makeFirstResponder(nil)
+        onClose?()
+    }
+
+    func prepareContent() {
         window?.contentView = NSHostingView(rootView: ChineseConversionSettingsView(
             preferences: preferences, accessGranted: accessGranted,
-            close: { [weak self] in self?.close() }
+            close: { [weak self] in self?.window?.performClose(nil) }
         ))
     }
 }

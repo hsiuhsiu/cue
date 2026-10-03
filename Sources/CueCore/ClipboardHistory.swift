@@ -166,16 +166,30 @@ public actor ClipboardStore {
     }
 
     /// Searches the cached text in recency order without touching persistence.
-    public func search(query: String) -> [ClipboardEntry] {
+    public func search(query: String, limit: Int? = nil) -> [ClipboardEntry] {
+        guard !Task.isCancelled else { return [] }
+        let cap = max(0, limit ?? entries.count)
+        guard cap > 0 else { return [] }
         let query = Array(ClipboardEntry.normalizeForSearch(query).utf8)
-        guard !query.isEmpty else { return entries }
+        guard !Task.isCancelled else { return [] }
+        guard !query.isEmpty else { return Array(entries.prefix(cap)) }
         return query.withUnsafeBytes { needle in
-            entries.filter { entry in
-                entry.searchableBytes.withUnsafeBytes { haystack in
+            var matches: [ClipboardEntry] = []
+            matches.reserveCapacity(min(cap, entries.count))
+            for entry in entries {
+                // Obsolete keystrokes must not scan every retained payload before
+                // the newest query can enter this serial store actor.
+                guard !Task.isCancelled else { return [] }
+                let matchesQuery = entry.searchableBytes.withUnsafeBytes { haystack in
                     guard haystack.count >= needle.count else { return false }
                     return memmem(haystack.baseAddress, haystack.count, needle.baseAddress, needle.count) != nil
                 }
+                if matchesQuery {
+                    matches.append(entry)
+                    if matches.count == cap { break }
+                }
             }
+            return matches
         }
     }
 

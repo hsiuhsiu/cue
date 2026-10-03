@@ -5,8 +5,11 @@ import SwiftUI
 private enum SettingsText {
     static let windowTitle = L10n.string("window.title", table: "Settings", value: "Cue Settings")
     static let openCue = L10n.string("shortcut.open_cue", table: "Settings", value: "Open Cue")
-    static let invalidShortcut = L10n.string("shortcut.invalid", table: "Settings", value: "Use ⌘, ⌥ or ⌃ with a key. ⌘, opens Settings; ⌘Return, ⌘Enter, and ⌘K are reserved for Google search; ⌘E edits app aliases.")
+    static let invalidShortcut = L10n.string("shortcut.invalid", table: "Settings", value: "Use ⌘, ⌥ or ⌃ with a key. Choose a shortcut that is not reserved for Cue actions or standard editing.")
     static let shortcutError = L10n.string("shortcut.error", table: "Settings", value: "Shortcut error: %@")
+    static let general = L10n.string("general.heading", table: "Settings", value: "General & Interaction")
+    static let networkAndUpdates = L10n.string("network_updates.heading", table: "Settings", value: "Network & Updates")
+    static let done = L10n.string("action.done", table: "Settings", value: "Done")
     static let keyboardShortcut = L10n.string("shortcut.heading", table: "Settings", value: "Keyboard Shortcut")
     static let shortcutHelp = L10n.string("shortcut.help", table: "Settings", value: "Click the shortcut, then press a key with ⌘, ⌥ or ⌃. Press Esc to cancel.")
     static let search = L10n.string("search.heading", table: "Settings", value: "Search")
@@ -29,7 +32,7 @@ private enum SettingsText {
     static let updatesHelp = L10n.string("updates.help", table: "Settings", value: "Checks run in the background without interrupting search. You choose when to install and restart Cue.")
     static let network = L10n.string("network.heading", table: "Settings", value: "Network")
     static let allowNetwork = L10n.string("network.allow", table: "Settings", value: "Allow Cue to access the network")
-    static let networkHelp = L10n.string("network.help", table: "Settings", value: "Controls Cue’s own network access, including updates and currency rates. Manual browser searches are managed separately in Google Search Settings.")
+    static let networkHelp = L10n.string("network.help", table: "Settings", value: "Controls Cue’s own network access, including updates, currency rates, and GPT. Manual browser searches are managed separately in Google Search Settings.")
     static let networkOff = L10n.string("network.updates_disabled", table: "Settings", value: "Network access is off. Update checks and downloads are disabled.")
     static let developmentBuild = L10n.string("updates.development_build", table: "Settings", value: "Development build")
     static let recorderLabel = L10n.string("recorder.label", table: "Settings", value: "Open Cue keyboard shortcut")
@@ -47,12 +50,13 @@ private enum SettingsText {
 
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    var onClose: (() -> Void)?
     private let loginItem: LoginItemController
 
     init(settings: CueSettings, updates: UpdateController, loginItem: LoginItemController, networkPolicy: NetworkPolicy,
          applyShortcut: @escaping (LauncherShortcut) -> String?) {
         self.loginItem = loginItem
-        let contentSize = NSSize(width: 510, height: 660)
+        let contentSize = NSSize(width: 540, height: 600)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: contentSize),
             styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false
@@ -61,11 +65,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.contentMinSize = contentSize
         window.isReleasedWhenClosed = false
         window.animationBehavior = .none
+        super.init(window: window)
         window.contentView = NSHostingView(rootView: CueSettingsView(
             settings: settings, updates: updates, loginItem: loginItem, networkPolicy: networkPolicy,
-            applyShortcut: applyShortcut
+            applyShortcut: applyShortcut, close: { [weak self] in self?.window?.performClose(nil) }
         ))
-        super.init(window: window)
         window.delegate = self
         window.center()
         window.setFrameAutosaveName("CueSettingsWindow")
@@ -82,6 +86,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         window?.makeFirstResponder(nil)
+        onClose?()
     }
 
     /// Carbon consumes the active shortcut before it reaches the recorder's key events.
@@ -108,145 +113,144 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 }
 
-private struct CueSettingsView: View {
+struct CueSettingsView: View {
     @ObservedObject var settings: CueSettings
     @ObservedObject var updates: UpdateController
     @ObservedObject var loginItem: LoginItemController
     @ObservedObject var networkPolicy: NetworkPolicy
     let applyShortcut: (LauncherShortcut) -> String?
+    let close: () -> Void
     @State private var shortcutError: String?
 
     var body: some View {
-        Form {
-            Section {
-                LabeledContent(SettingsText.openCue) {
-                    ShortcutRecorder(
-                        shortcut: settings.preferences.shortcut,
-                        onCapture: { shortcut in
-                            guard shortcut.isValid else {
-                                let message = SettingsText.invalidShortcut
-                                shortcutError = message
-                                return message
-                            }
-                            let error = applyShortcut(shortcut)
-                            shortcutError = error
-                            if error == nil { settings.preferences.shortcut = shortcut }
-                            return error
-                        },
-                        onBegin: { shortcutError = nil }
-                    )
-                    .frame(width: 175, height: 26)
-                }
-                if let shortcutError {
-                    Text(shortcutError)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityLabel(L10n.format(SettingsText.shortcutError, shortcutError))
-                }
-            } header: {
-                Text(SettingsText.keyboardShortcut)
-            } footer: {
-                Text(SettingsText.shortcutHelp)
+        VStack(spacing: 14) {
+            // Keep ordinary settings compact. Longer validation and system messages
+            // may scroll, while the close action remains in a fixed footer.
+            ScrollView {
+                settingsGroups
             }
-
-            Section(SettingsText.window) {
-                Picker(SettingsText.showCueOn, selection: $settings.preferences.display) {
-                    Text(SettingsText.pointerDisplay).tag(LauncherPreferences.Display.pointer)
-                    Text(SettingsText.mainDisplay).tag(LauncherPreferences.Display.main)
-                }
-                Toggle(SettingsText.dismissOnFocusLoss, isOn: $settings.preferences.dismissOnFocusLoss)
-            }
-
-            Section(SettingsText.startup) {
-                HStack {
-                    Toggle(SettingsText.launchAtLogin, isOn: Binding(
-                        get: { loginItem.isSelected },
-                        set: { enabled in Task { await loginItem.setEnabled(enabled) } }
-                    ))
-                    .disabled(!loginItem.hasLoaded || loginItem.isBusy)
-                    if loginItem.isBusy {
-                        ProgressView().controlSize(.small)
-                            .accessibilityLabel(SettingsText.updatingLoginItem)
-                    }
-                }
-                if loginItem.status == .requiresApproval {
-                    Text(SettingsText.approvalRequired)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button(SettingsText.openLoginItems) { loginItem.openSystemSettings() }
-                } else if loginItem.hasMissingRegistrationError || loginItem.status == .unknown {
-                    Text(loginItem.hasMissingRegistrationError ? SettingsText.loginItemUnavailable : SettingsText.loginItemUnknown)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let error = loginItem.errorDescription {
-                    Text(L10n.format(SettingsText.loginItemError, error))
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            Section {
-                Picker(SettingsText.appLanguage, selection: $settings.language) {
-                    Text(SettingsText.followSystem).tag(AppLanguage.system)
-                    Text(verbatim: "English").tag(AppLanguage.english)
-                    Text(verbatim: "正體中文").tag(AppLanguage.traditionalChinese)
-                }
-            } header: {
-                Text(SettingsText.language)
-            } footer: {
-                if settings.languageChangeRequiresRestart {
-                    Text(SettingsText.languageRestart)
-                }
-            }
-
-            Section {
-                Toggle(SettingsText.allowNetwork, isOn: Binding(
-                    get: { networkPolicy.allowsNetwork },
-                    set: { networkPolicy.setAllowsNetwork($0) }
-                ))
-            } header: {
-                Text(SettingsText.network)
-            } footer: {
-                Text(SettingsText.networkHelp)
-            }
-
-            Section {
-                LabeledContent(SettingsText.version, value: appVersion)
-                Toggle(SettingsText.automaticUpdates, isOn: Binding(
-                    get: { networkPolicy.allowsNetwork && updates.automaticChecksEnabled },
-                    set: { updates.setAutomaticChecksEnabled($0) }
-                ))
-                .disabled(!networkPolicy.allowsNetwork || updates.startupError != nil)
-                HStack {
-                    if let version = updates.availableVersion {
-                        Text(L10n.format(SettingsText.availableVersion, version))
-                            .font(.callout)
-                    }
-                    Spacer()
-                    Button(updates.availableVersion == nil ? SettingsText.checkForUpdates : SettingsText.showUpdate) {
-                        updates.checkForUpdates()
-                    }
-                    .disabled(!networkPolicy.allowsNetwork || !updates.canCheckForUpdates)
-                }
-                if let error = updates.startupError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            } header: {
-                Text(SettingsText.updates)
-            } footer: {
-                Text(networkPolicy.allowsNetwork ? SettingsText.updatesHelp : SettingsText.networkOff)
+            HStack {
+                Text("\(SettingsText.version) \(appVersion)")
+                    .font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button(SettingsText.done, action: close).keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("settings.done")
             }
         }
-        .formStyle(.grouped)
-        .frame(width: 510, height: 660)
+        .padding(20)
+        .frame(width: 540, height: 600)
+    }
+
+    var settingsGroups: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(SettingsText.general).font(.headline)
+                generalSettings
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08)))
+            VStack(alignment: .leading, spacing: 12) {
+                Text(SettingsText.networkAndUpdates).font(.headline)
+                networkSettings
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08)))
+        }.frame(maxWidth: .infinity)
+    }
+
+    private var generalSettings: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LabeledContent(SettingsText.openCue) {
+                ShortcutRecorder(
+                    shortcut: settings.preferences.shortcut,
+                    onCapture: { shortcut in
+                        guard shortcut.isValid else {
+                            shortcutError = SettingsText.invalidShortcut
+                            return SettingsText.invalidShortcut
+                        }
+                        let error = applyShortcut(shortcut)
+                        shortcutError = error
+                        if error == nil { settings.preferences.shortcut = shortcut }
+                        return error
+                    },
+                    onBegin: { shortcutError = nil }
+                ).frame(width: 175, height: 26)
+            }
+            Text(shortcutError ?? SettingsText.shortcutHelp)
+                .font(.caption).foregroundStyle(shortcutError == nil ? Color.secondary : .red)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(shortcutError.map { L10n.format(SettingsText.shortcutError, $0) } ?? SettingsText.shortcutHelp)
+            Divider()
+            Picker(SettingsText.showCueOn, selection: $settings.preferences.display) {
+                Text(SettingsText.pointerDisplay).tag(LauncherPreferences.Display.pointer)
+                Text(SettingsText.mainDisplay).tag(LauncherPreferences.Display.main)
+            }
+            Toggle(SettingsText.dismissOnFocusLoss, isOn: $settings.preferences.dismissOnFocusLoss)
+            HStack {
+                Toggle(SettingsText.launchAtLogin, isOn: Binding(
+                    get: { loginItem.isSelected },
+                    set: { enabled in Task { await loginItem.setEnabled(enabled) } }
+                ))
+                .disabled(!loginItem.hasLoaded || loginItem.isBusy)
+                if loginItem.isBusy {
+                    ProgressView().controlSize(.small).accessibilityLabel(SettingsText.updatingLoginItem)
+                }
+            }
+            if loginItem.status == .requiresApproval {
+                detail(SettingsText.approvalRequired)
+                Button(SettingsText.openLoginItems) { loginItem.openSystemSettings() }
+            } else if loginItem.hasMissingRegistrationError || loginItem.status == .unknown {
+                detail(loginItem.hasMissingRegistrationError ? SettingsText.loginItemUnavailable : SettingsText.loginItemUnknown)
+            }
+            if let error = loginItem.errorDescription {
+                detail(L10n.format(SettingsText.loginItemError, error), error: true)
+            }
+            Divider()
+            Picker(SettingsText.appLanguage, selection: $settings.language) {
+                Text(SettingsText.followSystem).tag(AppLanguage.system)
+                Text(verbatim: "English").tag(AppLanguage.english)
+                Text(verbatim: "正體中文").tag(AppLanguage.traditionalChinese)
+            }
+            if settings.languageChangeRequiresRestart { detail(SettingsText.languageRestart) }
+        }
+    }
+
+    private var networkSettings: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle(SettingsText.allowNetwork, isOn: Binding(
+                get: { networkPolicy.allowsNetwork },
+                set: { networkPolicy.setAllowsNetwork($0) }
+            ))
+            detail(SettingsText.networkHelp)
+            Divider()
+            Toggle(SettingsText.automaticUpdates, isOn: Binding(
+                get: { networkPolicy.allowsNetwork && updates.automaticChecksEnabled },
+                set: { updates.setAutomaticChecksEnabled($0) }
+            ))
+            .disabled(!networkPolicy.allowsNetwork || updates.startupError != nil)
+            HStack {
+                if let version = updates.availableVersion {
+                    Text(L10n.format(SettingsText.availableVersion, version)).font(.callout)
+                }
+                Spacer(minLength: 0)
+                Button(updates.availableVersion == nil ? SettingsText.checkForUpdates : SettingsText.showUpdate) {
+                    updates.checkForUpdates()
+                }
+                .disabled(!networkPolicy.allowsNetwork || !updates.canCheckForUpdates)
+                .accessibilityIdentifier("settings.checkUpdates")
+            }
+            if let error = updates.startupError { detail(error, error: true) }
+            detail(networkPolicy.allowsNetwork ? SettingsText.updatesHelp : SettingsText.networkOff)
+        }
+    }
+
+    private func detail(_ text: String, error: Bool = false) -> some View {
+        Text(text).font(.caption).foregroundStyle(error ? Color.red : .secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var appVersion: String {

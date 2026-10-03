@@ -18,7 +18,7 @@
 "model.heading" = "Model";
 "model.help" = "GPT-6 Luna is the default for fast, inexpensive answers and translation. Enter another OpenAI Responses API model ID to change it.";
 "model.invalid" = "Enter a valid model ID, such as gpt-6-luna, using up to 128 letters, numbers, periods, hyphens, underscores or colons.";
-"model.apply" = "Apply Model";
+"model.apply" = "Save Model";
 "model.reset" = "Use Default";
 "translation.heading" = "Translate To";
 "translation.automatic" = "Automatic: Chinese ↔ English";
@@ -28,3 +28,4 @@
 "privacy.help" = "Only text you submit is sent to OpenAI; never while typing. No GPT history is saved. Copied replies follow Clipboard History settings. No live web search.";
 "billing.help" = "OpenAI API usage is billed separately from a ChatGPT subscription. Changing models can change the cost.";
 "action.done" = "Done";
+"model.unsaved" = "Save to apply this model. Closing leaves the saved model unchanged.";

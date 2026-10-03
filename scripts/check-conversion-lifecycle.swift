@@ -24,15 +24,18 @@ private actor SelectionFixture: SelectedTextAccessing {
     private var discards = 0
     private var captureGate: Gate?
     private var replacementGate: Gate?
+    private var captureError: SelectedTextError?
 
-    func configure(capture: Gate? = nil, replacement: Gate? = nil) {
+    func configure(capture: Gate? = nil, replacement: Gate? = nil, error: SelectedTextError? = nil) {
         captureGate = capture
         replacementGate = replacement
+        captureError = error
     }
     func capture(processID: Int32) async throws -> SelectedTextSession {
         captures += 1
         processIDs.append(processID)
         if let captureGate { await captureGate.wait() }
+        if let captureError { throw captureError }
         // Deliberately return even after cancellation, like an in-flight AX call.
         return SelectedTextSession(processID: processID, text: "软件")
     }
@@ -246,6 +249,58 @@ private actor ConverterFixture {
         check(await selections.counts().captures == final.captures
               && source.restorations == restorationsBeforeFocus && !window.isVisible,
               "Lost launcher focus blocks capture and restoration before conversion starts")
+        controller.dismiss(returnFocus: false)
+
+        // Permission repair is a settings detour: retain the command and source,
+        // but do not touch selection again merely because Settings closes.
+        source.processID = 42_424
+        await selections.configure(error: .permissionRequired)
+        let beforePermission = await selections.counts()
+        let conversionsBeforePermission = await converter.count()
+        let restorationsBeforePermission = source.restorations
+        var settingsVisits = 0
+        var retainedPermissionContext = false
+        controller.onConversionSettings = {
+            settingsVisits += 1
+            // Mirrors AppDelegate.prepareSettings without showing any window or
+            // querying real Accessibility authorization.
+            retainedPermissionContext = controller.suspendForSettings()
+        }
+        controller.prepareInvocation()
+        model.setQuery("st")
+        submit(view)
+        try await waitUntil { settingsVisits == 1 && model.actionStatus == nil }
+        check(retainedPermissionContext && controller.isSuspendedForSettings
+              && model.query == "st" && model.selectedResult == .convertToTraditional,
+              "A permission error opens feature settings without discarding the original command")
+        let denied = await selections.counts()
+        check(denied.captures == beforePermission.captures + 1
+              && denied.replacements == beforePermission.replacements && denied.discards == beforePermission.discards,
+              "A denied capture never creates a replacement or a nonexistent session to discard")
+        check(await converter.count() == conversionsBeforePermission && source.restorations == restorationsBeforePermission,
+              "Permission failure does not run conversion or reactivate the source app")
+        let observationsBeforePermissionReturn = source.observations
+        check(controller.restoreSettingsContext() && !controller.isSuspendedForSettings
+              && model.query == "st" && model.selectedResult == .convertToTraditional,
+              "Returning from permission settings restores the unchanged command offscreen")
+        await selections.configure()
+        for _ in 0..<20 { await Task.yield() }
+        check(await selections.counts().captures == denied.captures
+              && source.observations == observationsBeforePermissionReturn,
+              "Returning after permission repair must neither recapture selection nor resample the source")
+        check(await converter.count() == conversionsBeforePermission && !controller.restoreSettingsContext(),
+              "Settings return never retries conversion automatically or reuses a consumed settings context")
+        check(!window.isVisible && !NSApplication.shared.isActive,
+              "Permission settings lifecycle is verified without opening windows or requesting authorization")
+        submit(view)
+        try await waitUntil { await selections.counts().discards == denied.discards + 1 && model.actionStatus == nil }
+        let afterPermissionRetry = await selections.counts()
+        check(afterPermissionRetry.captures == denied.captures + 1
+              && afterPermissionRetry.processIDs.last == 42_424
+              && afterPermissionRetry.replacements.count == denied.replacements.count + 1
+              && afterPermissionRetry.replacements.last == "軟體",
+              "Only an explicit later Return retries conversion against the preserved invocation source")
+        controller.onConversionSettings = nil
         controller.dismiss(returnFocus: false)
 
         // Exercise the actual production actor, with bundled data, while a main

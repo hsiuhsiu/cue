@@ -1,5 +1,50 @@
 import Foundation
 
+/// Key codes shared by result dispatch and global-hotkey validation. Keeping the
+/// reservation here also sanitizes older saved shortcuts before registration.
+public enum CueKeyboardShortcut {
+    public static func resultIndex(keyCode: UInt32, characters: String? = nil) -> Int? {
+        if let characters, characters.utf8.count == 1,
+           let digit = characters.utf8.first, (49...57).contains(digit) {
+            return Int(digit - 49)
+        }
+        // Number row and numeric keypad, including non-Latin input methods.
+        return switch keyCode {
+        case 18, 83: 0
+        case 19, 84: 1
+        case 20, 85: 2
+        case 21, 86: 3
+        case 23, 87: 4
+        case 22, 88: 5
+        case 26, 89: 6
+        case 28, 91: 7
+        case 25, 92: 8
+        default: nil
+        }
+    }
+
+    public static func isReserved(keyCode: UInt32, modifiers: LauncherShortcut.Modifiers,
+                                  characters: String? = nil) -> Bool {
+        // Keep native Undo/Redo available in editable fields.
+        if modifiers == [.command, .shift] { return keyCode == 6 }
+        guard modifiers == .command else { return false }
+        if resultIndex(keyCode: keyCode, characters: characters) != nil { return true }
+        switch keyCode {
+        // A/C/V/X/Z: select, copy, paste, cut, undo; Y: clipboard preview.
+        case 0, 8, 9, 7, 6, 16,
+             // E/K/comma: app alias, query actions, settings.
+             14, 40, 43,
+             // Return/keypad Enter; backward/forward Delete.
+             36, 76, 51, 117,
+             // Native text navigation using Command plus an arrow.
+             123, 124, 125, 126:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 public struct LauncherShortcut: Codable, Equatable, Sendable {
     public struct Modifiers: OptionSet, Codable, Sendable {
         public let rawValue: UInt32
@@ -42,9 +87,7 @@ public struct LauncherShortcut: Codable, Equatable, Sendable {
             && modifiers.subtracting(supported).isEmpty
             && !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && key.count <= 24
-            // Keep Settings, app aliases, query actions, and Google search available inside Cue.
-            // Return and keypad Enter use different physical key codes.
-            && !(modifiers == .command && (keyCode == 43 || keyCode == 40 || keyCode == 36 || keyCode == 76 || keyCode == 14))
+            && !CueKeyboardShortcut.isReserved(keyCode: keyCode, modifiers: modifiers, characters: key)
     }
 }
 

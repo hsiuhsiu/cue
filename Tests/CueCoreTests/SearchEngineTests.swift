@@ -3,6 +3,20 @@ import XCTest
 import CueCore
 
 final class SearchEngineTests: XCTestCase {
+    func testQueryLimitCountsBytesBeforeUnicodeFoldingOrMatching() {
+        let limit = SearchEngine.maximumQueryUTF8Length
+        XCTAssertTrue(SearchEngine.acceptsQuery(String(repeating: "a", count: limit)))
+        XCTAssertFalse(SearchEngine.acceptsQuery(String(repeating: "a", count: limit + 1)))
+        XCTAssertTrue(SearchEngine.acceptsQuery(String(repeating: "文", count: limit / 3)))
+        XCTAssertFalse(SearchEngine.acceptsQuery(String(repeating: "文", count: limit / 3 + 1)))
+        let longCluster = "a" + String(repeating: "\u{301}", count: 10_000)
+        XCTAssertFalse(SearchEngine.acceptsQuery(longCluster))
+        XCTAssertTrue(SearchEngine.search([app("a")], query: longCluster).isEmpty,
+                      "A huge cluster must not fold down to an app match on the input thread")
+        XCTAssertTrue(SearchEngine.search([app("a")], query: String(repeating: " ", count: limit + 1)).isEmpty)
+        XCTAssertEqual(names([app("Café")], query: "cafe"), ["Café"])
+    }
+
     private func app(_ name: String, path: String? = nil) -> IndexedApplication {
         IndexedApplication(
             name: name,

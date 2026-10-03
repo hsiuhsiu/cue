@@ -167,7 +167,11 @@ public struct EmojiCatalog: Sendable {
     }
 
     private static func emojiKey(_ value: String) -> String {
-        value.replacingOccurrences(of: "\u{FE0F}", with: "")
+        // Text and emoji presentation selectors change appearance, not identity.
+        // Preserve ZWJ, tone modifiers, and the catalog's fully-qualified output.
+        String(String.UnicodeScalarView(value.unicodeScalars.filter {
+            $0.value != 0xFE0E && $0.value != 0xFE0F
+        }))
     }
 
     private static func normalize(_ value: String) -> String {

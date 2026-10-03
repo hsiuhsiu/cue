@@ -49,7 +49,7 @@ when these settings open or you choose Add Browser, not on each keystroke.
 
 The **Enable Google search** switch in **Google Search Settings** is **on by
 default** for source and published builds. Its saved choice is independent of
-**Settings → Network → Allow Cue to access the network**, which governs requests made by
+**Settings → Network & Updates → Allow Cue to access the network**, which governs requests made by
 Cue itself, including update checks. You can leave Cue's own networking off
 and still explicitly send a search to your browser. Turn off browser search in
 the feature settings to prevent those handoffs as well.
@@ -113,7 +113,7 @@ Mac 可設定自己的清單。若原本加入的瀏覽器已無法使用，會�
 ### 網路存取與隱私
 
 **Google 搜尋設定**內有獨立的**啟用 Google 搜尋**開關，自行建置與發布版都
-**預設開啟**，已儲存的選擇會保留。**設定 → 網路 → 允許 Cue 自行連網**控制的是 Cue 自己發出的
+**預設開啟**，已儲存的選擇會保留。**設定 → 網路與更新 → 允許 Cue 自行連網**控制的是 Cue 自己發出的
 請求，包含檢查更新；因此可關閉 Cue 自己的網路，同時保留明確操作後交給
 瀏覽器的搜尋。若也要阻止這種交接，請關閉功能設定中的瀏覽器搜尋。
 

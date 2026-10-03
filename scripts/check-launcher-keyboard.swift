@@ -424,6 +424,34 @@ struct CheckLauncherKeyboard {
         expect(model.results.isEmpty && !model.isShowingSearchActions, "Reset must clear browser choices as well as local results")
         expect(!application.isActive && !window.isVisible, "Browser-choice checks must remain offscreen and inactive")
 
+        if let actions = view.subviews.compactMap({ $0 as? NSButton }).first(where: { $0.action == NSSelectorFromString("showActions") }) {
+            view.layoutSubtreeIfNeeded()
+            let emptyInputWidth = view.searchField.frame.width
+            expect(actions.isHidden, "Actions must stay hidden when the launcher is empty")
+            model.setQuery("Shortcut Fixture")
+            view.layoutSubtreeIfNeeded()
+            expect(!actions.isHidden && actions.frame.maxX <= view.bounds.maxX
+                   && view.searchField.frame.maxX < actions.frame.minX,
+                   "Nonempty input must show a compact Actions button without overlapping the input")
+            expect(view.searchField.frame.width < emptyInputWidth,
+                   "Only nonempty input reserves room for Actions")
+            let before = searchActions
+            let beforeExecution = otherActions
+            actions.performClick(nil)
+            expect(searchActions == before + 1 && model.isShowingSearchActions
+                   && model.query == "Shortcut Fixture" && otherActions == beforeExecution,
+                   "Actions click opens choices without executing or losing the input")
+            actions.performClick(nil)
+            expect(searchActions == before + 2 && !model.isShowingSearchActions,
+                   "Clicking Actions again returns to local results")
+            model.reset()
+            view.layoutSubtreeIfNeeded()
+            expect(actions.isHidden && view.searchField.frame.width == emptyInputWidth,
+                   "Clearing input restores the minimal full-width launcher")
+        } else {
+            expect(false, "The launcher must expose a visible Actions affordance for nonempty input")
+        }
+
         if !failures.isEmpty {
             for failure in failures { print("FAIL: \(failure)") }
             print("Launcher keyboard regression failed: \(failures.count) failures / \(checks) checks.")

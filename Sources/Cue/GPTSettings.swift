@@ -23,7 +23,8 @@ enum GPTSettingsText {
     static let model = text("model.heading", "Model")
     static let modelHelp = text("model.help", "GPT-6 Luna is the default for fast, inexpensive answers and translation. Enter another OpenAI Responses API model ID to change it.")
     static let modelInvalid = text("model.invalid", "Enter a valid model ID, such as gpt-6-luna, using up to 128 letters, numbers, periods, hyphens, underscores or colons.")
-    static let applyModel = text("model.apply", "Apply Model")
+    static let applyModel = text("model.apply", "Save Model")
+    static let unsavedModel = text("model.unsaved", "Save to apply this model. Closing leaves the saved model unchanged.")
     static let resetModel = text("model.reset", "Use Default")
     static let translation = text("translation.heading", "Translate To")
     static let automatic = text("translation.automatic", "Automatic: Chinese ↔ English")
@@ -171,6 +172,7 @@ final class GPTCredentialModel: ObservableObject {
 
 @MainActor
 final class GPTSettingsController: NSWindowController, NSWindowDelegate {
+    var onClose: (() -> Void)?
     var onOpenGeneralSettings: (() -> Void)?
     var onCredentialsChange: (() -> Void)?
     private let preferences: GPTPreferences
@@ -205,11 +207,7 @@ final class GPTSettingsController: NSWindowController, NSWindowDelegate {
             return
         }
         refreshTask?.cancel()
-        window?.contentView = NSHostingView(rootView: GPTSettingsView(
-            preferences: preferences, policy: policy, credentials: credentials,
-            openGeneralSettings: { [weak self] in self?.onOpenGeneralSettings?() },
-            close: { [weak self] in self?.close() }
-        ))
+        prepareContent()
         refreshTask = Task { [weak self] in await self?.credentials.refresh() }
         NSApp.activate(ignoringOtherApps: true)
         window?.deminiaturize(nil)
@@ -217,15 +215,24 @@ final class GPTSettingsController: NSWindowController, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
     }
 
+    func prepareContent() {
+        window?.contentView = NSHostingView(rootView: GPTSettingsView(
+            preferences: preferences, policy: policy, credentials: credentials,
+            openGeneralSettings: { [weak self] in self?.onOpenGeneralSettings?() },
+            close: { [weak self] in self?.window?.performClose(nil) }
+        ))
+    }
+
     func windowWillClose(_ notification: Notification) {
         refreshTask?.cancel()
         refreshTask = nil
         credentials.close()
         window?.makeFirstResponder(nil)
+        onClose?()
     }
 }
 
-private struct GPTSettingsView: View {
+struct GPTSettingsView: View {
     @ObservedObject var preferences: GPTPreferences
     @ObservedObject var policy: NetworkPolicy
     @ObservedObject var credentials: GPTCredentialModel
@@ -290,10 +297,10 @@ private struct GPTSettingsView: View {
                         .disabled(model == preferences.configuration.model)
                     Button(GPTSettingsText.resetModel) {
                         model = GPTConfiguration.defaultModel
-                        _ = applyModel()
+                        modelError = nil
                     }.disabled(model == GPTConfiguration.defaultModel)
                 }
-                Text(modelError ?? GPTSettingsText.modelHelp)
+                Text(modelError ?? (model == preferences.configuration.model ? GPTSettingsText.modelHelp : GPTSettingsText.unsavedModel))
                     .font(.caption).foregroundStyle(modelError == nil ? Color.secondary : .red)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -322,8 +329,8 @@ private struct GPTSettingsView: View {
             Spacer(minLength: 0)
             HStack {
                 Spacer()
-                Button(GPTSettingsText.done) { if applyModel() { close() } }
-                    .keyboardShortcut(.defaultAction)
+                Button(GPTSettingsText.done, action: close)
+                    .keyboardShortcut(.cancelAction)
             }
         }.padding(20).frame(width: 560, height: 540)
     }

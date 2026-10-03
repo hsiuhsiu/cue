@@ -18,13 +18,16 @@ Saved clipboard history remains visible with an empty search field. Each record 
 | Select an item | Up/Down or a single click |
 | Copy the selected item and close Cue | Return, **Copy**, or double-click |
 | Copy a numbered result and close Cue immediately | Command+1–9 |
+| Preview the selected item’s full text | **Preview** or Command+Y; Esc returns to the same search and selection |
 | Paste into another app | Command+V in that app |
 | Delete the selected history item with an empty search field | Delete/Backspace |
 | Delete the selected history item, including filtered results | **Delete** button or Command+Backspace |
 | Open or close clipboard settings | The page's gear or Command+, |
-| Go back | Esc: settings → history → launcher |
+| Go back | Esc closes settings or preview first, then returns from history to the launcher |
 
 When the search field contains text, Delete/Backspace edits the query normally. Use the **Delete** button or Command+Backspace to remove the selected result without changing the query.
+
+The full-text preview opens only when requested. It preserves line breaks and exact text, stays read-only, and does not fetch links or render embedded content. Returning from clipboard settings preserves the preview; returning to history clears the preview’s full-text view. Opening settings or a preview, leaving the feature, changing the selection/query, or losing focus cancels an unfinished copy, so an old completion cannot close a newer page. Pasteboard publication runs in the background; work already being published cannot be rolled back safely.
 
 Copying does not paste automatically and does not require Accessibility permission. Deleting a history item removes that saved record; it does **not** clear the current system clipboard.
 
@@ -60,13 +63,16 @@ History stays in `~/Library/Application Support/com.yyhsiu.cue/Clipboard/history
 | 選取項目 | 上／下方向鍵或點一下 |
 | 拷貝所選項目並關閉 Cue | Return、**拷貝**按鈕，或點兩下 |
 | 立即拷貝指定編號的結果並關閉 Cue | Command+1–9 |
+| 預覽所選記錄的完整文字 | **預覽**或 Command+Y；Esc 返回原本的搜尋與選取項目 |
 | 貼到其他 App | 在該 App 按 Command+V |
 | 搜尋欄空白時刪除所選記錄 | Delete／Backspace |
 | 刪除所選記錄，包含篩選後的結果 | **刪除**按鈕或 Command+Backspace |
 | 開啟或關閉剪貼簿設定 | 記錄頁的齒輪或 Command+, |
-| 返回 | Esc：設定 → 記錄 → 啟動器 |
+| 返回 | Esc 先關閉設定或預覽，再從記錄返回啟動器 |
 
 搜尋欄有文字時，Delete／Backspace 會照常編輯搜尋文字。若要保留搜尋文字並刪除所選結果，請使用**刪除**按鈕或 Command+Backspace。
+
+完整文字只會在主動開啟預覽時顯示，保留原本的換行與內容，僅供閱讀，不會抓取連結或呈現內嵌內容。從剪貼簿設定返回時會保留預覽；返回記錄清單時會清除預覽中的全文。開啟設定或預覽、離開功能頁、改變選取項目或搜尋文字，以及失去焦點時，都會取消尚未完成的拷貝，避免舊操作關閉後來開啟的頁面。剪貼簿寫入在背景執行；已開始發布的內容無法安全地回復。
 
 拷貝後不會自動貼上，也不需要「輔助使用」權限。刪除記錄只會移除已儲存的項目，**不會**清空系統剪貼簿目前的內容。
 

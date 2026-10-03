@@ -46,6 +46,8 @@
 "search.browserUnavailable" = "%@ is unavailable. Install it again or choose another browser.";
 "search.openingBrowser" = "Opening browser…";
 "search.actions" = "Choose an action · Esc to return · ⌘, for its settings";
+"search.actionsButton" = "Actions ⌘K";
+"search.actionsAccessibility" = "Actions for this text (Command-K)";
 "search.choices" = "More actions (⌘K) · Search settings (⌘,)";
 
 /* Inline calculator */

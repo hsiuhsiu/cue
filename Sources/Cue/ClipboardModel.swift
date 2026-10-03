@@ -1,6 +1,28 @@
 import AppKit
 import CueCore
 
+/// Pasteboard servers may be slow. Publication stays off the UI actor and checks
+/// cancellation again immediately before the irreversible clear/write operation.
+private actor ClipboardPasteboardWriter {
+    private let name: NSPasteboard.Name
+    enum Failure: Error { case writeFailed }
+
+    init(name: NSPasteboard.Name) { self.name = name }
+
+    func copy(_ text: String) throws {
+        try Task.checkCancellation()
+        let board = NSPasteboard(name: name)
+        let item = NSPasteboardItem()
+        guard item.setString(text, forType: .string),
+              item.setData(Data(), forType: ClipboardMonitor.ownMarker) else { throw Failure.writeFailed }
+        try Task.checkCancellation()
+        // A publication already in progress cannot be rolled back safely: another
+        // app may own the pasteboard next. There is no suspension after this check.
+        board.clearContents()
+        guard board.writeObjects([item]) else { throw Failure.writeFailed }
+    }
+}
+
 @MainActor
 final class ClipboardModel {
     private(set) var query = ""
@@ -9,6 +31,7 @@ final class ClipboardModel {
     private(set) var recordingEnabled: Bool
     private(set) var retention: ClipboardRetention
     private(set) var isLoading = true
+    private(set) var isCopying = false
     private(set) var errorMessage: String?
     private(set) var statusMessage: String?
     var onChange: (() -> Void)?
@@ -17,7 +40,8 @@ final class ClipboardModel {
 
     private let defaults: UserDefaults
     private let store: ClipboardStore
-    private let pasteboardName: NSPasteboard.Name
+    private let copier: @Sendable (String) async throws -> Void
+    private var copyTask: Task<Void, Never>?
     private var monitor: ClipboardMonitor!
     private var maintenance: Timer?
     private var operations: Task<Void, Never>?
@@ -40,9 +64,14 @@ final class ClipboardModel {
     private static let deniedError = L10n.string("error.access", table: "Clipboard", value: "Clipboard access is blocked. Allow Cue in System Settings to record new copies.")
 
     init(defaults: UserDefaults = .standard, fileURL: URL? = nil,
-         pasteboardName: NSPasteboard.Name = .general) {
+         pasteboardName: NSPasteboard.Name = .general,
+         copier: (@Sendable (String) async throws -> Void)? = nil) {
         self.defaults = defaults
-        self.pasteboardName = pasteboardName
+        if let copier { self.copier = copier }
+        else {
+            let writer = ClipboardPasteboardWriter(name: pasteboardName)
+            self.copier = { try await writer.copy($0) }
+        }
         recordingEnabled = defaults.bool(forKey: Self.enabledKey)
         retention = defaults.string(forKey: Self.retentionKey).flatMap(ClipboardRetention.init(rawValue:)) ?? .week
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -74,6 +103,11 @@ final class ClipboardModel {
         maintenance = timer
     }
 
+    deinit {
+        copyTask?.cancel()
+        searchTask?.cancel()
+    }
+
     func stop() {
         maintenance?.invalidate()
         maintenance = nil
@@ -92,6 +126,7 @@ final class ClipboardModel {
 
     func open() {
         guard !isStopping else { return }
+        cancelPendingCopy()
         isPresented = true
         presentationGeneration += 1
         setQuery("")
@@ -101,6 +136,7 @@ final class ClipboardModel {
     }
 
     func close() {
+        cancelPendingCopy()
         isPresented = false
         presentationGeneration += 1
         searchGeneration += 1
@@ -109,7 +145,7 @@ final class ClipboardModel {
 
     func setQuery(_ value: String) {
         guard query != value else { return }
-        copyGeneration += 1
+        cancelPendingCopy()
         query = value
         statusMessage = nil
         // Text stays synchronous. Search runs on the store actor without debounce.
@@ -120,6 +156,7 @@ final class ClipboardModel {
 
     func select(_ id: UUID?) {
         guard selectedID != id else { return }
+        cancelPendingCopy()
         selectedID = id
         onChange?()
     }
@@ -144,6 +181,7 @@ final class ClipboardModel {
     /// Invalidate in-flight captures immediately instead of waiting on a promised
     /// payload from another app. Disable/resume are ordered on the monitor queue.
     func beginTransientClipboardUse() {
+        cancelPendingCopy()
         transientClipboardUses += 1
         captureGeneration += 1
         monitor.setEnabled(false, generation: captureGeneration)
@@ -167,7 +205,7 @@ final class ClipboardModel {
 
     func removeSelected() {
         guard !isStopping, let id = selectedID, displayedQuery == query else { return }
-        copyGeneration += 1
+        cancelPendingCopy()
         // Invalidate a promised read already in flight, so deletion cannot be undone by it.
         captureGeneration += 1
         monitor.resetBaseline(generation: captureGeneration)
@@ -189,10 +227,21 @@ final class ClipboardModel {
         }
     }
 
-    func copySelected(at resultIndex: Int? = nil, onCopied: @escaping () -> Void) {
-        guard !isStopping else { return }
-        if let resultIndex, !(0..<LauncherPreferences.maximumVisibleResults).contains(resultIndex) { return }
+    /// Settings, preview, focus loss, and navigation revoke an unfinished copy.
+    /// Cancellation also reaches a writer queued behind other background work.
+    func cancelPendingCopy() {
         copyGeneration += 1
+        copyTask?.cancel()
+        copyTask = nil
+        let wasCopying = isCopying
+        isCopying = false
+        if wasCopying { onChange?() }
+    }
+
+    func copySelected(at resultIndex: Int? = nil, onCopied: @escaping () -> Void) {
+        guard !isStopping, isPresented else { return }
+        if let resultIndex, !(0..<LauncherPreferences.maximumVisibleResults).contains(resultIndex) { return }
+        cancelPendingCopy()
         let copyRequest = copyGeneration
         let requestedQuery = query
         let presentation = presentationGeneration
@@ -204,43 +253,54 @@ final class ClipboardModel {
             selected = displayedQuery == query ? selectedID : nil
         }
         let pendingOperations = operations
-        Task { [weak self, store] in
-            // Resolve the requested query against committed history. A concurrent
-            // background refresh must neither copy a stale row nor swallow Return.
-            await pendingOperations?.value
-            let matches = await store.search(query: requestedQuery)
-            let entry: ClipboardEntry?
-            if let selected {
-                entry = matches.first { $0.id == selected }
-            } else if let resultIndex {
-                entry = matches.indices.contains(resultIndex) ? matches[resultIndex] : nil
-            } else {
-                entry = matches.first
-            }
-            guard let self, self.isPresented, self.presentationGeneration == presentation,
-                  self.query == requestedQuery,
-                  self.copyGeneration == copyRequest,
-                  let entry
-            else { return }
-            if let expiration = self.retention.expiration,
-               Date().timeIntervalSince(entry.copiedAt) >= expiration {
-                self.prune()
-                return
-            }
-            let board = NSPasteboard(name: self.pasteboardName)
-            let item = NSPasteboardItem()
-            item.setString(entry.text, forType: .string)
-            item.setData(Data(), forType: ClipboardMonitor.ownMarker)
-            board.clearContents()
-            guard board.writeObjects([item]) else {
+        isCopying = true
+        errorMessage = nil
+        onChange?()
+        copyTask = Task { [weak self, store, copier] in
+            do {
+                // Resolve the current query against committed history, even when
+                // Return arrives before the corresponding rows have rendered.
+                await pendingOperations?.value
+                try Task.checkCancellation()
+                let matches = await store.search(query: requestedQuery)
+                try Task.checkCancellation()
+                let entry: ClipboardEntry?
+                if let selected { entry = matches.first { $0.id == selected } }
+                else if let resultIndex { entry = matches.indices.contains(resultIndex) ? matches[resultIndex] : nil }
+                else { entry = matches.first }
+                guard let self, self.isPresented, self.presentationGeneration == presentation,
+                      self.query == requestedQuery, self.copyGeneration == copyRequest else { return }
+                guard let entry else {
+                    self.finishCopy()
+                    return
+                }
+                if let expiration = self.retention.expiration,
+                   Date().timeIntervalSince(entry.copiedAt) >= expiration {
+                    self.finishCopy()
+                    self.prune()
+                    return
+                }
+                try await copier(entry.text)
+                try Task.checkCancellation()
+                guard self.isPresented, self.presentationGeneration == presentation,
+                      self.query == requestedQuery, self.copyGeneration == copyRequest else { return }
+                self.finishCopy()
+                // Copying a retained item works while recording is paused too.
+                if self.recordingEnabled { self.record(entry.text) }
+                onCopied()
+            } catch {
+                guard !Task.isCancelled, let self, self.isPresented,
+                      self.presentationGeneration == presentation, self.copyGeneration == copyRequest else { return }
                 self.errorMessage = Self.copyError
-                self.onChange?()
-                return
+                self.finishCopy()
             }
-            // Copying a retained item works while recording is paused too.
-            if self.recordingEnabled { self.record(entry.text) }
-            onCopied()
         }
+    }
+
+    private func finishCopy() {
+        copyTask = nil
+        isCopying = false
+        onChange?()
     }
 
     private func receive(_ event: ClipboardMonitor.Event) {
@@ -308,7 +368,7 @@ final class ClipboardModel {
         searchTask = Task { [weak self, store] in
             // Search all retained history first. The display cap must never make
             // older copies disappear from a later, more specific search.
-            let matches = Array(await store.search(query: query).prefix(LauncherPreferences.maximumVisibleResults))
+            let matches = await store.search(query: query, limit: LauncherPreferences.maximumVisibleResults)
             guard !Task.isCancelled, let self, generation == self.searchGeneration else { return }
             self.results = matches
             self.displayedQuery = query

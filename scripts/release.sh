@@ -110,6 +110,7 @@ xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \
     -destination "platform=macOS,arch=$native_arch" -derivedDataPath "$build_directory" \
     CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES "ARCHS=$native_arch" test
 "$repo_root/scripts/check-settings.sh"
+"$repo_root/scripts/check-settings-layout.sh"
 "$repo_root/scripts/check-login-item.sh"
 "$repo_root/scripts/check-launcher-keyboard.sh"
 "$repo_root/scripts/check-command-icons.sh"

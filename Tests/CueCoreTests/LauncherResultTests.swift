@@ -3,6 +3,21 @@ import XCTest
 import CueCore
 
 final class LauncherResultTests: XCTestCase {
+    func testLongTextOffersAnExplicitActionWithoutAppOrNumericMatching() {
+        let limit = SearchEngine.maximumQueryUTF8Length
+        let longCluster = "a" + String(repeating: "\u{301}", count: limit)
+        for query in [String(repeating: "text ", count: limit), longCluster,
+                      String(repeating: " ", count: limit + 1) + "a",
+                      "1+1" + String(repeating: " ", count: limit)] {
+            XCTAssertEqual(LauncherResult.search([app("a")], query: query, includeGoogleFallback: true),
+                           [.googleSearch])
+            XCTAssertTrue(LauncherResult.search([app("a")], query: query, includeGoogleFallback: false).isEmpty)
+        }
+        XCTAssertTrue(LauncherResult.search([app("a")],
+            query: String(repeating: "\t\n　", count: limit), includeGoogleFallback: true).isEmpty)
+        XCTAssertEqual(LauncherResult.search([], query: "2^8").first?.numericCopyValue, "256")
+    }
+
     func testCalculatorResultPrecedesLocalMatchesWithoutGoogleFallback() throws {
         let expression = "2+3*4"
         let result = try XCTUnwrap(Calculator.evaluate(expression))

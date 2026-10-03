@@ -53,3 +53,43 @@ synchronous-icon measurements. No direct Raycast comparison was performed.
 Correctness tests cover Unicode and emoji, word prefixes, fuzzy initials,
 whitespace normalization, and stable ordering for dense ties. Benchmarks are
 diagnostic; noisy wall-clock thresholds are deliberately not unit-test assertions.
+
+## Long pasted input, 2026-10-03
+
+Application and command matching now accepts at most 1,024 UTF-8 bytes per query.
+Longer input bypasses matching, numeric parsing, normalization, and the query
+cache, while preserving the original text for explicit Google/GPT actions.
+This is a search-work bound, not a truncation of the user's input. Each action
+still enforces its own input requirements, including GPT's 32 KiB limit.
+
+The model checks whitespace over a bounded prefix synchronously. A very long
+whitespace prefix is classified by a cancellable worker; a generation check
+prevents that worker from changing newer input. Ordinary short input does not
+wait for a task or debounce. The native view and action shortcuts reuse the
+model's classification.
+
+The optimized `scripts/benchmark-long-query.sh` fixture uses 1,000 synthetic apps.
+Each case measures 12 distinct queries. The same fixture ran serially against `a8e5f1a` and
+the revised source on macOS 27 / Xcode 27:
+
+| Synthetic input | Before median | After median | After maximum |
+| --- | ---: | ---: | ---: |
+| 268 KB prose | 67.180 ms | 0.001 ms | 0.026 ms |
+| 1 MB prose | 260.783 ms | 0.001 ms | 0.001 ms |
+| 1 MB whitespace | 42.969 ms | 0.026 ms | 0.323 ms |
+| 1 MB combining marks in one grapheme | 52.693 ms | 0.001 ms | 0.001 ms |
+
+These measure synchronous model-update wall time, excluding background
+classification completion, AppKit text editing, rendering, OS input delivery,
+and external actions. They do not establish an input-to-display latency bound.
+Run `./scripts/benchmark-long-query.sh --baseline-ref a8e5f1a` followed by
+`./scripts/benchmark-long-query.sh` to reproduce, with other builds stopped.
+
+A separate post-change run of `./scripts/benchmark-adaptive-search.sh --app-aliases`
+checked ordinary short queries over 1,000 synthetic apps with aliases and extra
+names. Across empty/full learning history and idle/synthetic-background cases,
+uncached model-update p95 was 1.611–1.664 ms; cache-hit p95 stayed below 0.001 ms.
+The largest wall-time outlier was 25.013 ms (2.303 ms thread CPU), so scheduling
+stalls remain outside a worst-case guarantee. The offscreen native text-action
+check also passed, measuring p95 0.082 ms / p99 0.129 ms over 500 edits; this
+measures that view update only, not full application search or visible frames.

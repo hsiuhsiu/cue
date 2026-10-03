@@ -56,7 +56,7 @@ decimal places, while smaller values retain up to 16 significant digits.
 ### Currency rates
 
 Currencies use three-letter codes, such as **TWD, USD, JPY, EUR, CNY, HKD and
-GBP**. A recognized currency query requires **Settings → Network → Allow Cue
+GBP**. A recognized currency query requires **Settings → Network & Updates → Allow Cue
 to access the network**. If access is off, Cue shows the reason and does not
 display a cached currency answer. Physical units still work.
 
@@ -144,7 +144,7 @@ Cue 不會自動貼入。符合的 App 與指令仍會列出，合計最多九�
 ### 幣值匯率
 
 幣別使用三個英文字母代碼，例如 **TWD、USD、JPY、EUR、CNY、HKD、GBP**。
-辨識出的幣值查詢需要開啟**設定 → 網路 → 允許 Cue 自行連網**。若關閉，
+辨識出的幣值查詢需要開啟**設定 → 網路與更新 → 允許 Cue 自行連網**。若關閉，
 Cue 會顯示原因，也不會顯示快取的幣值答案；一般單位仍可使用。
 
 匯率來自 [ExchangeRate-API](https://www.exchangerate-api.com)，其

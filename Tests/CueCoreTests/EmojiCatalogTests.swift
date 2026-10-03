@@ -67,6 +67,22 @@ final class EmojiCatalogTests: XCTestCase {
         XCTAssertEqual(catalog.search("☕️").first?.emoji, "☕")
     }
 
+    func testTextPresentationVariantsFindTheSameFullyQualifiedEmoji() throws {
+        let catalog = try Self.loaded.get()
+        for (query, expected) in [("❤︎", "❤️"), ("☕︎", "☕"), ("❤︎‍🔥", "❤️‍🔥"),
+                                  ("1\u{FE0E}\u{20E3}", "1️⃣"), ("☝︎🏽", "☝🏽")] {
+            let results = catalog.search(query)
+            XCTAssertEqual(results.count, 1)
+            XCTAssertEqual(results.first?.emoji.unicodeScalars.map(\.value),
+                           expected.unicodeScalars.map(\.value), query)
+        }
+        XCTAssertTrue(catalog.search("\u{FE0E}").isEmpty)
+        XCTAssertThrowsError(try fixture([
+            EmojiEntry(emoji: "❤︎", name: "heart", traditionalName: "心"),
+            EmojiEntry(emoji: "❤️", name: "red heart", traditionalName: "愛心"),
+        ]))
+    }
+
     func testCommonFormsPrecedeSkinToneVariantsAndTonesRemainSearchable() throws {
         let catalog = try Self.loaded.get()
         XCTAssertEqual(catalog.search("thumbs up").first?.emoji, "👍")

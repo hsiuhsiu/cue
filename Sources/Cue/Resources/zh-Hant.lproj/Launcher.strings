@@ -46,6 +46,8 @@
 "search.browserUnavailable" = "無法使用 %@。請重新安裝或選擇其他瀏覽器。";
 "search.openingBrowser" = "正在開啟瀏覽器…";
 "search.actions" = "選擇動作 · Esc 返回 · ⌘, 開啟此功能設定";
+"search.actionsButton" = "動作 ⌘K";
+"search.actionsAccessibility" = "這段文字的可用動作（Command-K）";
 "search.choices" = "更多動作（⌘K）· 搜尋設定（⌘,）";
 
 /* Inline calculator */

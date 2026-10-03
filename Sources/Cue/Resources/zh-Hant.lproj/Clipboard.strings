@@ -34,3 +34,9 @@
 "error.load" = "無法載入剪貼簿記錄。已保留原有檔案，未加以更動。";
 "error.copy" = "無法拷貝此項目，請再試一次。";
 "error.access" = "剪貼簿存取遭到封鎖。請在系統設定中允許 Cue，才能記錄新拷貝的內容。";
+"preview" = "預覽";
+"preview.help" = "預覽完整內容（⌘Y）";
+"preview.title" = "剪貼簿預覽";
+"preview.accessibility" = "完整剪貼簿文字";
+"copying" = "正在拷貝…";
+"back.preview" = "返回剪貼簿預覽（Esc）";

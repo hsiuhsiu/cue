@@ -16,6 +16,7 @@ struct CheckClipboard {
         do {
             try await checkMonitor(checks)
             try await checkModelAndView(checks)
+            try await checkCopyCancellationAndPreview(checks)
             try await checkTransientClipboardUse(checks)
             try await checkNumberKeys(checks)
             try await checkDeleteKeys(checks)
@@ -220,6 +221,121 @@ struct CheckClipboard {
         checks.expect(!fixture.defaults.bool(forKey: "clipboard.recordingEnabled") && fixture.defaults.string(forKey: "clipboard.retention") == "forever",
                       "Pause and retention choices must persist")
         checks.expect(!window.isVisible, "Native keyboard checks must never show their window")
+    }
+
+    @MainActor
+    private static func checkCopyCancellationAndPreview(_ checks: Checks) async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let fullText = "Preview fixture: exact whitespace\n\t" + String(repeating: "正體中文 👩🏽‍💻 & <b>plain text</b> ", count: 800) + "\n  final line  "
+        let seed = ClipboardStore(fileURL: fixture.file)
+        _ = try await seed.record(text: "Another fixture", retention: .forever, now: Date().addingTimeInterval(-20))
+        _ = try await seed.record(text: fullText, retention: .forever, now: Date().addingTimeInterval(-10))
+        let writer = DelayedClipboardWriter(name: fixture.board.name)
+        let model = ClipboardModel(defaults: fixture.defaults, fileURL: fixture.file, pasteboardName: fixture.board.name,
+                                   copier: { try await writer.copy($0) })
+        defer { model.close(); model.stop() }
+        var copies = 0
+        var backs = 0
+        let view = ClipboardView(model: model, onCopy: { index in model.copySelected(at: index) { copies += 1 } }, onBack: { backs += 1 })
+        let window = NSPanel(contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = view
+        defer { window.contentView = nil; window.close() }
+        model.open()
+        await checks.eventually("Cancellation fixture must load its retained rows") { model.results.count == 2 && model.selectedEntry != nil }
+        model.setQuery("Preview fixture")
+        await checks.eventually("Preview fixture query must select its full text") { model.selectedEntry?.text == fullText }
+        let selected = model.selectedID
+        let originalBytes = try Data(contentsOf: fixture.file)
+        try fixture.write("Synthetic sentinel")
+        let before = fixture.board.changeCount
+
+        // Delay publication itself, not only the history lookup: settings must
+        // revoke queued work and its later window-closing callback.
+        for (iteration, action) in ["settings", "preview", "back", "focus loss", "query", "selection", "close"].enumerated() {
+            model.setQuery("Preview fixture")
+            await checks.eventually("Each cancellation scenario must resolve its current query") {
+                model.results.count == 1 && model.results.first?.text == fullText
+            }
+            // The preceding selection-cancellation case intentionally deselects
+            // the row; assigning the same query must not secretly reselect it.
+            model.select(model.results.first?.id)
+            checks.expect(model.selectedEntry?.text == fullText, "Each cancellation scenario explicitly selects its fixture row")
+            model.copySelected { copies += 1 }
+            await checks.eventuallyAsync("The injected writer must reach its pre-publication gate") { await writer.starts == iteration + 1 }
+            checks.expect(model.isCopying, "A delayed explicit copy must expose immediate progress")
+            switch action {
+            case "settings": view.showFeatureSettings()
+            case "preview": view.showPreview()
+            case "back": view.cancelOperation(nil)
+            case "focus loss": model.cancelPendingCopy()
+            case "query": model.setQuery("Another")
+            case "selection": model.select(nil)
+            default: model.close()
+            }
+            checks.expect(!model.isCopying, "\(action) must cancel pending copy state immediately")
+            await writer.release()
+            await checks.eventuallyAsync("Canceled writer must settle without publication") { await writer.finishes == iteration + 1 }
+            checks.expect(copies == 0 && fixture.board.changeCount == before,
+                          "\(action) must prevent a delayed pasteboard commit and completion callback")
+            if action == "settings" {
+                checks.expect(view.isShowingSettings, "An older copy must not close the newly opened settings page")
+                view.closeSettings()
+            }
+            if action == "preview" { view.closePreview() }
+            if action == "close" { model.open() }
+        }
+        checks.expect(backs == 1, "The deliberate back action must occur once without a later copy callback")
+        model.setQuery("Preview fixture")
+        await checks.eventually("The preview query must be restored after cancellation cases") { model.selectedEntry?.id == selected }
+        let previewKey = key(window, "y", code: UInt16(kVK_ANSI_Y))
+        checks.expect(view.handlePreviewShortcut(previewKey), "Command-Y must open the selected item's full preview")
+        let fullTextView = view.subviews.compactMap { ($0 as? NSScrollView)?.documentView as? NSTextView }.first
+        checks.expect(view.isShowingPreview && fullTextView?.string == fullText,
+                      "Preview must preserve the complete multiline Unicode content, not the row's shortened prefix")
+        checks.expect(fullTextView?.isEditable == false && fullTextView?.isRichText == false,
+                      "Clipboard preview must remain read-only plain text")
+        checks.expect(fullTextView?.isAutomaticLinkDetectionEnabled == false && fullTextView?.isAutomaticDataDetectionEnabled == false,
+                      "Preview must not create links or inspect remote content")
+        checks.expect(view.searchField.isHidden && view.preferredHeight == 430,
+                      "An explicit preview must own the content area without extending the ordinary result list")
+        checks.expect(!view.handleNumberShortcut(key(window, "1", code: UInt16(kVK_ANSI_1)))
+                      && !view.handleDeleteShortcut(key(window, "\u{7f}", code: UInt16(kVK_Delete))),
+                      "Preview must not execute hidden numbered results or delete saved history")
+        checks.expect(view.handlePreviewShortcut(key(window, "y", code: UInt16(kVK_ANSI_Y), repeated: true)) && view.isShowingPreview,
+                      "A held preview shortcut must not repeatedly toggle the page")
+        view.showFeatureSettings()
+        view.closeSettings()
+        checks.expect(view.isShowingPreview && fullTextView?.string == fullText,
+                      "Returning from feature settings must preserve the full preview")
+        view.cancelOperation(nil)
+        checks.expect(!view.isShowingPreview && fullTextView?.string.isEmpty == true && model.query == "Preview fixture" && model.selectedID == selected,
+                      "Esc must clear the full-text view and restore the query and selection in history")
+        checks.expect(try Data(contentsOf: fixture.file) == originalBytes && fixture.board.changeCount == before,
+                      "Preview and settings navigation must not mutate persistence or the pasteboard")
+
+        view.showPreview()
+        checks.expect(view.performKeyEquivalent(with: key(window, "\r", modifiers: [], code: UInt16(kVK_Return))),
+                      "Return in preview must request an explicit full-item copy")
+        await checks.eventuallyAsync("Preview copy must reach the injected writer") { await writer.starts == 8 }
+        await writer.release()
+        await checks.eventually("An uncanceled preview copy must complete once") { copies == 1 }
+        checks.expect(fixture.board.string(forType: .string) == fullText && !model.isCopying,
+                      "An explicit preview copy must publish the exact full text and finish progress")
+        checks.expect(await writer.allCallsOffMain, "Injected pasteboard work must execute away from the main thread")
+        view.closePreview()
+        await model.prepareForTermination()
+        checks.expect(!window.isVisible, "Clipboard preview and cancellation checks must stay offscreen")
+
+        let bounded = await seed.search(query: "fixture", limit: 1)
+        checks.expect(bounded.count == 1 && bounded.first?.text == fullText,
+                      "A display-limited search must stop at its newest matching row")
+        let canceled = Task { () -> [ClipboardEntry] in
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await seed.search(query: "fixture")
+        }
+        checks.expect(await canceled.value.isEmpty, "An obsolete store search must return without scanning retained text")
     }
 
     @MainActor
@@ -671,6 +787,36 @@ private final class Events: @unchecked Sendable {
             case .accessDenied: denialCount += 1
             }
         }
+    }
+}
+
+private actor DelayedClipboardWriter {
+    let name: NSPasteboard.Name
+    private(set) var starts = 0
+    private(set) var finishes = 0
+    private(set) var allCallsOffMain = true
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    init(name: NSPasteboard.Name) { self.name = name }
+
+    func copy(_ text: String) async throws {
+        starts += 1
+        allCallsOffMain = allCallsOffMain && !Thread.isMainThread
+        defer { finishes += 1 }
+        await withCheckedContinuation { continuation = $0 }
+        try Task.checkCancellation()
+        let board = NSPasteboard(name: name)
+        let item = NSPasteboardItem()
+        item.setString(text, forType: .string)
+        item.setData(Data(), forType: ClipboardMonitor.ownMarker)
+        try Task.checkCancellation()
+        board.clearContents()
+        guard board.writeObjects([item]) else { throw CocoaError(.fileWriteUnknown) }
+    }
+
+    func release() {
+        continuation?.resume()
+        continuation = nil
     }
 }
 

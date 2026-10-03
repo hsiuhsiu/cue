@@ -81,6 +81,7 @@ struct LauncherText {
 @MainActor
 final class LauncherModel {
     private(set) var query = ""
+    private(set) var isQueryEmpty = true
     private(set) var results: [LauncherResult] = []
     private(set) var selectedID: LauncherResult.ID?
     private(set) var conversionAliases: ChineseConversionAliases
@@ -103,6 +104,9 @@ final class LauncherModel {
     private var applications: [IndexedApplication] = []
     private var applicationAliases: [String: String]
     private var cachedQueries: [String: [LauncherResult]] = [:]
+    private var isSearchQuery = true
+    private var queryClassificationTask: Task<Void, Never>?
+    private var queryGeneration: UInt64 = 0
     private var maxResults = LauncherPreferences.maximumVisibleResults
     private var usage: SearchUsageSnapshot
     private var pendingUsage: SearchUsageSnapshot?
@@ -174,6 +178,8 @@ final class LauncherModel {
 
     func prepareForTermination() async {
         isStopping = true
+        queryClassificationTask?.cancel()
+        queryClassificationTask = nil
         currencyRates?.stop()
         await usageOperations?.value
         if let usageStore { try? await usageStore.flush() }
@@ -184,7 +190,8 @@ final class LauncherModel {
         onQueryChange?()
         adoptPendingUsage()
         query = value
-        if value.allSatisfy(\.isWhitespace) {
+        classifyQuery()
+        if isQueryEmpty {
             isShowingSearchActions = false
             isShowingBrowserActions = false
         }
@@ -210,7 +217,8 @@ final class LauncherModel {
 
     func setWebSearchPreferences(enabled: Bool, browsers: [WebSearchBrowser]) {
         let browsers = Array(browsers.prefix(WebSearchBrowser.maximumAddedBrowsers))
-        guard allowsWebSearch != enabled || searchBrowsers != browsers else { return }
+        guard allowsWebSearch != enabled || searchBrowsers != browsers
+                || (enabled && launchError == text.webSearchDisabled) else { return }
         allowsWebSearch = enabled
         searchBrowsers = browsers
         cachedQueries.removeAll(keepingCapacity: true)
@@ -220,7 +228,7 @@ final class LauncherModel {
     }
 
     func toggleSearchActions() {
-        guard !query.allSatisfy(\.isWhitespace) else { return }
+        guard !isQueryEmpty else { return }
         onQueryChange?() // Cancel a pending handoff before changing the available actions.
         isShowingSearchActions.toggle()
         isShowingBrowserActions = false
@@ -257,7 +265,7 @@ final class LauncherModel {
     }
 
     func showSearchBrowsers() {
-        guard !query.allSatisfy(\.isWhitespace) else { return }
+        guard !isQueryEmpty else { return }
         onQueryChange?()
         isShowingSearchActions = true
         isShowingBrowserActions = true
@@ -313,6 +321,7 @@ final class LauncherModel {
     func reset() {
         adoptPendingUsage()
         query = ""
+        classifyQuery()
         isShowingSearchActions = false
         isShowingBrowserActions = false
         updateCurrencyActivity()
@@ -336,13 +345,17 @@ final class LauncherModel {
     }
 
     private func updateResults(preservingSelection: Bool = false) {
-        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if isQueryEmpty {
             results = []
             selectedID = nil
             return
         }
         if isShowingSearchActions {
             results = isShowingBrowserActions ? webSearchResults : queryActions
+        } else if !isSearchQuery {
+            // Keep the complete pasted text for explicit actions, but never fold,
+            // hash, parse, or retain it in the app-search result cache.
+            results = Array(queryActions.prefix(maxResults))
         } else if currencyQuery == nil, let cached = cachedQueries[query] {
             results = cached
         } else {
@@ -387,12 +400,63 @@ final class LauncherModel {
     }
 
     private func updateCurrencyActivity() {
-        let parsed = ConversionQuery.parse(query)
+        let parsed = isSearchQuery ? ConversionQuery.parse(query) : nil
         currencyQuery = parsed?.source.isCurrency == true ? parsed : nil
         changingCurrencyActivity = true
         currencyRates?.setActive(currencyQuery != nil && !isShowingSearchActions)
         changingCurrencyActivity = false
         updateRateDate()
+    }
+
+    private func classifyQuery() {
+        queryGeneration &+= 1
+        queryClassificationTask?.cancel()
+        queryClassificationTask = nil
+        isSearchQuery = SearchEngine.acceptsQuery(query)
+        isQueryEmpty = true
+        var inspected = 0
+        for scalar in query.unicodeScalars {
+            if inspected == SearchEngine.maximumQueryUTF8Length {
+                classifyRemainingWhitespace()
+                return
+            }
+            if !CharacterSet.whitespacesAndNewlines.contains(scalar) {
+                isQueryEmpty = false
+                return
+            }
+            inspected += 1
+        }
+    }
+
+    /// Very long whitespace prefixes are rare, but scanning them synchronously
+    /// would undo the long-text fast path. No debounce; ordinary input returns
+    /// immediately above, and this scan never touches user preferences or IO.
+    private func classifyRemainingWhitespace() {
+        let input = query
+        let generation = queryGeneration
+        queryClassificationTask = Task { [weak self] in
+            let scan = Task.detached(priority: .userInitiated) { () -> Bool? in
+                var inspected = 0
+                for scalar in input.unicodeScalars {
+                    if inspected % 1_024 == 0, Task.isCancelled { return nil }
+                    if !CharacterSet.whitespacesAndNewlines.contains(scalar) { return false }
+                    inspected += 1
+                }
+                return true
+            }
+            let empty = await withTaskCancellationHandler {
+                await scan.value
+            } onCancel: {
+                scan.cancel()
+            }
+            guard !Task.isCancelled, let empty, let self,
+                  !self.isStopping, self.queryGeneration == generation else { return }
+            self.queryClassificationTask = nil
+            guard self.isQueryEmpty != empty else { return }
+            self.isQueryEmpty = empty
+            self.updateResults()
+            self.onChange?()
+        }
     }
 
     private func updateRateDate() {

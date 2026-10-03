@@ -19,13 +19,13 @@ open "$HOME/Applications/Cue.app"
 
 The installer makes an optimized **Release** build for your Mac's architecture, checks the complete app signature, and installs it at **`~/Applications/Cue.app`**. It uses local ad-hoc signing and preserves Sparkle's own signed helpers. It does not ask for a signing key or change macOS security settings. The default location requires no administrator access.
 
-Cue lives in the menu bar, with no Dock icon. Press **Option+Space** to open it. The installed app remains available after reboot and is independent of the repository and `.build` folder; you can open it from your home folder's Applications directory. To start it automatically, turn on **Settings → Launch at login**. If macOS requires approval, use **Open Login Items…** and allow Cue in System Settings. You can turn this off in Cue or macOS at any time.
+Cue lives in the menu bar, with no Dock icon. Press **Option+Space** to open it. The installed app remains available after reboot and is independent of the repository and `.build` folder; you can open it from your home folder's Applications directory. To start it automatically, turn on **Settings → General & Interaction → Launch at login**. If macOS requires approval, use **Open Login Items…** and allow Cue in System Settings. You can turn this off in Cue or macOS at any time.
 
 The installer refuses to replace a running Cue; quit normally so pending clipboard saves finish. It verifies a staged copy before replacing the app and keeps the previous app until installation succeeds, restoring it if verification fails. Existing settings and clipboard history are outside the app bundle and are not modified by installation.
 
 ### Network defaults
 
-Source builds default to **network access off** and **automatic update checks off**, including SwiftPM, Xcode Debug/Release, and the build/install scripts. Missing build metadata also means off. Official release DMGs default to on. An explicit choice made in **Settings → Network → Allow network access** is saved locally and overrides either build default, including after replacement or reinstallation.
+Source builds default to **network access off** and **automatic update checks off**, including SwiftPM, Xcode Debug/Release, and the build/install scripts. Missing build metadata also means off. Official release DMGs default to on. An explicit choice made in **Settings → Network & Updates → Allow Cue to access the network** is saved locally and overrides either build default, including after replacement or reinstallation.
 
 When network access is off, manual checks, automatic checks, and update downloads are disabled. The automatic-check toggle displays off and is disabled, while its separate preference is remembered for when access is allowed again. Chinese conversion, including regional vocabulary, remains fully offline with the same bundled dictionaries; there is no first-use download. Cloning and the first build's Sparkle fetch are developer-tool network operations, separate from the running app's setting. See [network behavior and scope](network-policy.md).
 
@@ -87,13 +87,13 @@ open "$HOME/Applications/Cue.app"
 
 安裝程式會依這台 Mac 的架構產生最佳化的 **Release** 版本，檢查完整 App 簽章，並安裝至 **`~/Applications/Cue.app`**。它使用本機 ad-hoc 簽章，保留 Sparkle 自己的簽章，不會要求簽章金鑰，也不會變更 macOS 安全設定。預設安裝位置不需要管理者權限。
 
-Cue 會出現在選單列，不會有 Dock 圖示；按 **Option+Space** 即可叫出。安裝後的 App 獨立於儲存庫與 `.build` 目錄，重開機後仍會留在使用者個人資料夾內的「Applications／應用程式」。若希望登入 Mac 後自動執行，開啟 **設定 → 登入時啟動**。macOS 若要求授權，按**開啟登入項目⋯**，再到系統設定允許 Cue；之後可隨時從 Cue 或 macOS 關閉。
+Cue 會出現在選單列，不會有 Dock 圖示；按 **Option+Space** 即可叫出。安裝後的 App 獨立於儲存庫與 `.build` 目錄，重開機後仍會留在使用者個人資料夾內的「Applications／應用程式」。若希望登入 Mac 後自動執行，開啟 **設定 → 一般與操作 → 登入時啟動**。macOS 若要求授權，按**開啟登入項目⋯**，再到系統設定允許 Cue；之後可隨時從 Cue 或 macOS 關閉。
 
 安裝程式不會取代仍在執行的 Cue；請正常結束，讓尚未完成的剪貼簿儲存作業結束。它會先驗證暫存的新 App，再取代原版本；完成前保留舊 App，若驗證失敗會還原。設定與剪貼簿記錄位於 App 外，安裝過程不會修改這些資料。
 
 ### 網路預設值
 
-原始碼建置預設**關閉網路存取**與**自動檢查更新**，包含 SwiftPM、Xcode Debug／Release 及建置／安裝腳本；缺少建置資料也視為關閉。正式發布的 DMG 預設開啟。在**設定 → 網路 → 允許使用網路**明確選擇後，會儲存在本機並優先於版本預設值，替換 App 或重新安裝也會保留。
+原始碼建置預設**關閉網路存取**與**自動檢查更新**，包含 SwiftPM、Xcode Debug／Release 及建置／安裝腳本；缺少建置資料也視為關閉。正式發布的 DMG 預設開啟。在**設定 → 網路與更新 → 允許 Cue 自行連網**明確選擇後，會儲存在本機並優先於版本預設值，替換 App 或重新安裝也會保留。
 
 關閉網路時，手動檢查、自動檢查及更新下載都會停用。自動檢查開關顯示關閉且無法操作，但會記住原本偏好，重新允許網路後可恢復。簡繁轉換與地區用詞規則維持完整離線功能，使用相同內附詞庫，首次使用不需下載。取得儲存庫與首次建置下載 Sparkle 屬於開發工具的連線，與執行中 App 的設定分開。詳見[網路行為與適用範圍](network-policy.md)。
 

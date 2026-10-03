@@ -15,6 +15,7 @@ private final class LauncherPanel: NSPanel {
             if (contentView as? LauncherView)?.handleSearchActionsShortcut(event) == true { return }
             if (contentView as? LauncherView)?.handleWebSearchShortcut(event) == true { return }
             if (contentView as? ClipboardView)?.handleSettingsShortcut(event) == true { return }
+            if (contentView as? ClipboardView)?.handlePreviewShortcut(event) == true { return }
             if (contentView as? EmojiView)?.handleSettingsShortcut(event) == true { return }
             if (contentView as? GPTView)?.handleKeyEquivalent(event) == true { return }
             if (contentView as? LauncherView)?.handleNumberShortcut(event) == true { return }
@@ -64,6 +65,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private var showingGPT = false
     private var gptView: GPTView?
     private var isDismissing = false
+    private(set) var isSuspendedForSettings = false
     private lazy var emojiView: EmojiView = {
         let view = EmojiView(model: emoji, onCopy: { [weak self] index in
             guard let self else { return }
@@ -205,6 +207,10 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     }
 
     func show(resetQuery: Bool = true) {
+        if isSuspendedForSettings {
+            resumeAfterSettings()
+            return
+        }
         if panel.isVisible {
             NSApp.activate(ignoringOtherApps: true)
             focusIfPresented()
@@ -247,8 +253,10 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             gptView?.focusInput()
         } else if showingEmoji {
             panel.makeFirstResponder(emojiView.searchField)
-        } else if !showingClipboard || !clipboardView.isShowingSettings {
-            panel.makeFirstResponder(showingClipboard ? clipboardView.searchField : launcherView.searchField)
+        } else if showingClipboard {
+            clipboardView.focusInput()
+        } else {
+            panel.makeFirstResponder(launcherView.searchField)
         }
     }
 
@@ -258,6 +266,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     /// Establish an invocation independently of window presentation. This only
     /// samples the source PID; accessibility and conversion stay deferred.
     func prepareInvocation(resetQuery: Bool = true) {
+        if isSuspendedForSettings { dismiss(returnFocus: false) }
         cancelCalculationCopy()
         emoji.cancelPendingCopy()
         cancelLinkCleaning()
@@ -287,11 +296,13 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     func dismiss(cancelConversion shouldCancel: Bool = true, returnFocus: Bool = true) {
         guard !isDismissing else { return }
         isDismissing = true
+        isSuspendedForSettings = false
         defer { isDismissing = false }
         let returnToSource = returnFocus && panel.isVisible
             && frontmostProcess() == ProcessInfo.processInfo.processIdentifier
         let source = sourceProcessID
         cancelCalculationCopy()
+        clipboard.cancelPendingCopy()
         cancelWebSearch()
         cancelLinkCleaning()
         if shouldCancel { cancelConversion() }
@@ -300,6 +311,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         if showingClipboard {
             clipboard.close()
             clipboardView.closeSettings()
+            clipboardView.closePreview()
             showingClipboard = false
             panel.contentView = launcherView
             panel.initialFirstResponder = launcherView.searchField
@@ -321,6 +333,46 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         if returnToSource, let source { _ = restoreSource(source) }
     }
 
+    /// Hide without discarding the current page. No task is allowed to finish an
+    /// earlier action while the user is editing settings in another window.
+    @discardableResult
+    func suspendForSettings() -> Bool {
+        // Settings is a new interaction even when there is no launcher to retain.
+        // Ignore late app/browser/system-action failures from a dismissed panel.
+        invocation += 1
+        if isSuspendedForSettings { return true }
+        guard panel.isVisible || showingGPT || showingClipboard || showingEmoji || !model.query.isEmpty else { return false }
+        isSuspendedForSettings = true
+        isDismissing = true
+        defer { isDismissing = false }
+        cancelCalculationCopy()
+        cancelWebSearch()
+        cancelLinkCleaning()
+        cancelConversion()
+        clipboard.cancelPendingCopy()
+        emoji.cancelPendingCopy()
+        if showingGPT { gpt?.suspendForSettings() }
+        panel.orderOut(nil)
+        return true
+    }
+
+    /// Restore state separately from window presentation so native integration
+    /// checks can verify this transition without activating or showing a window.
+    @discardableResult
+    func restoreSettingsContext() -> Bool {
+        guard isSuspendedForSettings else { return false }
+        isSuspendedForSettings = false
+        if showingGPT { gpt?.resumeAfterSettings() }
+        return true
+    }
+
+    func resumeAfterSettings() {
+        guard restoreSettingsContext() else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+        focusIfPresented()
+    }
+
     private func showClipboard() {
         showingClipboard = true
         clipboard.open()
@@ -339,6 +391,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         if showingClipboard {
             clipboard.close()
             clipboardView.closeSettings()
+            clipboardView.closePreview()
             showingClipboard = false
         }
         if showingEmoji {
@@ -391,6 +444,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     func windowDidResignKey(_ notification: Notification) {
         guard !isDismissing, panel.isVisible else { return }
         cancelCalculationCopy()
+        clipboard.cancelPendingCopy()
         cancelLinkCleaning()
         cancelWebSearch()
         cancelConversion()
@@ -416,7 +470,6 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         case .googleSearchIn(let browser):
             searchGoogle(in: browser)
         case .webSearchSettings:
-            dismiss(returnFocus: false)
             onWebSearchSettings?()
         case .chooseSearchBrowser:
             model.showSearchBrowsers()
@@ -425,14 +478,12 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         case .translateGPT:
             showGPT(.translate)
         case .gptSettings:
-            dismiss(returnFocus: false)
             onGPTSettings?()
         case .convertToTraditional:
             runConversion(.traditionalTaiwan, resultID: result.id)
         case .convertToSimplified:
             runConversion(.simplifiedChina, resultID: result.id)
         case .chineseConversionSettings:
-            dismiss(returnFocus: false)
             onConversionSettings?()
         case .updateIndex:
             guard !model.isIndexing else { return }
@@ -568,7 +619,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         cancelCalculationCopy()
         cancelLinkCleaning()
         let query = model.query
-        guard !query.allSatisfy(\.isWhitespace), webSearchTask == nil else { return }
+        guard !model.isQueryEmpty, webSearchTask == nil else { return }
         // Explicit browser handoffs have their own feature switch. Cue makes no
         // HTTP request, suggestion lookup, DNS lookup, or query-history write.
         guard webSearchPreferences.isEnabled else {
@@ -623,13 +674,10 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         cancelCalculationCopy()
         switch model.selectedResult {
         case .googleSearch, .googleSearchIn, .webSearchSettings, .chooseSearchBrowser:
-            dismiss(returnFocus: false)
             onWebSearchSettings?()
         case .askGPT, .translateGPT, .gptSettings:
-            dismiss(returnFocus: false)
             onGPTSettings?()
         case .convertToTraditional, .convertToSimplified, .chineseConversionSettings:
-            dismiss(returnFocus: false)
             onConversionSettings?()
         default:
             onSettings?()
@@ -706,7 +754,6 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
                    self.ownsConversionContext(sourceProcessID) {
                     self.model.actionStatus = nil
                     if (error as? SelectedTextError) == .permissionRequired {
-                        self.dismiss(cancelConversion: false, returnFocus: false)
                         self.onConversionSettings?()
                     } else {
                         self.model.setQuery(query)

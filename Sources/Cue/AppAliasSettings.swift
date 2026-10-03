@@ -113,6 +113,7 @@ final class AppAliasPreferences {
 
 @MainActor
 final class AppAliasSettingsController: NSWindowController, NSWindowDelegate {
+    var onClose: (() -> Void)?
     private let application: IndexedApplication
     private let preferences: AppAliasPreferences
     private let conversionAliases: () -> ChineseConversionAliases
@@ -135,11 +136,15 @@ final class AppAliasSettingsController: NSWindowController, NSWindowDelegate {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
 
-    func show() {
+    func prepareContent() {
         window?.contentView = NSHostingView(rootView: AppAliasSettingsView(
             application: application, preferences: preferences, conversionAliases: conversionAliases,
-            close: { [weak self] in self?.close() }
+            close: { [weak self] in self?.window?.performClose(nil) }
         ))
+    }
+
+    func show() {
+        prepareContent()
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
@@ -147,6 +152,7 @@ final class AppAliasSettingsController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         window?.makeFirstResponder(nil)
+        onClose?()
     }
 }
 

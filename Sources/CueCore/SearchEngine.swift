@@ -2,12 +2,23 @@ import Foundation
 
 /// Deterministic ranking over indexed names and optional in-memory usage scores.
 public enum SearchEngine {
+    /// App names and aliases are short. Longer input is text for an explicit
+    /// action, not a candidate for folding, fuzzy matching, or the search cache.
+    public static let maximumQueryUTF8Length = 1_024
+
+    public static func acceptsQuery(_ query: String) -> Bool {
+        // Do not count grapheme clusters: a single pasted cluster may contain
+        // megabytes of combining marks. This inspects at most 1,025 UTF-8 bytes.
+        query.utf8.prefix(maximumQueryUTF8Length + 1).count <= maximumQueryUTF8Length
+    }
+
     public static func search(
         _ applications: [IndexedApplication],
         query: String,
         usage: SearchUsageSnapshot = .empty
     ) -> [IndexedApplication] {
-        search(applications, normalizedQuery: normalize(query), usage: usage)
+        guard acceptsQuery(query) else { return [] }
+        return search(applications, normalizedQuery: normalize(query), usage: usage)
     }
 
     static func search(

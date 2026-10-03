@@ -9,6 +9,7 @@ struct ClipboardText {
     let back = L10n.string("back", table: "Clipboard", value: "Back to launcher")
     let backHelp = L10n.string("back.help", table: "Clipboard", value: "Back to launcher (Esc)")
     let backToHistory = L10n.string("back.history", table: "Clipboard", value: "Back to clipboard history (Esc)")
+    let backToPreview = L10n.string("back.preview", table: "Clipboard", value: "Back to clipboard preview (Esc)")
     let searchPlaceholder = L10n.string("search.placeholder", table: "Clipboard", value: "Search clipboard history…")
     let searchAccessibility = L10n.string("search.accessibility", table: "Clipboard", value: "Search clipboard history")
     let resultsAccessibility = L10n.string("results.accessibility", table: "Clipboard", value: "Clipboard history")
@@ -19,6 +20,11 @@ struct ClipboardText {
     let enable = L10n.string("recording.enable", table: "Clipboard", value: "Enable Clipboard History")
     let recording = L10n.string("recording.active", table: "Clipboard", value: "Recording · Text and links only")
     let paused = L10n.string("recording.paused", table: "Clipboard", value: "Recording is off")
+    let preview = L10n.string("preview", table: "Clipboard", value: "Preview")
+    let previewHelp = L10n.string("preview.help", table: "Clipboard", value: "Preview the full item (⌘Y)")
+    let previewTitle = L10n.string("preview.title", table: "Clipboard", value: "Clipboard Preview")
+    let previewAccessibility = L10n.string("preview.accessibility", table: "Clipboard", value: "Full clipboard text")
+    let copying = L10n.string("copying", table: "Clipboard", value: "Copying…")
     let copy = L10n.string("copy", table: "Clipboard", value: "Copy")
     let copyHelp = L10n.string("copy.help", table: "Clipboard", value: "Copy selected item (Return)")
     let copiedAt = L10n.string("copied_at", table: "Clipboard", value: "Copied %@")
@@ -60,7 +66,7 @@ private final class ClipboardResultCell: NSTableCellView {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        preview.font = .systemFont(ofSize: 14)
+        preview.font = .systemFont(ofSize: 16)
         preview.lineBreakMode = .byTruncatingTail
         timestamp.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
         timestamp.textColor = .secondaryLabelColor
@@ -78,10 +84,24 @@ private final class ClipboardResultCell: NSTableCellView {
 
     override func layout() {
         super.layout()
-        preview.frame = NSRect(x: 8, y: 20, width: max(0, bounds.width - 76), height: 20)
+        preview.frame = NSRect(x: 8, y: 18, width: max(0, bounds.width - 76), height: 23)
         timestamp.frame = NSRect(x: 8, y: 3, width: max(0, bounds.width - 76), height: 16)
         number.frame = NSRect(x: bounds.width - 56, y: 13, width: 46, height: 18)
     }
+}
+
+private final class ClipboardPreviewTextView: NSTextView {
+    var onKey: ((NSEvent) -> Bool)?
+    var onBack: (() -> Void)?
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if onKey?(event) == true { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+    override func keyDown(with event: NSEvent) {
+        if onKey?(event) == true { return }
+        super.keyDown(with: event)
+    }
+    override func cancelOperation(_ sender: Any?) { onBack?() }
 }
 
 /// A separate feature page with the same direct keyboard path as the launcher.
@@ -106,6 +126,10 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
     private let footerSeparator = NSBox()
     private let footer = NSTextField(labelWithString: "")
     private let copyButton = NSButton()
+    private let previewButton = NSButton()
+    private let previewScroll = NSScrollView()
+    private let previewText = ClipboardPreviewTextView()
+    private var previewEntry: ClipboardEntry?
     private let deleteButton = NSButton()
     private let settingsButton = NSButton()
     private var settingsView: ClipboardSettingsView?
@@ -116,6 +140,7 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
     private var lastPreferredHeight: CGFloat = 220
     var preferredHeight: CGFloat {
         if isShowingSettings { return 326 }
+        if isShowingPreview { return 430 }
         return displayedResults.isEmpty ? 220 : 124 + CGFloat(min(displayedResults.count, 9)) * 46
     }
     private let timestampFormatter: DateFormatter = {
@@ -128,6 +153,7 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
 
     override var isFlipped: Bool { true }
     private(set) var isShowingSettings = false
+    var isShowingPreview: Bool { previewEntry != nil }
 
     init(model: ClipboardModel, onCopy: @escaping (Int?) -> Void, onBack: @escaping () -> Void) {
         self.model = model
@@ -198,6 +224,42 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
 
         footer.font = .systemFont(ofSize: 11)
         footer.lineBreakMode = .byTruncatingTail
+        previewButton.title = text.preview + "  ⌘Y"
+        previewButton.bezelStyle = .rounded
+        previewButton.target = self
+        previewButton.action = #selector(togglePreview)
+        previewButton.toolTip = text.previewHelp
+        previewButton.setAccessibilityLabel(text.previewHelp)
+        previewText.isEditable = false
+        previewText.isSelectable = true
+        previewText.isRichText = false
+        previewText.drawsBackground = false
+        previewText.font = .systemFont(ofSize: 16)
+        previewText.textColor = .labelColor
+        previewText.textContainerInset = NSSize(width: 0, height: 4)
+        previewText.textContainer?.lineFragmentPadding = 0
+        previewText.textContainer?.widthTracksTextView = true
+        previewText.isVerticallyResizable = true
+        previewText.isHorizontallyResizable = false
+        previewText.minSize = .zero
+        previewText.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        previewText.autoresizingMask = .width
+        previewText.isAutomaticLinkDetectionEnabled = false
+        previewText.isAutomaticDataDetectionEnabled = false
+        previewText.isAutomaticSpellingCorrectionEnabled = false
+        previewText.isContinuousSpellCheckingEnabled = false
+        previewText.isGrammarCheckingEnabled = false
+        previewText.usesFindBar = false
+        previewText.setAccessibilityLabel(text.previewAccessibility)
+        previewText.onKey = { [weak self] in self?.handlePreviewKey($0) ?? false }
+        previewText.onBack = { [weak self] in self?.closePreview() }
+        previewScroll.documentView = previewText
+        previewScroll.hasVerticalScroller = false
+        previewScroll.hasHorizontalScroller = false
+        previewScroll.drawsBackground = false
+        previewScroll.borderType = .noBorder
+        previewScroll.horizontalScrollElasticity = .none
+        previewScroll.automaticallyAdjustsContentInsets = false
         copyButton.title = text.copy + "  ↵"
         copyButton.bezelStyle = .rounded
         copyButton.target = self
@@ -218,7 +280,7 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         settingsButton.setAccessibilityLabel(text.settings)
         for view in [backButton, heading, searchIcon, searchField, separator, scroll,
                      emptyLabel, enableButton, footerSeparator, footer, copyButton,
-                     deleteButton, settingsButton] { addSubview(view) }
+                     deleteButton, settingsButton, previewButton, previewScroll] { addSubview(view) }
         model.onChange = { [weak self] in self?.render() }
         render()
         layoutSubtreeIfNeeded()
@@ -233,7 +295,7 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         heading.frame = NSRect(x: 80, y: 9, width: max(0, bounds.width - 94), height: 21)
         searchIcon.frame = NSRect(x: 14, y: 45, width: 20, height: 20)
         searchField.frame = NSRect(x: 42, y: 39, width: max(0, bounds.width - 56), height: 32)
-        separator.frame = NSRect(x: 0, y: isShowingSettings ? 36 : 78, width: bounds.width, height: 1)
+        separator.frame = NSRect(x: 0, y: (isShowingSettings || isShowingPreview) ? 36 : 78, width: bounds.width, height: 1)
         scroll.frame = NSRect(x: 6, y: 84, width: bounds.width - 12, height: max(0, bounds.height - 124))
         scroll.layoutSubtreeIfNeeded()
         table.tableColumns.first?.width = scroll.contentSize.width
@@ -241,8 +303,11 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         emptyLabel.frame = NSRect(x: 20, y: bodyMidY - (enableButton.isHidden ? 18 : 48), width: max(0, bounds.width - 40), height: 36)
         enableButton.frame = NSRect(x: bounds.midX - 120, y: bodyMidY + 2, width: 240, height: 30)
         footerSeparator.frame = NSRect(x: 0, y: bounds.height - 34, width: bounds.width, height: 1)
-        footer.frame = NSRect(x: 12, y: bounds.height - 25, width: max(0, bounds.width - (isShowingSettings ? 62 : 282)), height: 18)
-        copyButton.frame = NSRect(x: bounds.width - 250, y: bounds.height - 30, width: 94, height: 26)
+        footer.frame = NSRect(x: 12, y: bounds.height - 25, width: max(0, bounds.width - (isShowingSettings ? 62 : (isShowingPreview ? 164 : 382))), height: 18)
+        previewButton.frame = NSRect(x: bounds.width - 352, y: bounds.height - 30, width: 96, height: 26)
+        previewScroll.frame = NSRect(x: 16, y: 46, width: bounds.width - 32, height: max(0, bounds.height - 90))
+        previewText.setFrameSize(NSSize(width: previewScroll.contentSize.width, height: max(previewText.frame.height, previewScroll.contentSize.height)))
+        copyButton.frame = NSRect(x: bounds.width - (isShowingPreview ? 140 : 250), y: bounds.height - 30, width: 94, height: 26)
         deleteButton.frame = NSRect(x: bounds.width - 148, y: bounds.height - 30, width: 104, height: 26)
         settingsButton.frame = NSRect(x: bounds.width - 33, y: bounds.height - 29, width: 24, height: 24)
         let settingsWidth = min(536, bounds.width - 24)
@@ -251,19 +316,21 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if handleSettingsShortcut(event) { return true }
+        if handlePreviewShortcut(event) { return true }
+        if isShowingPreview, handlePreviewKey(event) { return true }
         if handleNumberShortcut(event) { return true }
         if handleDeleteShortcut(event) { return true }
         return super.performKeyEquivalent(with: event)
     }
 
     func handleNumberShortcut(_ event: NSEvent) -> Bool {
-        guard let index = ResultShortcut.index(for: event), !hasMarkedText, !isShowingSettings else { return false }
+        guard let index = ResultShortcut.index(for: event), !hasMarkedText, !isShowingSettings, !isShowingPreview else { return false }
         if !event.isARepeat { onCopy(index) }
         return true
     }
 
     func handleDeleteShortcut(_ event: NSEvent) -> Bool {
-        guard event.type == .keyDown, !hasMarkedText, !isShowingSettings,
+        guard event.type == .keyDown, !hasMarkedText, !isShowingSettings, !isShowingPreview,
               event.keyCode == UInt16(kVK_Delete) || event.keyCode == UInt16(kVK_ForwardDelete)
         else { return false }
         let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
@@ -285,12 +352,64 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         return true
     }
 
+    func handlePreviewShortcut(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown, !isShowingSettings, !hasMarkedText,
+              event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+              event.charactersIgnoringModifiers?.lowercased() == "y" else { return false }
+        if !event.isARepeat { togglePreview() }
+        return true
+    }
+
+    private func handlePreviewKey(_ event: NSEvent) -> Bool {
+        guard isShowingPreview, !isShowingSettings else { return false }
+        if handleSettingsShortcut(event) || handlePreviewShortcut(event) { return true }
+        let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
+        if event.type == .keyDown, (flags.isEmpty || flags == .command),
+           event.keyCode == UInt16(kVK_Return) || event.keyCode == UInt16(kVK_ANSI_KeypadEnter) {
+            if !event.isARepeat { copySelected() }
+            return true
+        }
+        return false
+    }
+
+    func showPreview() {
+        guard !isShowingSettings, !isShowingPreview, let entry = model.selectedEntry else { return }
+        model.cancelPendingCopy()
+        previewEntry = entry
+        // Full text is installed only on an explicit preview action. Ordinary
+        // searches and row rendering continue to use the short cached prefix.
+        previewText.string = entry.text
+        previewText.setSelectedRange(NSRange(location: 0, length: 0))
+        previewText.scrollToBeginningOfDocument(nil)
+        render()
+        layoutSubtreeIfNeeded()
+        focusInput()
+    }
+
+    func closePreview() {
+        guard isShowingPreview else { return }
+        model.cancelPendingCopy()
+        previewEntry = nil
+        previewText.string = ""
+        render()
+        layoutSubtreeIfNeeded()
+        focusInput()
+    }
+
+    func focusInput() {
+        guard window?.isVisible == true else { return }
+        if isShowingSettings, let settingsView { window?.makeFirstResponder(settingsView) }
+        else if isShowingPreview { window?.makeFirstResponder(previewText) }
+        else { window?.makeFirstResponder(searchField) }
+    }
+
     private var hasMarkedText: Bool {
         (searchField.currentEditor() as? NSTextView)?.hasMarkedText() == true
     }
 
     func showFeatureSettings() {
         guard !isShowingSettings else { return }
+        model.cancelPendingCopy()
         if settingsView == nil {
             let settings = ClipboardSettingsView(model: model, onClose: { [weak self] in self?.closeSettings() })
             addSubview(settings)
@@ -309,11 +428,13 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         render()
         needsLayout = true
         layoutSubtreeIfNeeded()
-        if window?.isVisible == true { window?.makeFirstResponder(searchField) }
+        focusInput()
     }
 
     override func cancelOperation(_ sender: Any?) {
-        if isShowingSettings { closeSettings() } else { onBack() }
+        if isShowingSettings { closeSettings() }
+        else if isShowingPreview { closePreview() }
+        else { model.cancelPendingCopy(); onBack() }
     }
 
     private func toggleFeatureSettings() {
@@ -339,18 +460,30 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         } else {
             table.deselectAll(nil)
         }
+        let previewExpired = previewEntry.map { entry in !model.results.contains(where: { $0.id == entry.id }) } ?? false
+        if previewExpired {
+            // Deletion or expiration removes its full-text presentation too.
+            previewEntry = nil
+            previewText.string = ""
+        }
+        let showHistory = !isShowingSettings && !isShowingPreview
+        heading.stringValue = isShowingPreview && !isShowingSettings ? text.previewTitle : text.title
         let isEmpty = displayedResults.isEmpty
         let showIntroduction = isEmpty && model.query.isEmpty && !model.recordingEnabled && !model.isLoading
-        scroll.isHidden = isShowingSettings || isEmpty
-        emptyLabel.isHidden = isShowingSettings || !isEmpty
-        enableButton.isHidden = isShowingSettings || !showIntroduction
-        searchField.isHidden = isShowingSettings
-        searchIcon.isHidden = isShowingSettings
+        scroll.isHidden = !showHistory || isEmpty
+        emptyLabel.isHidden = !showHistory || !isEmpty
+        enableButton.isHidden = !showHistory || !showIntroduction
+        searchField.isHidden = !showHistory
+        searchIcon.isHidden = !showHistory
+        previewButton.isHidden = !showHistory
+        previewScroll.isHidden = !isShowingPreview || isShowingSettings
         copyButton.isHidden = isShowingSettings
-        deleteButton.isHidden = isShowingSettings
+        deleteButton.isHidden = !showHistory
         settingsView?.isHidden = !isShowingSettings
-        backButton.toolTip = isShowingSettings ? text.backToHistory : text.backHelp
-        backButton.setAccessibilityLabel(isShowingSettings ? text.backToHistory : text.back)
+        let backDescription = isShowingSettings && isShowingPreview ? text.backToPreview :
+            ((isShowingSettings || isShowingPreview) ? text.backToHistory : text.backHelp)
+        backButton.toolTip = backDescription
+        backButton.setAccessibilityLabel(backDescription)
         if model.isLoading {
             emptyLabel.stringValue = text.loading
         } else if showIntroduction {
@@ -363,7 +496,9 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         footer.textColor = model.errorMessage == nil ? .secondaryLabelColor : .systemRed
         footer.toolTip = model.errorMessage ?? model.statusMessage
         let hasSelection = model.selectedEntry != nil
-        copyButton.isEnabled = hasSelection
+        copyButton.isEnabled = hasSelection && !model.isCopying
+        copyButton.title = model.isCopying ? text.copying : text.copy + "  ↵"
+        previewButton.isEnabled = hasSelection
         deleteButton.isEnabled = hasSelection
         let currentDeleteTitle = model.query.isEmpty ? deleteTitle : filteredDeleteTitle
         if deleteButton.title != currentDeleteTitle { deleteButton.title = currentDeleteTitle }
@@ -374,6 +509,7 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
             onPreferredHeightChange?(height)
         }
         needsLayout = true
+        if previewExpired { focusInput() }
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int { displayedResults.count }
@@ -401,7 +537,7 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
     func controlTextDidChange(_ notification: Notification) { model.setQuery(searchField.stringValue) }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy command: Selector) -> Bool {
-        guard !textView.hasMarkedText(), !isShowingSettings else { return false }
+        guard !textView.hasMarkedText(), !isShowingSettings, !isShowingPreview else { return false }
         switch command {
         case #selector(NSResponder.moveDown(_:)): model.moveSelection(by: 1)
         case #selector(NSResponder.moveUp(_:)): model.moveSelection(by: -1)
@@ -419,10 +555,21 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
     }
 
     @objc private func goBack() {
-        if isShowingSettings { closeSettings() } else { onBack() }
+        if isShowingSettings { closeSettings() }
+        else if isShowingPreview { closePreview() }
+        else { model.cancelPendingCopy(); onBack() }
+    }
+
+    @objc private func togglePreview() {
+        if isShowingPreview { closePreview() } else { showPreview() }
     }
 
     @objc private func copySelected() {
+        guard !isShowingSettings else { return }
+        if let entry = previewEntry {
+            guard model.results.contains(where: { $0.id == entry.id }) else { return }
+            model.select(entry.id)
+        }
         // The model waits for an in-flight search, so immediate Return uses the new query.
         onCopy(nil)
     }

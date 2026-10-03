@@ -46,6 +46,59 @@ struct CheckAdaptiveSearch {
         model.reset()
         check(model.results.isEmpty && model.query.isEmpty, "Personalization never creates initial suggestions")
 
+        let textActions: [LauncherResult] = [.googleSearch, .askGPT, .translateGPT]
+        let longText = String(repeating: "A passage for translation. ", count: 40_000)
+        model.setQuery(longText)
+        check(model.query == longText && !model.isQueryEmpty && model.results == textActions,
+              "Long pasted prose retains every byte and immediately offers explicit text actions")
+        model.toggleSearchActions()
+        check(model.isShowingSearchActions && model.results == textActions,
+              "Long text supports the same query-action page without fuzzy matching")
+        check(model.closeSearchActions() && model.query == longText && model.results == textActions,
+              "Returning from text actions preserves the entire long query")
+        model.setQuery("a" + String(repeating: "\u{301}", count: 200_000))
+        check(model.results == textActions && !model.isQueryEmpty,
+              "An oversized single grapheme bypasses expensive character normalization")
+        model.setQuery("codi")
+        check(model.results.first == .application(apps[2]),
+              "Returning to a short app query preserves learned ranking after large pastes")
+        let leadingWhitespace = String(repeating: " \t\n　", count: 200_000)
+        model.setQuery(leadingWhitespace + "Translate this")
+        check(model.isQueryEmpty && model.results.isEmpty,
+              "Very long whitespace prefixes do not block input while being classified")
+        for _ in 0..<500 {
+            if !model.isQueryEmpty { break }
+            try await Task.sleep(for: .milliseconds(2))
+        }
+        check(!model.isQueryEmpty && model.results == textActions
+              && model.query == leadingWhitespace + "Translate this",
+              "Background whitespace classification finds later content without trimming it")
+        model.setQuery(leadingWhitespace)
+        check(model.isQueryEmpty && model.results.isEmpty, "Long all-whitespace input stays blank")
+        model.toggleSearchActions()
+        check(!model.isShowingSearchActions, "Whitespace cannot open query actions")
+        model.setQuery(leadingWhitespace + "obsolete")
+        model.setQuery("codi")
+        for _ in 0..<20 { await Task.yield() }
+        check(model.query == "codi" && !model.isQueryEmpty && model.results.first == .application(apps[2]),
+              "A stale background classification cannot replace a newer short query")
+        model.setQuery(leadingWhitespace + "obsolete after reset")
+        model.reset()
+        for _ in 0..<20 { await Task.yield() }
+        check(model.query.isEmpty && model.isQueryEmpty && model.results.isEmpty,
+              "Reset cancels background text classification without resurrecting results")
+        let stillIndexing = LauncherModel(applications: apps, awaitingInitialIndex: true)
+        stillIndexing.setQuery(longText)
+        check(stillIndexing.results == textActions,
+              "Long-text actions do not wait for the unrelated application index")
+        stillIndexing.setQuery("1+1")
+        check(stillIndexing.results.first?.numericCopyValue == "2",
+              "The long-text gate preserves immediate bounded calculations")
+        stillIndexing.setQuery("1+1" + String(repeating: " ", count: 1_024))
+        check(stillIndexing.results == textActions,
+              "Large numeric-looking input does not bypass calculator limits")
+        await stillIndexing.prepareForTermination()
+
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("cue-adaptive-\(UUID())")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -113,9 +166,15 @@ struct CheckAdaptiveSearch {
         _ = view.control(view.searchField, textView: NSTextView(), doCommandBy: #selector(NSResponder.insertNewline(_:)))
         check(launched == [apps[2]], "Enter routes to the selected app")
         check(live.query.isEmpty && !window.isVisible, "Launching dismisses before completion or disk work")
-        controller.dismiss()
+        // Opening Settings from the menu bar can happen while there is no
+        // launcher page left to retain. It must still revoke old callbacks.
+        check(!controller.suspendForSettings() && !controller.isSuspendedForSettings,
+              "Settings opened after app dismissal must not invent a launcher context")
         completions.removeFirst()(NSError(domain: domain, code: 1))
-        check(!window.isVisible, "A stale failed launch must not reopen the window")
+        check(!window.isVisible && live.query.isEmpty && live.launchError == nil,
+              "A stale failed launch must not reopen Cue or alter input after Settings opens")
+        check(!controller.restoreSettingsContext(),
+              "Closing Settings without a retained launcher must not reopen an empty panel")
 
         // Numbered execution succeeds while another query is already visible.
         live.setQuery("codi")
@@ -277,14 +336,20 @@ struct CheckAdaptiveSearch {
         check(commands.selectedResult == .lockScreen, "Lock command is selected by its exact query")
         _ = commandView.control(commandView.searchField, textView: NSTextView(),
                                 doCommandBy: #selector(NSResponder.insertNewline(_:)))
-        // Invalidate the invocation before the injected error returns; no UI opens.
-        commandController.dismiss()
+        // Reproduce menu-bar Settings during a pending system action. The panel
+        // is already dismissed and empty, but the callback still must be invalid.
+        check(commands.query.isEmpty && !commandWindow.isVisible
+              && !commandController.suspendForSettings() && !commandController.isSuspendedForSettings,
+              "Settings during a pending system action has no launcher context to retain")
         for _ in 0..<200 {
             if systemCalls.count == 2 { break }
             try await Task.sleep(for: .milliseconds(10))
         }
         check(systemCalls == [.sleep, .lockScreen], "Both system actions ran only through injected handlers")
-        check(!commandWindow.isVisible, "A stale failed system action does not reopen the launcher")
+        check(!commandWindow.isVisible && commands.query.isEmpty && commands.launchError == nil,
+              "A stale failed system action cannot reopen Cue or inject an error into Settings")
+        check(!commandController.restoreSettingsContext(),
+              "Returning from Settings after a dismissed system action keeps Cue hidden")
 
         commands.setQuery("clipboard")
         check(commands.selectedResult == .clipboardHistory, "Clipboard command remains searchable")

@@ -168,6 +168,7 @@ private final class WebSearchBrowserCatalog: ObservableObject {
 
 @MainActor
 final class WebSearchSettingsController: NSWindowController, NSWindowDelegate {
+    var onClose: (() -> Void)?
     private let catalog = WebSearchBrowserCatalog()
 
     init(preferences: WebSearchPreferences) {
@@ -181,7 +182,7 @@ final class WebSearchSettingsController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         window.contentView = NSHostingView(rootView: WebSearchSettingsView(
-            preferences: preferences, catalog: catalog, close: { [weak self] in self?.close() }
+            preferences: preferences, catalog: catalog, close: { [weak self] in self?.window?.performClose(nil) }
         ))
         window.center()
     }
@@ -199,6 +200,8 @@ final class WebSearchSettingsController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         catalog.cancelRefresh()
+        window?.makeFirstResponder(nil)
+        onClose?()
     }
 }
 
