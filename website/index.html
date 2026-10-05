@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Cue is a fast, simple, open-source launcher for macOS. Apps, clipboard, text tools, calculations and window controls, a shortcut away.">
+  <meta name="theme-color" content="#f5f9ff">
+  <title>Cue — Fast, simple, lightweight.</title>
+  <link rel="canonical" href="https://yihsiu.org/cue/">
+  <link rel="alternate" hreflang="en" href="https://yihsiu.org/cue/">
+  <link rel="alternate" hreflang="zh-Hant" href="https://yihsiu.org/cue/zh-Hant/">
+  <link rel="icon" type="image/png" href="assets/cue-icon.png">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header wrap">
+    <a class="brand" href="./" aria-label="Cue home"><img src="assets/cue-icon.png" alt="" width="40" height="40"><span>Cue</span></a>
+    <nav aria-label="Main navigation"><a href="#story">The story</a><a href="#features">Features</a><a href="#journey">The journey</a></nav>
+    <a class="language" href="zh-Hant/" lang="zh-Hant" hreflang="zh-Hant" aria-label="切換至正體中文">正體中文</a>
+  </header>
+
+  <main id="main">
+    <section class="hero wrap" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">A small tool for your Mac</p>
+        <h1 id="hero-title">Fast. Simple.<br><span>Just Cue.</span></h1>
+        <p class="intro">Open an app. Find that thing you copied. Do a quick calculation. A few everyday tools, one keyboard shortcut away.</p>
+        <div class="actions"><a class="button primary" href="https://github.com/hsiuhsiu/cue/releases/latest">Download Cue</a><a class="button secondary" href="https://github.com/hsiuhsiu/cue">View source</a></div>
+        <p class="small-note">macOS 14+ · Apple silicon &amp; Intel · Free &amp; open source</p>
+      </div>
+      <figure class="hero-preview">
+        <img class="hero-icon" src="assets/cue-icon.png" alt="Cue app icon" width="116" height="116">
+        <div class="launcher-demo" aria-label="Calculator example: 12 times 8 equals 96">
+          <div class="demo-query"><span>12 * 8</span><span class="demo-caret" aria-hidden="true"></span></div>
+          <div class="demo-result"><span class="demo-symbol" aria-hidden="true">=</span><div><strong>96</strong><span>Copy result</span></div><kbd>⌘ 1</kbd></div>
+        </div>
+        <figcaption><kbd>⌥ Space</kbd><span>Type a little. Get on with your day.</span></figcaption>
+      </figure>
+    </section>
+
+    <section id="story" class="story section wrap" aria-labelledby="story-title">
+      <div class="section-heading"><p class="eyebrow">The story</p><h2 id="story-title">Why I made Cue.</h2><p class="margin-note">A familiar habit.<br>A tool of my own.</p></div>
+      <div class="story-copy">
+        <p>I went from Quicksilver to Alfred, then to Raycast. These tools kept adding features and getting more complex, but I kept coming back to the same handful of things.</p>
+        <p>I care about privacy, too. So I figured: I know what I need—why not make my own, get those features right, and make it as fast as I can? With AI helping out, building it myself didn’t cost nearly as much time and effort. That’s how Cue happened.</p>
+        <p>The source is open as well. Use it as it is, or fork it, change it, and build your own. Add what you’re missing, take out what you don’t need, and make a Cue that feels right for you.</p>
+        <a class="text-link" href="https://github.com/hsiuhsiu/cue">Make it yours on GitHub</a>
+      </div>
+    </section>
+
+    <section id="features" class="features section" aria-labelledby="features-title">
+      <div class="wrap">
+        <div class="section-top"><div><p class="eyebrow">The everyday stuff</p><h2 id="features-title">A few useful things.<br>Within easy reach.</h2></div><p>Native macOS. Keyboard first.<br>English and Traditional Chinese.</p></div>
+        <div class="feature-grid">
+          <article><span class="feature-mark" aria-hidden="true">⌘</span><h3>Find it. Open it.</h3><p>Search apps with your own aliases and an order that learns your habits. Type <code>f report</code> to find filenames through Spotlight.</p><span class="feature-example">⌥ Space <span>then start typing</span></span></article>
+          <article><span class="feature-mark" aria-hidden="true">⎘</span><h3>Keep a little history.</h3><p>Find text and links you copied earlier. Delete individual entries and choose how long to keep them. Recording starts only when you enable it.</p><span class="feature-example">clipboard <span>text &amp; links</span></span></article>
+          <article><span class="feature-mark text-mark" aria-hidden="true">繁</span><h3>Work with words.</h3><p>Convert selected Chinese text with Taiwan or mainland wording, clean tracking parameters from links, and find an emoji. All on your Mac.</p><span class="feature-example">繁 / 简 <span>offline conversion</span></span></article>
+          <article><span class="feature-mark" aria-hidden="true">=</span><h3>Skip the extra calculator.</h3><p>See answers as you type. Convert units, including Taiwan’s 坪, or check currency conversions when Cue’s network access is enabled.</p><span class="feature-example">2^10 <span>1,024</span></span></article>
+          <article><span class="feature-mark" aria-hidden="true">?</span><h3>A quick search or answer.</h3><p>Send a search to your chosen browser, or use your own OpenAI API key for a quick answer or translation. GPT needs network access and API usage is billed separately.</p><span class="feature-example">⌘ K <span>choose what to do with your text</span></span></article>
+          <article><span class="feature-mark" aria-hidden="true">⊞</span><h3>Put windows in place.</h3><p>Move, resize, center, and restore the current window with the keyboard. Save your own layouts and take your settings to another Mac.</p><span class="feature-example">⌥ M <span>your window controls</span></span></article>
+        </div>
+        <div class="local-note"><strong>Your Mac, your choice.</strong><p>Local tools work offline. You decide whether Cue can connect for updates, GPT, or exchange rates. Browser searches happen only when you send them. Window controls and selected-text replacement need macOS Accessibility permission.</p></div>
+      </div>
+    </section>
+
+    <section id="journey" class="journey section wrap" aria-labelledby="journey-title">
+      <div class="section-heading"><p class="eyebrow">Along the way</p><h2 id="journey-title">One useful thing<br>at a time.</h2><p class="margin-note">A short version of<br>how Cue got here.</p></div>
+      <ol class="timeline">
+        <li><span class="version">0.1–0.2</span><div><h3>Start with the launcher.</h3><p>Native app search, keyboard controls, in-app updates, and a Traditional Chinese interface.</p></div></li>
+        <li><span class="version">0.3–0.4</span><div><h3>Make it feel familiar.</h3><p>Clipboard history, system commands, and search that learns what you usually choose.</p></div></li>
+        <li><span class="version">0.5–0.6</span><div><h3>Bring the small text tasks together.</h3><p>Offline Chinese conversion, network controls, Google search, link cleaning, and emoji.</p></div></li>
+        <li><span class="version">0.7–0.9</span><div><h3>Get a quick answer.</h3><p>Instant calculations, units and currencies, GPT answers and translation, and app aliases.</p></div></li>
+        <li class="milestone"><span class="version">1.0</span><div><h3>The everyday set, together.</h3><p>Window controls, filename search, portable settings, and another round of work on responsiveness.</p><a class="text-link" href="https://github.com/hsiuhsiu/cue/releases/tag/v1.0.0">Read the 1.0 release notes</a></div></li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="site-footer wrap"><a class="brand" href="./"><img src="assets/cue-icon.png" alt="" width="32" height="32"><span>Cue</span></a><p>Fast, simple, lightweight.</p><nav aria-label="More about Cue"><a href="https://github.com/hsiuhsiu/cue#readme">Documentation</a><a href="https://github.com/hsiuhsiu/cue/releases">Releases</a><a href="https://github.com/hsiuhsiu/cue/blob/main/LICENSE">MIT license</a></nav></footer>
+</body>
+</html>

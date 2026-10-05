@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Cue 是快速、簡潔、開放原始碼的 macOS 啟動器。搜尋 App、剪貼簿、文字工具、即時計算與視窗控制，用鍵盤就能完成。">
+  <meta name="theme-color" content="#f5f9ff">
+  <title>Cue — 快速、簡潔、輕量。</title>
+  <link rel="canonical" href="https://yihsiu.org/cue/zh-Hant/">
+  <link rel="alternate" hreflang="en" href="https://yihsiu.org/cue/">
+  <link rel="alternate" hreflang="zh-Hant" href="https://yihsiu.org/cue/zh-Hant/">
+  <link rel="icon" type="image/png" href="../assets/cue-icon.png">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳至主要內容</a>
+  <header class="site-header wrap">
+    <a class="brand" href="./" aria-label="Cue 首頁"><img src="../assets/cue-icon.png" alt="" width="40" height="40"><span>Cue</span></a>
+    <nav aria-label="主要導覽"><a href="#story">由來</a><a href="#features">功能</a><a href="#journey">一路走來</a></nav>
+    <a class="language" href="../" lang="en" hreflang="en" aria-label="Switch to English">English</a>
+  </header>
+
+  <main id="main">
+    <section class="hero wrap" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">給 Mac 的小工具</p>
+        <h1 id="hero-title">快速、簡潔。<br><span>這就是 Cue。</span></h1>
+        <p class="intro">開個 App、找回剛剛拷貝的文字、算個數字。每天會用到的幾件小事，按一下快捷鍵就能開始。</p>
+        <div class="actions"><a class="button primary" href="https://github.com/hsiuhsiu/cue/releases/latest">下載 Cue</a><a class="button secondary" href="https://github.com/hsiuhsiu/cue">查看原始碼</a></div>
+        <p class="small-note">macOS 14+ · Apple silicon 與 Intel · 免費、開放原始碼</p>
+      </div>
+      <figure class="hero-preview">
+        <img class="hero-icon" src="../assets/cue-icon.png" alt="Cue App 圖示" width="116" height="116">
+        <div class="launcher-demo" aria-label="計算機示意：12 乘以 8，結果為 96">
+          <div class="demo-query"><span>12 * 8</span><span class="demo-caret" aria-hidden="true"></span></div>
+          <div class="demo-result"><span class="demo-symbol" aria-hidden="true">=</span><div><strong>96</strong><span>拷貝結果</span></div><kbd>⌘ 1</kbd></div>
+        </div>
+        <figcaption><kbd>⌥ Space</kbd><span>打幾個字，繼續做你的事。</span></figcaption>
+      </figure>
+    </section>
+
+    <section id="story" class="story section wrap" aria-labelledby="story-title">
+      <div class="section-heading"><p class="eyebrow">由來</p><h2 id="story-title">怎麼會有 Cue？</h2><p class="margin-note">習慣用這些工具，<br>後來就自己做了一個。</p></div>
+      <div class="story-copy">
+        <p>我一路從 Quicksilver 用到 Alfred，再到 Raycast。這些工具的功能越來越多，也越來越複雜，但用來用去，自己常用的其實就那幾個。</p>
+        <p>加上自己也在意隱私，就想說，既然要的東西很明確，不如自己做一個，把需要的功能做好，速度能多快就多快。現在有 AI 幫忙，自己動手的成本也沒那麼高了，所以就做了 Cue。</p>
+        <p>原始碼也公開了。有興趣可以直接拿來用，覺得哪裡不順手、想加點什麼或拿掉什麼，也可以 fork 一份，自己改、自己 build，做一個你用起來順手的 Cue。</p>
+        <a class="text-link" href="https://github.com/hsiuhsiu/cue">到 GitHub 看看</a>
+      </div>
+    </section>
+
+    <section id="features" class="features section" aria-labelledby="features-title">
+      <div class="wrap">
+        <div class="section-top"><div><p class="eyebrow">每天用得到的</p><h2 id="features-title">幾件小事，<br>順手就能做好。</h2></div><p>macOS 原生、鍵盤優先。<br>支援 English 與正體中文。</p></div>
+        <div class="feature-grid">
+          <article><span class="feature-mark" aria-hidden="true">⌘</span><h3>找到，然後打開。</h3><p>搜尋 App、設定自己的縮寫，讓排序慢慢記住你的習慣。輸入 <code>f 報告</code>，也能透過 Spotlight 找檔名。</p><span class="feature-example">⌥ Space <span>接著開始打字</span></span></article>
+          <article><span class="feature-mark" aria-hidden="true">⎘</span><h3>剛剛拷貝了什麼？</h3><p>找回拷貝過的文字與連結，刪掉特定記錄，自己決定保留多久。開啟記錄功能之後，才會開始儲存。</p><span class="feature-example">clipboard <span>文字與連結記錄</span></span></article>
+          <article><span class="feature-mark text-mark" aria-hidden="true">繁</span><h3>處理一下文字。</h3><p>直接轉換選取文字的簡繁與台灣／中國大陸用詞、清理連結裡的追蹤參數，或找個 Emoji。這些都在本機完成。</p><span class="feature-example">繁 / 简 <span>離線簡繁轉換</span></span></article>
+          <article><span class="feature-mark" aria-hidden="true">=</span><h3>順手算一下。</h3><p>輸入算式，結果就會出現。單位換算也包含台灣的坪；允許 Cue 連網時，還能查詢幣值換算。</p><span class="feature-example">2^10 <span>1,024</span></span></article>
+          <article><span class="feature-mark" aria-hidden="true">?</span><h3>查一下，或問一下。</h3><p>用指定的瀏覽器 Google 搜尋，或接自己的 OpenAI API key，快速問答與翻譯。GPT 需要連網，API 費用另計。</p><span class="feature-example">⌘ K <span>選擇怎麼處理這段文字</span></span></article>
+          <article><span class="feature-mark" aria-hidden="true">⊞</span><h3>把視窗放好。</h3><p>用鍵盤調整大小、跨螢幕移動、置中或還原。儲存自己的視窗配置，也能把設定帶到另一台 Mac。</p><span class="feature-example">⌥ M <span>叫出視窗控制</span></span></article>
+        </div>
+        <div class="local-note"><strong>自己的 Mac，自己決定。</strong><p>本機工具離線就能用。更新、GPT 與匯率需要 Cue 連網，由你決定是否允許；瀏覽器搜尋則只在你明確執行時送出。視窗調整與選取文字取代，需要 macOS 輔助使用權限。</p></div>
+      </div>
+    </section>
+
+    <section id="journey" class="journey section wrap" aria-labelledby="journey-title">
+      <div class="section-heading"><p class="eyebrow">一路走來</p><h2 id="journey-title">需要什麼，<br>就慢慢加進來。</h2><p class="margin-note">幾個版本，<br>幾個重要的轉折。</p></div>
+      <ol class="timeline">
+        <li><span class="version">0.1–0.2</span><div><h3>先從啟動器開始。</h3><p>原生 App 搜尋、鍵盤操作、App 內更新，以及正體中文介面。</p></div></li>
+        <li><span class="version">0.3–0.4</span><div><h3>更貼近自己的習慣。</h3><p>加入剪貼簿記錄、系統指令，以及會記住常用選擇的搜尋排序。</p></div></li>
+        <li><span class="version">0.5–0.6</span><div><h3>把文字小工具放在一起。</h3><p>離線簡繁轉換、網路控制、Google 搜尋、連結清理與 Emoji。</p></div></li>
+        <li><span class="version">0.7–0.9</span><div><h3>快速得到一個答案。</h3><p>即時計算、單位與幣值換算、GPT 問答與翻譯，還有 App 搜尋別名。</p></div></li>
+        <li class="milestone"><span class="version">1.0</span><div><h3>日常會用到的，大致到齊了。</h3><p>加入視窗控制、檔名搜尋與設定備份，再把操作反應好好整理了一輪。</p><a class="text-link" href="https://github.com/hsiuhsiu/cue/releases/tag/v1.0.0">看看 1.0 的更新內容</a></div></li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="site-footer wrap"><a class="brand" href="./"><img src="../assets/cue-icon.png" alt="" width="32" height="32"><span>Cue</span></a><p>快速、簡潔、輕量。</p><nav aria-label="更多 Cue 資訊"><a href="https://github.com/hsiuhsiu/cue#readme">使用文件</a><a href="https://github.com/hsiuhsiu/cue/releases">版本紀錄</a><a href="https://github.com/hsiuhsiu/cue/blob/main/LICENSE">MIT 授權</a></nav></footer>
+</body>
+</html>
