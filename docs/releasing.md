@@ -211,13 +211,13 @@ files change on `main`; it can also be dispatched manually. The repository's
 Pages build source must be **GitHub Actions**. Never upload the repository root,
 build products, logs or signing material as the Pages artifact.
 
-The download buttons point to GitHub's latest release. Publish a new release
-before adding its milestone link to the website. Update both language pages
+The download buttons point to GitHub's latest release. Keep the homepage focused
+on Cue's story and features; leave version history in GitHub Releases. Update both language pages
 together and check language switching, internal anchors, mobile layouts and
 download links. Keep installation steps in the linked documentation, not on
 the homepage.
 
 官網來源位於 `website/`，英文與正體中文各有獨立頁面。GitHub Pages workflow
 只發布這個目錄，不包含儲存庫根目錄、建置產物或簽章資料。下載按鈕連到最新
-正式 release；新增沿革連結前先完成該版發布，兩語頁面同步更新。安裝步驟保留
-在連結的文件裡，不放在首頁。
+正式 release。首頁保留由來與功能介紹，版本歷史留在 GitHub Releases；兩語
+頁面同步更新。安裝步驟保留在連結的文件裡，不放在首頁。
