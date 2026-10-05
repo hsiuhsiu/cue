@@ -7,11 +7,14 @@ public enum CurrencyConversionStatus: Hashable, Sendable {
 /// A selectable application, built-in command, or action on the current query.
 public enum LauncherResult: Identifiable, Hashable, Sendable {
     case application(IndexedApplication)
+    case file(FileSearchResult)
     case updateIndex
     case clipboardHistory
     case sleep
     case lockScreen
     case screenOff
+    case windowControls
+    case windowSettings
     case convertToTraditional
     case convertToSimplified
     case chineseConversionSettings
@@ -44,11 +47,14 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
     public var id: String {
         switch self {
         case .application(let application): application.searchUsageID
+        case .file(let file): file.id
         case .updateIndex: "command:update-index"
         case .clipboardHistory: "command:clipboard-history"
         case .sleep: "command:sleep"
         case .lockScreen: "command:lock-screen"
         case .screenOff: "command:screen-off"
+        case .windowControls: "command:window-controls"
+        case .windowSettings: "command:window-settings"
         case .convertToTraditional: "command:convert-to-traditional"
         case .convertToSimplified: "command:convert-to-simplified"
         case .chineseConversionSettings: "command:chinese-conversion-settings"
@@ -70,11 +76,14 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
     public var name: String {
         switch self {
         case .application(let application): application.name
+        case .file(let file): file.name
         case .updateIndex: "Update App Index"
         case .clipboardHistory: "Clipboard History"
         case .sleep: "Sleep"
         case .lockScreen: "Lock Screen"
         case .screenOff: "Screen Off"
+        case .windowControls: "Window Controls"
+        case .windowSettings: "Window Settings"
         case .convertToTraditional: "Convert to Traditional Chinese"
         case .convertToSimplified: "Convert to Simplified Chinese"
         case .chineseConversionSettings: "Chinese Conversion Settings"
@@ -173,6 +182,9 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         "表情符號", "表情", "表情搜尋", "搜尋表情符號", "繪文字",
     ].map(SearchEngine.normalize)
 
+    private static let windowAliases = ["window", "window controls", "resize", "move window", "moom", "視窗", "視窗調整", "調整視窗", "移動視窗"].map(SearchEngine.normalize)
+    private static let windowSettingsAliases = ["window settings", "window layout settings", "視窗設定", "視窗配置設定"].map(SearchEngine.normalize)
+
     public static func search(
         _ applications: [IndexedApplication],
         query: String,
@@ -182,6 +194,9 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         conversionResults: [ConversionResult]? = nil,
         currencyStatus: CurrencyConversionStatus? = nil
     ) -> [LauncherResult] {
+        // File queries have their own asynchronous index and must never fall
+        // through to application matching or external text actions.
+        guard FileSearchQuery.parse(query) == nil else { return [] }
         guard SearchEngine.acceptsQuery(query) else {
             return includeGoogleFallback && query.unicodeScalars.contains(where: {
                 !CharacterSet.whitespacesAndNewlines.contains($0)
@@ -222,6 +237,8 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         if sleepAliases.contains(where: { $0.contains(query) }) { commands.append(.sleep) }
         if lockScreenAliases.contains(where: { $0.contains(query) }) { commands.append(.lockScreen) }
         if screenOffAliases.contains(where: { $0.contains(query) }) { commands.append(.screenOff) }
+        if windowAliases.contains(where: { $0.hasPrefix(query) }) { commands.append(.windowControls) }
+        if (query.contains("setting") || query.contains("設定")), windowSettingsAliases.contains(where: { $0.contains(query) }) { commands.append(.windowSettings) }
         if cleanLinkAliases.contains(where: { $0.contains(query) }) { commands.append(.cleanLink) }
         // Generic "search"/"finder" queries still belong to apps or web search.
         if query != "搜尋", emojiAliases.contains(where: { $0.hasPrefix(query) }) {

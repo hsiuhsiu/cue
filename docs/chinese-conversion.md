@@ -1,8 +1,5 @@
 # Chinese conversion / 簡繁互轉
 
-Available in Cue 0.5.0.
-自 Cue 0.5.0 起提供。
-
 ## English
 
 1. Select text in another app's editable text field.
@@ -141,48 +138,20 @@ Cue 目前使用 ad-hoc 簽章。重新建置或安裝不同版本時，程式�
 請授權平常實際開啟的那一份 App。`.build`、Xcode 建置資料夾或舊安裝位置中的
 另一份 Cue，可能有不同的識別。只需處理 Cue 的項目，不需要重設其他 App 的權限。
 
-## Verification status / 驗證狀態
+## Verification / 驗證
 
-On 2026-09-27, an earlier optimized build passed 115 core tests, 71
-selected-text service checks, 27 conversion lifecycle checks, and the existing
-keyboard, system-action, adaptive-search, and clipboard harnesses. Service tests
-use synthetic accessibility state and private pasteboards. The lifecycle harness
-also verifies that the production conversion engine allows main-actor work to
-continue during large conversions.
+`scripts/check-selected-text.sh` uses synthetic accessibility state and private
+pasteboards to exercise both conversion directions, cancellation, clipboard
+restoration and replacement safety. `scripts/check-conversion-lifecycle.sh`
+checks feature settings, session cancellation and responsiveness during large
+conversions. Core tests validate dictionary conversion independently.
 
-Testing that earlier installed build on macOS 27 / Apple silicon verified alias ranking,
-opening feature settings with Command-comma, editing/saving an alias, immediate
-search updates, restoring `st`/`ts`, and the permission-settings link. A physical
-Option+Space invocation confirmed that the explicit-activation launcher accepts
-typing and executes `st` in TextEdit. The observed replacement included Taiwan
-terms (`軟體`, `滑鼠`, `網路影片`, `記憶體資料庫`, `預設設定`), preserved multiline
-text and emoji, and left the unselected prefix/suffix unchanged. One Command+Z
-restored the original text, and Redo reapplied the conversion.
+Real global-hotkey focus, per-editor replacement/undo behavior and macOS
+permission prompts require coordinated desktop testing of the installed build.
+Injected checks do not establish compatibility with every editor or prove that
+a rebuilt executable has retained Accessibility permission.
 
-2026-09-27 較早的最佳化建置已通過 115 項核心、71 項選取文字服務與 27 項
-轉換生命週期測試，並在當時安裝的 App 驗證別名排序、
-功能設定入口、自訂及立即生效、還原預設與系統授權頁面。使用實體鍵盤按
-Option+Space 後，已確認 Cue 可正常接收輸入，並以 `st` 取代 TextEdit 的選取
-段落。台灣用詞、多行文字與 emoji 正確，未選取的前後內容保持不變；一次
-Command+Z 可還原原文，重做也能恢復轉換。
-
-Both conversion directions and clipboard restoration are covered by isolated
-tests; physical `ts` execution and additional editors remain unverified.
-These observations do not establish universal editor compatibility or successful
-Accessibility authorization for a later rebuilt or final release app.
-Per-app automated Option+Space events do not trigger the Carbon global hotkey,
-so physical invocation is required for that part of the test.
-
-兩個轉換方向與剪貼簿還原已有隔離測試；`ts` 的實體操作與其他編輯器仍未驗證，
-不能據此宣稱所有編輯器皆相容，也不能證明後來重新建置或最終發行的 App 已取得
-輔助使用授權。自動化工具指定 App 的按鍵事件
-無法觸發 Carbon 全域快捷鍵，這部分需使用實體鍵盤確認。
-
-That earlier tested build was granted Accessibility access after the user explicitly
-approved resetting Cue's stale entry and re-enabled the current build. TCC logs
-confirmed that the old stored ad-hoc signature did not match the new executable;
-toggling the old entry and relaunching alone did not repair it.
-
-當時受測的版本已取得輔助使用權限。系統記錄確認，先前儲存的 ad-hoc 簽章與
-當時執行檔不同，切換舊開關及重啟無法修復；經使用者明確同意後，只清除 Cue
-的過期記錄，再由使用者為當時版本重新授權。
+上述檢查以合成輔助使用狀態、獨立剪貼簿及隔離設定驗證轉換、取消、剪貼簿還原、
+設定返回與大量文字處理。實際全域快速鍵、各編輯器的取代／還原操作與 macOS
+授權提示，仍需協調時間測試當前安裝版本；模擬檢查不能代表所有編輯器皆相容，
+也不能證明重新建置後仍保有輔助使用授權。

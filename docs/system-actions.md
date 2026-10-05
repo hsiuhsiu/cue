@@ -1,9 +1,5 @@
 # System commands / 系統指令
 
-Sleep and Lock Screen are included in [Cue 0.3.0](https://github.com/hsiuhsiu/cue/releases/tag/v0.3.0).
-Screen Off is included in Cue 0.5.0.
-睡眠與鎖定螢幕指令自 Cue 0.3.0 起提供，關閉螢幕自 Cue 0.5.0 起提供。
-
 Cue searches Sleep, Lock Screen, and Screen Off in English and Traditional Chinese. All use
 the same Return / Command+number path as other results. The launcher dismisses
 synchronously before invoking the action. A failure restores the query and shows

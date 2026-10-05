@@ -110,6 +110,18 @@ final class LauncherResultTests: XCTestCase {
         XCTAssertEqual(LauncherResult.search(applications, query: "index"), [.updateIndex])
     }
 
+    func testWindowCommandsAreDiscoverableWithoutCrowdingSingleLetterQueries() {
+        for query in ["window", "resize", "moom", "視窗", "調整視窗"] {
+            XCTAssertTrue(LauncherResult.search([], query: query).contains(.windowControls), query)
+        }
+        for query in ["window settings", "視窗設定"] {
+            XCTAssertEqual(LauncherResult.search([], query: query), [.windowSettings], query)
+        }
+        XCTAssertFalse(LauncherResult.search([], query: "w").contains(.windowControls))
+        XCTAssertTrue(LauncherResult.search([], query: "").isEmpty)
+        XCTAssertNotEqual(LauncherResult.windowControls.id, LauncherResult.windowSettings.id)
+    }
+
     func testClipboardCommandIsDiscoverableInBothLanguages() {
         for query in ["clipboard", "CLIPBOARD", "clip", "clipboard history", "paste history", "剪貼簿", "剪貼簿歷史", "剪貼簿記錄", "剪貼簿紀錄", "複製紀錄"] {
             XCTAssertEqual(LauncherResult.search([], query: query), [.clipboardHistory], query)

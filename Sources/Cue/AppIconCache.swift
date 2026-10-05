@@ -4,8 +4,13 @@ import CueCore
 /// Disk access and icon decoding never run in the input or drawing path.
 @MainActor
 final class AppIconCache {
+    static let maximumApplicationImages = 256
+    static let maximumApplicationWorkers = 2
     private var images: [String: NSImage] = [:]
+    private var imageOrder: [String] = []
     private var pending: [String: Task<Void, Never>] = [:]
+    private var queuedApplications: [IndexedApplication] = []
+    private var visibleApplicationIDs = Set<String>()
     private var generation = 0
     private var commandImages: [CommandIcon: NSImage] = [:]
     private var commandTask: Task<Void, Never>?
@@ -21,13 +26,22 @@ final class AppIconCache {
     private var browserRefreshRequested = false
     private let resolveBrowser: @Sendable (String?) -> URL?
     private let loadBrowserIcon: @Sendable (URL) -> CGImage?
+    private let loadApplicationIcon: @Sendable (URL) -> CGImage?
     private let placeholder = NSImage(systemSymbolName: "app", accessibilityDescription: nil)!
+    // File search uses shared symbols: a result never starts icon discovery,
+    // file reads, or thumbnail generation on the typing/rendering path.
+    private let documentImage = AppIconCache.fileSymbol("doc.text")
+    private let folderImage = AppIconCache.fileSymbol("folder")
     var onLoad: ((String) -> Void)?
+    var cachedApplicationCount: Int { images.count }
+    var revision: Int { generation }
 
     init(resolveBrowser: @escaping @Sendable (String?) -> URL? = AppIconCache.systemBrowserURL,
-         loadBrowserIcon: @escaping @Sendable (URL) -> CGImage? = AppIconCache.systemBrowserIcon) {
+         loadBrowserIcon: @escaping @Sendable (URL) -> CGImage? = AppIconCache.systemBrowserIcon,
+         loadApplicationIcon: @escaping @Sendable (URL) -> CGImage? = AppIconCache.systemApplicationIcon) {
         self.resolveBrowser = resolveBrowser
         self.loadBrowserIcon = loadBrowserIcon
+        self.loadApplicationIcon = loadApplicationIcon
         commandTask = Task { [weak self] in
             let rendered = await Task.detached(priority: .userInitiated) {
                 CommandIcon.allCases.map { command in
@@ -53,10 +67,24 @@ final class AppIconCache {
     deinit {
         commandTask?.cancel()
         browserTask?.cancel()
+        pending.values.forEach { $0.cancel() }
     }
 
     func image(for command: CommandIcon) -> NSImage {
         commandImages[command] ?? placeholder
+    }
+
+    func image(for file: FileSearchResult) -> NSImage {
+        file.isDirectory ? folderImage : documentImage
+    }
+
+    private static func fileSymbol(_ name: String) -> NSImage {
+        let configuration = NSImage.SymbolConfiguration(pointSize: 24, weight: .regular)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [
+                NSColor(srgbRed: 0.18, green: 0.49, blue: 0.72, alpha: 1)
+            ]))
+        let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)!
+        return symbol.withSymbolConfiguration(configuration) ?? symbol
     }
 
     /// A pure memory lookup. Browser discovery and compositing never begin while typing.
@@ -199,14 +227,22 @@ final class AppIconCache {
     }
 
     func prepare(_ applications: [IndexedApplication]) {
-        for application in applications { request(application) }
+        let visible = Array(applications.prefix(LauncherPreferences.maximumVisibleResults))
+        visibleApplicationIDs = Set(visible.map(\.id))
+        // Replace waiting requests rather than decoding every result from all
+        // intermediate keystrokes. Already-running OS reads may finish safely.
+        queuedApplications = visible.filter { images[$0.id] == nil }
+        startRequests()
     }
 
     func invalidate() {
         generation += 1
-        pending.values.forEach { $0.cancel() }
-        pending.removeAll()
+        // An icon read inside Launch Services cannot be interrupted. Keep those
+        // workers counted until they finish, including across repeated reindexes.
+        queuedApplications.removeAll(keepingCapacity: true)
+        visibleApplicationIDs.removeAll(keepingCapacity: true)
         images.removeAll(keepingCapacity: true)
+        imageOrder.removeAll(keepingCapacity: true)
         // A manual reindex also picks up replaced app artwork at an unchanged path.
         browserGeneration += 1
         browserPaths.removeAll(keepingCapacity: true)
@@ -214,31 +250,56 @@ final class AppIconCache {
     }
 
     private func request(_ application: IndexedApplication) {
-        guard images[application.id] == nil, pending[application.id] == nil else { return }
-        let generation = generation
-        let path = application.url.path
-        pending[application.id] = Task { [weak self] in
-            let bitmap = await Task.detached(priority: .userInitiated) {
-                // Apple documents icon(forFile:) as safe to call from any thread.
-                let icon = NSWorkspace.shared.icon(forFile: path)
-                var rect = CGRect(x: 0, y: 0, width: 64, height: 64)
-                guard let source = icon.cgImage(forProposedRect: &rect, context: nil, hints: nil),
-                      let context = CGContext(
-                        data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0,
-                        space: CGColorSpaceCreateDeviceRGB(),
-                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-                      ) else { return nil as CGImage? }
-                context.draw(source, in: rect)
-                return context.makeImage()
-            }.value
-            guard let self, !Task.isCancelled, generation == self.generation else { return }
-            if let bitmap {
-                self.images[application.id] = NSImage(cgImage: bitmap, size: NSSize(width: 32, height: 32))
-            } else {
-                self.images[application.id] = self.placeholder
-            }
-            self.pending[application.id] = nil
-            self.onLoad?(application.id)
+        guard images[application.id] == nil,
+              !queuedApplications.contains(where: { $0.id == application.id }) else { return }
+        queuedApplications.append(application)
+        if queuedApplications.count > LauncherPreferences.maximumVisibleResults {
+            queuedApplications.removeFirst()
         }
+        startRequests()
+    }
+
+    private func startRequests() {
+        queuedApplications.removeAll { images[$0.id] != nil }
+        while pending.count < Self.maximumApplicationWorkers,
+              let index = queuedApplications.firstIndex(where: { pending[$0.id] == nil }) {
+            let application = queuedApplications.remove(at: index)
+            let generation = generation
+            pending[application.id] = Task { [weak self, loadApplicationIcon] in
+                let bitmap = await Task.detached(priority: .userInitiated) {
+                    autoreleasepool { loadApplicationIcon(application.url) }
+                }.value
+                guard let self, !Task.isCancelled else { return }
+                self.pending[application.id] = nil
+                if generation == self.generation {
+                    self.images[application.id] = bitmap.map {
+                        NSImage(cgImage: $0, size: NSSize(width: 32, height: 32))
+                    } ?? self.placeholder
+                    self.imageOrder.append(application.id)
+                    while self.imageOrder.count > Self.maximumApplicationImages {
+                        guard let oldest = self.imageOrder.firstIndex(where: {
+                            !self.visibleApplicationIDs.contains($0)
+                        }) else { break }
+                        self.images[self.imageOrder.remove(at: oldest)] = nil
+                    }
+                    self.onLoad?(application.id)
+                }
+                self.startRequests()
+            }
+        }
+    }
+
+    nonisolated private static func systemApplicationIcon(_ url: URL) -> CGImage? {
+        // Apple documents icon(forFile:) as safe to call from any thread.
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        var rect = CGRect(x: 0, y: 0, width: 64, height: 64)
+        guard let source = icon.cgImage(forProposedRect: &rect, context: nil, hints: nil),
+              let context = CGContext(
+                data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else { return nil }
+        context.draw(source, in: rect)
+        return context.makeImage()
     }
 }

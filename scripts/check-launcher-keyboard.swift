@@ -452,11 +452,50 @@ struct CheckLauncherKeyboard {
             expect(false, "The launcher must expose a visible Actions affordance for nonempty input")
         }
 
+        // The bare file-search prefix never starts a filesystem/Spotlight fixture.
+        // Its explicit mode also prevents private filename terms from being sent
+        // through the general query handoffs by an accidental shortcut.
+        model.reset()
+        view.layoutSubtreeIfNeeded()
+        let fullInputWidth = view.searchField.frame.width
+        let beforeFileWebActions = webActions.count
+        let beforeFileSearchActions = searchActions
+        let beforeFileExecution = otherActions
+        for prefix in ["f ", "F ", "f   "] {
+            model.setQuery(prefix)
+            view.layoutSubtreeIfNeeded()
+            expect(model.isFileSearch && model.results.isEmpty && model.selectedResult == nil,
+                   "\(String(reflecting: prefix)) must enter an empty file-search mode")
+            expect(view.subviews.compactMap { $0 as? NSButton }.allSatisfy { $0.isHidden },
+                   "File search must hide Actions and unrelated provider buttons")
+            expect(view.searchField.frame.width == fullInputWidth,
+                   "File search keeps the full input width available for filenames")
+            expect(view.subviews.compactMap { $0 as? NSTextField }.contains {
+                !$0.isHidden && $0.stringValue == model.fileSearchStatus
+            }, "File search must display its own localized empty-prefix guidance")
+            expect(route(key("k", keyCode: 40)), "File search consumes Command-K without opening text actions")
+            expect(route(key("\r", keyCode: 36)), "File search consumes Command-Return without a browser handoff")
+            expect(route(key("1", keyCode: 18)), "File search consumes absent numbered results safely")
+            expect(webActions.count == beforeFileWebActions && searchActions == beforeFileSearchActions
+                   && otherActions == beforeFileExecution,
+                   "An empty file search must not execute a file, web search, or general text action")
+            expectSettings(key(), context: "Command-comma within file-search mode")
+        }
+        model.setQuery("Shortcut Fixture")
+        expect(!model.isFileSearch && !model.results.isEmpty,
+               "Leaving the file prefix must restore ordinary app search")
+        expect(view.subviews.compactMap { $0 as? NSButton }.contains {
+            $0.action == NSSelectorFromString("showActions") && !$0.isHidden
+        }, "Leaving file search must restore the ordinary Actions affordance")
+        model.reset()
+        expect(!application.isActive && !window.isVisible,
+               "File-search shortcut checks must remain offscreen and inactive")
+
         if !failures.isEmpty {
             for failure in failures { print("FAIL: \(failure)") }
             print("Launcher keyboard regression failed: \(failures.count) failures / \(checks) checks.")
             exit(1)
         }
-        print("Launcher keyboard regression passed: \(checks) checks; blank opening, numbered execution, explicit web search, curated browser choices, Escape, Settings, modifiers, repeats, normal Return, editing, and marked text.")
+        print("Launcher keyboard regression passed: \(checks) checks; blank opening, numbered execution, explicit web search, curated browser choices, file-search isolation, Escape, Settings, modifiers, repeats, normal Return, editing, and marked text.")
     }
 }

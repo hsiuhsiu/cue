@@ -92,6 +92,19 @@ final class WebSearchPreferences: ObservableObject {
         onChange?()
     }
 
+    /// Replace only explicit browser choices; the local feature switch is untouched.
+    func replaceForBackup(_ values: [WebSearchBrowser]) throws {
+        guard values.count <= Self.maximumBrowsers else { throw ValidationError.browserLimit }
+        let validated = try values.map(Self.validated)
+        guard Set(validated.map { $0.id.lowercased() }).count == validated.count else {
+            throw ValidationError.invalidBrowser
+        }
+        guard validated != browsers else { return }
+        browsers = validated
+        persistBrowsers()
+        onChange?()
+    }
+
     private func persistBrowsers() {
         defaults.set(browsers.map { ["bundleIdentifier": $0.bundleIdentifier, "name": $0.name] },
                      forKey: Self.browsersKey)

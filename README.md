@@ -6,7 +6,9 @@
 
 <p align="center">Fast, simple, lightweight.</p>
 
-Cue is a small native macOS launcher with quick GPT answers and translation, an instant calculator, unit and currency conversion, emoji search, Google search, link cleaning, searchable clipboard history, offline Chinese conversion, and system commands. It runs in the menu bar, opens with **Option+Space**, and searches installed applications using an in-memory index.
+<p align="center"><a href="https://yihsiu.org/cue/">Website / 官網</a></p>
+
+Cue is a small native macOS launcher with quick GPT answers and translation, an instant calculator, unit and currency conversion, filename search, emoji search, Google search, link cleaning, searchable clipboard history, offline Chinese conversion, and system commands. It runs in the menu bar, opens with **Option+Space**, and searches installed applications using an in-memory index.
 
 <p>
   <picture>
@@ -18,13 +20,13 @@ Cue is a small native macOS launcher with quick GPT answers and translation, an 
 
 ## Download and install
 
-[Download Cue 0.9.1 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v0.9.1/Cue-0.9.1-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v0.9.1) · [正體中文安裝說明](docs/installation.md)
+[Download Cue 1.0.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.0.0/Cue-1.0.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.0.0) · [正體中文安裝說明](docs/installation.md)
 
 The repository and release downloads are public.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
-The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Runtime testing for this release has been performed only on **macOS 27.0 on Apple silicon**, using Xcode 27; Intel and other macOS versions remain unverified.
+The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.0 on Apple silicon**, using Xcode 27; Intel and other macOS versions remain unverified. This release did not complete final installed-app desktop checks, a positive real-Spotlight fixture, or a full public updater installation. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.0.0).
 
 The app has an **ad-hoc signature**, without Developer ID signing or Apple notarization. macOS may block its first launch. If you trust this release, follow the [first-launch instructions](docs/installation.md#首次開啟) using System Settings. Building from source is optional; downloading and installing the app does not require Xcode or Terminal.
 
@@ -38,33 +40,39 @@ Cue discovers applications under `/Applications`, `/System/Applications`, `~/App
 
 ### App names and search aliases / App 名稱與搜尋別名
 
-**Available in Cue 0.9.0.** Cue searches an app’s display name, local bundle names, and `.app` filename while showing one result. For example, **Code** can also be found with **`visual`**, **`vs`**, or **`vsc`** through its `Visual Studio Code.app` filename. **Finder** is now included in the app index.
+Cue searches an app’s display name, local bundle names, and `.app` filename while showing one result. For example, **Code** can also be found with **`visual`**, **`vs`**, or **`vsc`** through its `Visual Studio Code.app` filename. **Finder** is included in the app index.
 
 For a personal shortcut, select an app and press **Command+E**, click its **…** button, or right-click it and choose **Edit Search Alias…**. Save one alias such as `vs` or `term`; entering it exactly puts that app before ordinary app and command matches. Clear the field and save to remove it. Aliases start with a letter and allow up to 32 letters, numbers, `-`, or `_`, without spaces. Duplicate app aliases and conflicts with Chinese conversion aliases are rejected. Aliases stay on this Mac, survive reindexing, and follow an app moved to another indexed folder when it has the same bundle identifier. Name preparation happens during background indexing; typing does not read app files or settings.
 
-**Cue 0.9.0 起提供。** Cue 同時搜尋 App 的顯示名稱、本機 Bundle 名稱及 `.app` 檔名，同一個 App 只顯示一次。例如 **Code** 的檔名是 `Visual Studio Code.app`，因此也能用 **`visual`**、**`vs`** 或 **`vsc`** 找到。**Finder** 現在也會加入 App 索引。
+Cue 同時搜尋 App 的顯示名稱、本機 Bundle 名稱及 `.app` 檔名，同一個 App 只顯示一次。例如 **Code** 的檔名是 `Visual Studio Code.app`，因此也能用 **`visual`**、**`vs`** 或 **`vsc`** 找到。**Finder** 也會加入 App 索引。
 
 要設定個人習慣的縮寫，選取 App 後按 **Command+E**、點該列的 **…**，或按右鍵選擇**編輯搜尋別名…**。每個 App 可儲存一個別名，例如 `vs` 或 `term`；完整輸入時，會優先於一般 App 與指令符合結果。清空欄位後儲存即可移除。別名以字母開頭，最多 32 個字母、數字、`-` 或 `_`，不含空白；不能與其他 App 或簡繁轉換別名重複。別名只存本機，更新索引後仍保留；App 移至另一個索引資料夾時，只要 Bundle 識別碼相同就會沿用。名稱整理在背景建立索引時完成，打字時不讀取 App 檔案或設定。
+
+### File search / 檔案搜尋
+
+Type **`f` + space + part of a filename**, such as **`f report`** or **`f 發票`**. Cue searches the local Spotlight index for files and folders, showing filenames and their parent paths. Use **Up/Down + Return**, click a result, or **Command+1–9** to open it with its default macOS app. Uppercase `F` also works; an empty `f ` shows no files. Results stay within nine rows. Search is fully local, does not scan document contents, and never falls back to Google or GPT in this mode. Spotlight exclusions and indexing delays apply. See the [file search guide](docs/file-search.md) for scope and privacy.
+
+輸入 **`f`＋空格＋部分檔名**，例如 **`f report`** 或 **`f 發票`**，即可搜尋本機 Spotlight 索引中的檔案與資料夾；每列顯示檔名及所在路徑。用**上下方向鍵＋Return**、點選結果，或 **Command+1–9**，以 macOS 預設 App 開啟。大寫 `F` 也可；只有 `f ` 時不列出檔案，結果最多九列。搜尋完全在本機執行、不讀取文件內容，檔案模式不會轉成 Google／GPT 搜尋。結果受 Spotlight 排除位置及索引更新時間影響；範圍與隱私詳見[檔案搜尋說明](docs/file-search.md)。
 
 ### Personalized search
 
 Cue learns from applications and commands you successfully open through the launcher. Within the same app matching category, it prefers the item you usually choose for that query, followed by usage frequency weighted toward recent use; exact app matches stay ahead of weaker app matches. A successful choice for the same query can also promote an app above a matching built-in command—for example, choosing iTerm2 for `it` can move it ahead of the incidental Traditional Chinese conversion match on the next invocation. Overall popularity alone does not change the order between apps and commands, and explicitly configured exact command aliases still come first. Merely typing, moving the selection, canceling, or a failed launch does not teach it anything. Clipboard contents, searches inside Clipboard History, Google queries, and GPT questions, translations and replies are excluded.
 
-Learning stays on this Mac. Only successful queries, selected result identifiers, scores, and timestamps are saved in a small local file. Search uses a prepared in-memory snapshot; loading, score calculation, and saving happen in the background. An arriving update never moves the current rows while you are choosing a result. See [adaptive search behavior and performance](docs/performance-adaptive-search.md).
+Learning stays on this Mac. Only successful queries, selected result identifiers, scores, and timestamps are saved in a small local file. Search uses a prepared in-memory snapshot; loading, score calculation, and saving happen in the background. An arriving update never moves the current rows while you are choosing a result. See [adaptive search behavior and performance](docs/performance.md).
 
 Cue 會記住你在啟動器中成功開啟的 App 與指令。同一 App 符合程度內，優先考慮「這個關鍵字通常選哪個項目」，再參考使用頻率與近期使用情況；完全符合的 App 仍排在較弱的 App 符合結果前面。相同關鍵字的成功選擇也能讓 App 超過內建指令，例如用 `it` 成功開啟 iTerm2 後，下次叫出時就能超過碰巧符合的正體轉換指令；一般使用頻率本身不會改變 App 與指令之間的順序，明確設定的完整指令別名仍優先。單純打字、移動選取、取消或開啟失敗不會留下學習記錄，也不記錄剪貼簿內容、剪貼簿頁面的搜尋、Google 搜尋字詞，或 GPT 提問、翻譯與回答。資料只存本機，搜尋使用記憶體中的分數，背景更新不會讓正在選擇的列表突然跳動。
 
 ### Instant calculator / 即時計算
 
-**Available in Cue 0.7.0.** Type an arithmetic expression directly in Cue, such as **`1+2*3`**, **`(12+8)/4`**, or **`2^10`**. The answer appears as the first result while you type. Press **Return** while it is selected, or **Command+1**, to copy just the answer and close Cue; paste with **Command+V** wherever you need it. Ordinary app and command matches remain available below the answer. Calculation works fully offline and does not save the expression or result in search-learning history. See the [calculator guide](docs/calculator.md) for supported syntax and limits.
+Type an arithmetic expression directly in Cue, such as **`1+2*3`**, **`(12+8)/4`**, or **`2^10`**. The answer appears as the first result while you type. Press **Return** while it is selected, or **Command+1**, to copy just the answer and close Cue; paste with **Command+V** wherever you need it. Ordinary app and command matches remain available below the answer. Calculation works fully offline and does not save the expression or result in search-learning history. See the [calculator guide](docs/calculator.md) for supported syntax and limits.
 
-**Cue 0.7.0 起提供。** 直接在 Cue 輸入算式，例如 **`1+2*3`**、**`(12+8)/4`** 或 **`2^10`**，答案會即時顯示在第一列。選取答案後按 **Return**，或直接按 **Command+1**，即可只拷貝答案並收起 Cue，再到需要的位置按 **Command+V** 貼上。符合的 App 與指令仍會列在下方。計算完全離線，不會將算式或結果存入搜尋學習記錄。支援語法與限制詳見[計算機說明](docs/calculator.md)。
+直接在 Cue 輸入算式，例如 **`1+2*3`**、**`(12+8)/4`** 或 **`2^10`**，答案會即時顯示在第一列。選取答案後按 **Return**，或直接按 **Command+1**，即可只拷貝答案並收起 Cue，再到需要的位置按 **Command+V** 貼上。符合的 App 與指令仍會列在下方。計算完全離線，不會將算式或結果存入搜尋學習記錄。支援語法與限制詳見[計算機說明](docs/calculator.md)。
 
 ### Unit and currency conversion / 單位與幣值換算
 
-**Available in Cue 0.8.0.** Type **`10m`**, **`5坪`**, or **`100USD`** for up to three common conversions, or specify a target with **`10m to ft`** or **`100USD to TWD`**. Press **Return** on a result or its **Command+number** to copy only the numeric value and close Cue. Physical units, including Taiwan's 坪, work offline. Currency conversion requires Cue's global network access: it uses a daily reference-rate table, shows its date and source, and hides currency answers when access is off. Amounts and query text stay on this Mac. See the [unit and currency guide](docs/unit-conversion.md) for supported units, freshness and privacy.
+Type **`10m`**, **`5坪`**, or **`100USD`** for up to three common conversions, or specify a target with **`10m to ft`** or **`100USD to TWD`**. Press **Return** on a result or its **Command+number** to copy only the numeric value and close Cue. Physical units, including Taiwan's 坪, work offline. Currency conversion requires Cue's global network access: it uses a daily reference-rate table, shows its date and source, and hides currency answers when access is off. Amounts and query text stay on this Mac. See the [unit and currency guide](docs/unit-conversion.md) for supported units, freshness and privacy.
 
-**Cue 0.8.0 起提供。** 輸入 **`10m`**、**`5坪`** 或 **`100USD`**，即可看到最多三種常用換算；也可用 **`10m to ft`** 或 **`100USD to TWD`** 指定目標單位。選取結果後按 **Return**，或按對應的 **Command+數字**，只拷貝數值並收起 Cue。一般單位包含台灣的坪，完全離線。幣值換算需要允許 Cue 自行連網，使用每日參考匯率並顯示日期與來源；關閉網路就不顯示幣值答案。金額及查詢文字留在這台 Mac。支援單位、更新方式與隱私詳見[單位與幣值換算說明](docs/unit-conversion.md)。
+輸入 **`10m`**、**`5坪`** 或 **`100USD`**，即可看到最多三種常用換算；也可用 **`10m to ft`** 或 **`100USD to TWD`** 指定目標單位。選取結果後按 **Return**，或按對應的 **Command+數字**，只拷貝數值並收起 Cue。一般單位包含台灣的坪，完全離線。幣值換算需要允許 Cue 自行連網，使用每日參考匯率並顯示日期與來源；關閉網路就不顯示幣值答案。金額及查詢文字留在這台 Mac。支援單位、更新方式與隱私詳見[單位與幣值換算說明](docs/unit-conversion.md)。
 
 ### Google search / Google 搜尋
 
@@ -84,11 +92,11 @@ Typing remains local: Cue sends no live queries, requests no suggestions, and op
 
 Copy one HTTP or HTTPS link, invoke Cue, then type **`clean link`**, **`link cleaner`**, **`清理連結`**, or **`清理網址`** and execute the command. Cue removes recognized tracking parameters and replaces the clipboard with the cleaned link. It preserves other parameters, fragments, and their original encoding; ambiguous fields containing a literal semicolon are retained, and links with recognized signature parameters are left unchanged. The result reports how many parameters were removed, whether none can be safely removed or the link is protected, or why the clipboard could not be cleaned.
 
-Cleaning runs entirely on this Mac, including with Cue's network access off. It does not open a browser, expand short links, follow redirects, or paste into another app. It reads and changes the clipboard only when you execute the command; a detected clipboard change while work is pending prevents replacement of the newer copy. Clipboard URLs are not added to search-learning history. This first version needs no feature settings. See the [link cleaner guide](docs/link-cleaner.md) for supported links and limits.
+Cleaning runs entirely on this Mac, including with Cue's network access off. It does not open a browser, expand short links, follow redirects, or paste into another app. It reads and changes the clipboard only when you execute the command; a detected clipboard change while work is pending prevents replacement of the newer copy. Clipboard URLs are not added to search-learning history. This command needs no feature settings. See the [link cleaner guide](docs/link-cleaner.md) for supported links and limits.
 
 複製一個 HTTP 或 HTTPS 連結後，叫出 Cue，輸入 **`clean link`**、**`link cleaner`**、**`清理連結`**或 **`清理網址`**並執行指令。Cue 會移除已知的追蹤參數，再將清理後的連結寫回剪貼簿；其他參數、網址片段及原有編碼保持不變。含未編碼分號、解析方式可能不同的欄位會保留，含已知簽章參數的連結則不修改。結果會顯示移除數量、沒有可安全移除的參數、受簽章保護，或無法清理的原因。
 
-清理完全在本機執行，Cue 關閉網路時仍可使用；不會開啟瀏覽器、展開短網址、跟隨重新導向或貼到其他 App。只有執行指令才會讀取與修改剪貼簿；若處理期間偵測到剪貼簿已變更，就不取代較新的內容。剪貼簿網址不會加入搜尋學習記錄。第一版不需要另設功能設定；支援範圍與限制詳見[連結清理說明](docs/link-cleaner.md)。
+清理完全在本機執行，Cue 關閉網路時仍可使用；不會開啟瀏覽器、展開短網址、跟隨重新導向或貼到其他 App。只有執行指令才會讀取與修改剪貼簿；若處理期間偵測到剪貼簿已變更，就不取代較新的內容。剪貼簿網址不會加入搜尋學習記錄。此功能不需要額外設定；支援範圍與限制詳見[連結清理說明](docs/link-cleaner.md)。
 
 ### Emoji search / Emoji 搜尋
 
@@ -102,13 +110,13 @@ The catalog and bilingual keywords are bundled with Cue. Search works fully offl
 
 ### GPT answers and translation / GPT 問答與翻譯
 
-**Available in Cue 0.9.0.** Enter text in Cue. If no local result matches, choose **Search Google**, **Ask GPT**, or **Translate with GPT**; **Command+K** offers these actions even when apps match. Google remains the first choice. Press the shown **Command+number** to run an action immediately. Added browsers remain available; with more than six, **Other Browsers…** opens the complete list.
+Enter text in Cue. If no local result matches, choose **Search Google**, **Ask GPT**, or **Translate with GPT**; **Command+K** offers these actions even when apps match. Google remains the first choice. Press the shown **Command+number** to run an action immediately. Added browsers remain available; with more than six, **Other Browsers…** opens the complete list.
 
 Search **`gpt settings`**, or press **Command+,** on a GPT action or reply, to save your own OpenAI API key in macOS Keychain. Enable Cue's global network access to use GPT; typing alone never sends text. API usage is billed separately from a ChatGPT subscription. The default is **GPT-6 Luna**, with extra reasoning disabled for quick replies; the model ID can be changed in GPT Settings. Translation defaults to **Chinese → English; other languages → Traditional Chinese with Taiwan terminology**, with fixed Chinese or English options.
 
 Replies stream into a compact, selectable text view. **Copy / Command+Return** copies the reply; **Stop** cancels generation; **Retry** explicitly starts a new request. **Esc** returns to the original text so you can choose Google instead. GPT has no live web search in this version; use Google for current information. Questions, translations and responses are not added to search learning or a saved conversation history. See [GPT setup, privacy and limits](docs/gpt.md).
 
-**Cue 0.9.0 起提供。** 在 Cue 輸入文字；沒有本機符合結果時，可選擇 **Google 搜尋**、**問 GPT** 或 **GPT 翻譯**。有 App 符合時也能按 **Command+K** 選擇，或用顯示的 **Command+數字** 立即執行。Google 保持第一個選項；自行加入的瀏覽器仍可使用，超過六個時會收進**其他瀏覽器⋯**。
+在 Cue 輸入文字；沒有本機符合結果時，可選擇 **Google 搜尋**、**問 GPT** 或 **GPT 翻譯**。有 App 符合時也能按 **Command+K** 選擇，或用顯示的 **Command+數字** 立即執行。Google 保持第一個選項；自行加入的瀏覽器仍可使用，超過六個時會收進**其他瀏覽器⋯**。
 
 輸入 **`gpt settings`**，或在 GPT 動作／回答頁按 **Command+,**，即可將自己的 OpenAI API 金鑰存進 macOS 鑰匙圈。GPT 需要允許 Cue 的全域網路存取；單純打字不會傳送文字。API 與 ChatGPT 訂閱分開計費。預設採用 **GPT-6 Luna**、關閉額外推理，也可在 GPT 設定更改模型。翻譯預設為**中文→英文，其他語言→正體中文（台灣用詞）**，亦可固定翻成正體中文或英文。
 
@@ -148,6 +156,16 @@ Type **`screen off` / `display off` / `關閉螢幕`** to turn off the display i
 
 輸入 **`screen off`／`display off`／`關閉螢幕`**，立即讓螢幕休眠，Mac 仍繼續運作。喚醒時是否要求密碼，依 macOS「鎖定畫面」設定；若目的是鎖定電腦，請使用**鎖定螢幕**。
 
+### Window controls
+
+Window controls are **on by default**, including when upgrading from a version without this feature; an explicitly saved off choice is preserved. **Option+M** opens a dedicated mode for the current window: **Option+arrows** for halves, **Command+arrows** to move displays, **Return** to fill the usable desktop, **Space** to center, **Tab** to restore, and **1–9** for your saved percentage layouts. Open **Window Settings…** from Cue’s menu bar, search `window settings`, or use the mode’s gear to change the shortcut and panel behavior. If another app occupies Option+M, this settings page shows the conflict and lets you choose a different shortcut.
+
+All adjustments are local and require macOS Accessibility permission. On first use, or if an update invalidates the grant, Cue shows a permission guide instead of accepting ineffective layout actions. **Window Settings** shows the current status, a system-settings button, **Check Again**, and help for a stale enabled switch. Permission checks refresh when returning to that page; no permission prompt runs at startup. See [window controls](docs/window-controls.md) for setup, recovery, portable layout storage and testing limits.
+
+視窗調整**預設啟用**，包含從尚無此功能的版本更新；曾手動關閉則保留原選擇。用 **Option+M** 調整目前視窗：**Option+方向鍵**半屏、**Command+方向鍵**跨顯示器、**Enter** 填滿可用桌面、**空白鍵**置中、**Tab** 還原，**1–9** 套用自訂比例配置。從 Cue 選單列選擇**視窗設定…**、搜尋 `window settings`／`視窗設定`，或點模式中的齒輪，可更改快捷鍵與面板行為。如果 Option+M 已被其他 App 使用，設定頁會顯示衝突，讓你更換快捷鍵。
+
+操作完全離線，需 macOS 輔助使用權限。首次使用或更新後授權失效時，Cue 會顯示授權引導並停用無法執行的配置操作。**視窗設定**提供實際權限狀態、系統設定入口、**重新檢查**，以及開關已開但授權失效的處理方式；回到該頁會更新狀態，不在啟動時跳出系統授權提示。詳見[使用與授權說明](docs/window-controls.md)。
+
 ### Clipboard History
 
 Type `clipboard` or `剪貼簿` in Cue, select **Clipboard History**, and press Enter. Recording is off initially; choose **Enable Clipboard History** to start saving new text and link copies on this Mac.
@@ -160,7 +178,13 @@ Use **Preview** or **Command+Y** to read the selected record in full without cop
 
 The page's gear or **Command+,** opens its own recording and retention settings. Retention defaults to **7 days**, with choices from **1 hour** to **No time limit**. History is stored as readable text on this Mac, up to **500 items or 4 MiB**. **Esc** returns from these settings to history, then from history to the launcher.
 
-See the [Clipboard History guide / 剪貼簿記錄說明](docs/clipboard.md) for retention, storage limits, and privacy details, and the [clipboard search benchmark](docs/performance-clipboard.md) for reproducible performance measurements.
+See the [Clipboard History guide / 剪貼簿記錄說明](docs/clipboard.md) for retention, storage limits, and privacy details, and the [clipboard search benchmark](docs/performance.md) for reproducible performance measurements.
+
+### Settings backup & transfer / 設定備份與移轉
+
+Open **Settings → Backup & Transfer** to export or import portable preferences, aliases, chosen browsers and window presets. Imports show a selectable preview and preserve this Mac’s network, recording, startup and permission choices. Ordinary JSON excludes API keys; optional password protection can carry a key only when you explicitly choose it. Passwords require at least 12 characters and are never saved. See the [backup guide](docs/settings-portability.md).
+
+在**設定 → 備份與移轉**匯出或匯入偏好、別名、指定瀏覽器與視窗配置。匯入前可預覽並選擇要套用的區塊，保留這台 Mac 的網路、記錄、登入啟動與權限選擇。一般 JSON 不含 API key；選擇密碼保護後，才可另外勾選攜帶金鑰。密碼至少 12 個字元，Cue 不會儲存密碼。詳見[備份說明](docs/settings-portability.md)。
 
 ## Build and install from source
 
@@ -199,6 +223,18 @@ Sparkle verifies signed update archives and the signed HTTPS appcast against the
 
 ## Package a release
 
+Versions distinguish source milestones such as **`1.1.0-beta.1`** from stable
+releases such as **`1.1.0`**, without an internal build number in parentheses.
+Xcode's **Release** configuration means optimization; a beta source build stays
+a beta. Use `scripts/set-version.sh` to advance a milestone and its internal
+update build together. The release script accepts stable metadata only. See
+[versioning](docs/versioning.md); a local beta label does not publish a GitHub preview.
+
+版本區分 **`1.1.0-beta.1`** 等開發里程碑與 **`1.1.0`** 等正式版，不再把內部
+建置編號放在主要版號後的括號。Xcode **Release** 代表最佳化，beta 原始碼仍是
+beta。用 `scripts/set-version.sh` 同步更新版號與內部 build；正式打包只接受
+stable 資料。本機 beta 標記不會建立 GitHub 預覽版，詳見[版本規則](docs/versioning.md)。
+
 ```sh
 ./scripts/release.sh
 ```
@@ -208,6 +244,7 @@ The local release script reads the version from `Resources/Info.plist`, builds a
 ## Tests
 
 ```sh
+./scripts/check-version-tests.sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-settings.sh
 ./scripts/check-settings-layout.sh
@@ -227,6 +264,11 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-gpt-ui.sh
 ./scripts/check-clipboard.sh
 ./scripts/check-system-actions.sh
+./scripts/check-window-service.sh
+./scripts/check-window-settings.sh
+./scripts/check-window-mode.sh
+./scripts/check-settings-backup.sh
+./scripts/check-backup-ui.sh
 ./scripts/check-selected-text.sh
 ./scripts/check-conversion-lifecycle.sh
 ./scripts/check-network-policy.sh
@@ -240,6 +282,8 @@ The settings check exercises the actual `CueSettings` store: bounded change noti
 Prefer these isolated checks for day-to-day development. They use synthetic inputs, temporary preferences, private pasteboards, injected services, and offscreen native views. Run costly checks sequentially. Do not replace or stop the installed Cue, send desktop keystrokes, or use personal history, credentials, or the system clipboard as test fixtures. Coordinate manual desktop tests separately when verifying global activation, OS permission prompts, cross-app text replacement, or perceived input-to-display latency.
 
 The settings-layout check renders English and Traditional Chinese settings offscreen, including offline and error states, and verifies close callbacks without activating windows or accessing real credentials. Set `CUE_SETTINGS_PREVIEW_DIRECTORY` to a local directory to save PNG previews. It needs the already-resolved, pinned Sparkle framework; it does not download dependencies or contact update servers.
+
+The backup checks use synthetic settings, temporary files and fake key stores to verify selected merges, rollback, clipboard-retention consent, encrypted exports and credential restoration failures. `SettingsBackupTests` also covers published password-derivation vectors, wrong passwords, tampering and bounded file parsing. No real API key or personal history is read.
 
 The login-item check uses an injected macOS service to verify enabling, disabling, approval-required states, errors, and refresh behavior without changing system login items.
 
@@ -281,7 +325,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   -derivedDataPath .build/xcode CODE_SIGNING_ALLOWED=NO test
 ```
 
-`CueCore` holds discovery, search, and preference validation independently of presentation. `Sources/Cue` uses AppKit for the latency-sensitive launcher and SwiftUI for Settings. The launcher reuses native table rows, loads and decodes icons in the background, caches recent searches, and sets focus synchronously. Tests cover ranking, discovery, and preferences. Reproducible CPU measurements are in [search profiling](docs/performance-search.md), [adaptive search profiling](docs/performance-adaptive-search.md), and [icon profiling](docs/performance-icons.md); these are not end-to-end comparisons with Raycast.
+`CueCore` holds discovery, search, and preference validation independently of presentation. `Sources/Cue` uses AppKit for the latency-sensitive launcher and SwiftUI for Settings. The launcher reuses native table rows, loads and decodes icons in the background, caches recent searches, and sets focus synchronously. Tests cover ranking, discovery, and preferences. See [performance design and reproducible measurements](docs/performance.md) for workload definitions and validation limits; component timings are not end-to-end latency guarantees.
 
 ## Controls
 
@@ -305,3 +349,9 @@ Press **Command+,** in the launcher (or choose the menu-bar Settings item) to co
 Pressing Enter on an app dismisses Cue immediately; launch failures reopen the query with an error. The default placement follows the mouse pointer. The index is built at startup; use Update App Index after installing or removing applications. Show Cue remains available from the menu bar if another app occupies the saved shortcut.
 
 To verify the interface manually, invoke Cue from another app, type `saf` or `term`, change selection with the arrow keys, and launch with Enter. Invoke Cue again to check that the query is empty, then test Escape, shortcut toggling, light/dark appearance, and placement on another display.
+
+## License / 授權
+
+Cue is available under the [MIT License](LICENSE). Bundled third-party components and data retain their own licenses: [Sparkle](Resources/Sparkle-LICENSE.txt), [OpenCC](Sources/Cue/Resources/OpenCC-LICENSE.txt), and [Unicode / CLDR](Sources/Cue/Resources/Unicode-LICENSE.txt).
+
+Cue 採用 [MIT 授權](LICENSE)。內附的第三方元件與資料維持各自的授權：[Sparkle](Resources/Sparkle-LICENSE.txt)、[OpenCC](Sources/Cue/Resources/OpenCC-LICENSE.txt) 與 [Unicode／CLDR](Sources/Cue/Resources/Unicode-LICENSE.txt)。

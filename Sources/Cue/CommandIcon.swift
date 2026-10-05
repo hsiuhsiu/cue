@@ -8,10 +8,11 @@ enum CommandIcon: CaseIterable, Sendable {
     case convertToTraditional, convertToSimplified, chineseConversionSettings
     case googleSearch, webSearchSettings, cleanLink, emojiSearch, calculator
     case askGPT, translateGPT, gptSettings
+    case windowControls, windowSettings
 
     init?(_ result: LauncherResult) {
         switch result {
-        case .application: return nil
+        case .application, .file: return nil
         case .calculation, .conversion, .currencyStatus: self = .calculator
         case .cleanLink: self = .cleanLink
         case .emojiSearch: self = .emojiSearch
@@ -19,6 +20,8 @@ enum CommandIcon: CaseIterable, Sendable {
         case .askGPT: self = .askGPT
         case .translateGPT: self = .translateGPT
         case .gptSettings: self = .gptSettings
+        case .windowControls: self = .windowControls
+        case .windowSettings: self = .windowSettings
         case .webSearchSettings: self = .webSearchSettings
         case .updateIndex: self = .updateIndex
         case .clipboardHistory: self = .clipboardHistory
@@ -40,6 +43,8 @@ enum CommandIcon: CaseIterable, Sendable {
         case .askGPT: LauncherResult.askGPT.id
         case .translateGPT: LauncherResult.translateGPT.id
         case .gptSettings: LauncherResult.gptSettings.id
+        case .windowControls: LauncherResult.windowControls.id
+        case .windowSettings: LauncherResult.windowSettings.id
         case .webSearchSettings: LauncherResult.webSearchSettings.id
         case .updateIndex: LauncherResult.updateIndex.id
         case .clipboardHistory: LauncherResult.clipboardHistory.id
@@ -206,6 +211,21 @@ enum CommandIcon: CaseIterable, Sendable {
             c.addLine(to: CGPoint(x: 18, y: 15)); c.strokePath()
             rounded(CGRect(x: 7, y: 5.5, width: 14, height: 10), radius: 2.4)
             line([CGPoint(x: 14, y: 11.5), CGPoint(x: 14, y: 8.8)])
+        case .windowControls, .windowSettings:
+            rounded(CGRect(x: 5, y: 7, width: 18, height: 14), radius: 2)
+            line([CGPoint(x: 5, y: 17), CGPoint(x: 23, y: 17)])
+            if self == .windowControls {
+                line([CGPoint(x: 13, y: 7), CGPoint(x: 13, y: 17)])
+                arrow(from: CGPoint(x: 16, y: 10), to: CGPoint(x: 20, y: 14), head: 1.3)
+            } else {
+                c.setFillColor(CGColor(gray: 1, alpha: 1)); c.fillEllipse(in: CGRect(x: 14, y: 3, width: 12, height: 12))
+                c.setStrokeColor(CGColor(red: 0.13, green: 0.43, blue: 0.66, alpha: 1))
+                for angle in stride(from: 0.0, to: Double.pi * 2, by: Double.pi / 4) {
+                    line([CGPoint(x: 20 + cos(angle) * 3, y: 9 + sin(angle) * 3), CGPoint(x: 20 + cos(angle) * 4.5, y: 9 + sin(angle) * 4.5)])
+                }
+                c.strokeEllipse(in: CGRect(x: 17, y: 6, width: 6, height: 6))
+                c.strokeEllipse(in: CGRect(x: 19, y: 8, width: 2, height: 2))
+            }
         case .screenOff:
             rounded(CGRect(x: 5, y: 9, width: 18, height: 12.5), radius: 2)
             line([CGPoint(x: 14, y: 9), CGPoint(x: 14, y: 6)])

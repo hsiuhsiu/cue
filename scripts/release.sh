@@ -15,6 +15,12 @@ fi
 
 source_plist="$repo_root/Resources/Info.plist"
 "$repo_root/scripts/check-build-network-policy.sh" source "$source_plist"
+# A local beta/dev label is not permission to publish to the stable update feed.
+# Check before tests, build work, or access to the signing key.
+"$repo_root/scripts/check-version.sh" --release "$source_plist"
+"$repo_root/scripts/check-version-tests.sh"
+cmp "$repo_root/LICENSE" "$repo_root/Sources/Cue/Resources/Cue-LICENSE.txt" \
+    || fail "The bundled Cue license must match LICENSE."
 version="$(plutil -extract CFBundleShortVersionString raw -o - "$source_plist")"
 build_number="$(plutil -extract CFBundleVersion raw -o - "$source_plist")"
 minimum_os="$(plutil -extract LSMinimumSystemVersion raw -o - "$source_plist")"
@@ -108,11 +114,18 @@ fi
 step "Running optimized tests on $native_arch..."
 xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \
     -destination "platform=macOS,arch=$native_arch" -derivedDataPath "$build_directory" \
-    CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES "ARCHS=$native_arch" test
+    CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES ENABLE_TESTABILITY=YES "ARCHS=$native_arch" test
 "$repo_root/scripts/check-settings.sh"
 "$repo_root/scripts/check-settings-layout.sh"
+"$repo_root/scripts/check-window-service.sh"
+"$repo_root/scripts/check-window-settings.sh"
+"$repo_root/scripts/check-window-mode.sh"
+"$repo_root/scripts/check-settings-backup.sh"
+"$repo_root/scripts/check-backup-ui.sh"
 "$repo_root/scripts/check-login-item.sh"
 "$repo_root/scripts/check-launcher-keyboard.sh"
+"$repo_root/scripts/check-file-search.sh"
+"$repo_root/scripts/check-file-search-service.sh"
 "$repo_root/scripts/check-command-icons.sh"
 "$repo_root/scripts/check-web-search.sh"
 "$repo_root/scripts/check-link-cleaner.sh"
@@ -160,6 +173,7 @@ verify_app() {
     local executable="$app/Contents/MacOS/Cue"
     local architectures architecture binary_minimum resource
     "$repo_root/scripts/check-build-network-policy.sh" official "$app"
+    "$repo_root/scripts/check-version.sh" --release "$app"
     [[ -f "$executable" && -x "$executable" ]] || fail "Missing Cue executable in $app."
     [[ "$(plutil -extract CFBundleIdentifier raw -o - "$plist")" == com.yyhsiu.cue ]] \
         || fail "Packaged bundle identifier does not match."
@@ -169,7 +183,7 @@ verify_app() {
         [[ -s "$app/Contents/Resources/$resource" ]] || fail "Missing bundled icon: $resource."
     done
     xcrun swift "$repo_root/scripts/check-localizations.swift" "$app"
-    for resource in ChineseConversion.cuecc OpenCC-LICENSE.txt OpenCC-NOTICE.txt EmojiCatalog.json Unicode-LICENSE.txt Emoji-NOTICE.txt; do
+    for resource in Cue-LICENSE.txt ChineseConversion.cuecc OpenCC-LICENSE.txt OpenCC-NOTICE.txt EmojiCatalog.json Unicode-LICENSE.txt Emoji-NOTICE.txt; do
         cmp "$repo_root/Sources/Cue/Resources/$resource" "$app/Contents/Resources/$resource" \
             || fail "Missing or changed bundled resource: $resource."
     done

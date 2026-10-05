@@ -2,8 +2,6 @@
 
 ## English
 
-Clipboard History is included in [Cue 0.3.0](https://github.com/hsiuhsiu/cue/releases/tag/v0.3.0).
-
 ### Use history
 
 Open Cue, which starts with just an empty input field, without initial results, a placeholder, a footer, or shortcut hints. **Command+,** still opens Cue's main Settings from there. Type `clipboard` or `剪貼簿`, select **Clipboard History**, and press Enter. Recording starts **off**. Choose **Enable Clipboard History** to record new copies of text and links. Enabling or resuming recording does not import the contents already on the system clipboard.
@@ -46,8 +44,6 @@ Cue records **text and links only**, not images or files. Links are stored as te
 History stays in `~/Library/Application Support/com.yyhsiu.cue/Clipboard/history.json`, with file and directory permissions restricted to your macOS account. The file contains readable text; Cue does not add separate encryption. This feature does not upload history or sync it to a cloud service.
 
 ## 正體中文
-
-剪貼簿記錄已包含在 [Cue 0.3.0](https://github.com/hsiuhsiu/cue/releases/tag/v0.3.0)。
 
 ### 使用記錄
 

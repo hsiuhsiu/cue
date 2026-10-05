@@ -4,11 +4,11 @@
 
 Cue has a global network-access control in Settings. Turning it off
 blocks both automatic and manual update checks. It governs requests made by Cue
-itself. Since Cue 0.6.0, explicit Google browser searches use a
+itself. Explicit Google browser searches use a
 separate feature-local switch.
 App discovery, local app/command search and learning, Clipboard History, system
 commands, Chinese conversion, link cleaning, emoji search, the calculator, and
-physical-unit conversion remain available. GPT answers and translation require
+physical-unit conversion and local Spotlight filename search remain available. GPT answers and translation require
 this global permission, as does currency conversion even when rates are cached.
 
 ### Defaults and saved choices
@@ -52,6 +52,9 @@ method composition do not submit a search. See [Google search](web-search.md).
 
 Google search checks its own browser-search setting immediately before handoff.
 The global switch may stay off because Cue does not make the browser's request.
+The explicit `f ` file-search mode never falls back to browser or GPT actions;
+it queries only local Spotlight metadata. Opening a result hands the file to
+macOS or its default app, which may independently download a cloud placeholder.
 Turning browser search off in **Google Search Settings** prevents new handoffs;
 the results display a disabled reason instead of opening a browser. Neither
 switch can cancel navigation already accepted by another browser or remove data
@@ -68,7 +71,7 @@ installation that has already started.
 
 ### Currency rates and local unit conversion
 
-Cue 0.8.0 introduced currency conversion. With Cue's global network access
+For currency conversion, with Cue's global network access
 enabled, a recognized currency query can fetch the fixed HTTPS table at
 `https://open.er-api.com/v6/latest/USD`.
 Cue downloads the same USD-based table for every query and calculates locally:
@@ -94,7 +97,7 @@ physical-unit conversions, including Taiwan's 坪, stay fully offline. See
 
 ### GPT answers and translation
 
-GPT is available in Cue 0.9.0. Only explicitly choosing **Ask GPT**, **Translate with GPT**, or **Retry** sends the current text to `https://api.openai.com/v1/responses`. Typing, rendering choices, opening GPT settings and changing the model do not request answers. The request contains that text, the selected model, and short task instructions; it does not include app inventory, search-learning data, clipboard history, other windows, or previous replies. No live web-search tool is enabled. Credentials stay in the user's macOS Keychain, not preferences or the app bundle.
+Only explicitly choosing **Ask GPT**, **Translate with GPT**, or **Retry** sends the current text to `https://api.openai.com/v1/responses`. Typing, rendering choices, opening GPT settings and changing the model do not request answers. The request contains that text, the selected model, and short task instructions; it does not include app inventory, search-learning data, clipboard history, other windows, or previous replies. No live web-search tool is enabled. Credentials stay in the user's macOS Keychain, not preferences or the app bundle.
 
 The global network permission is checked before reading the key and again before starting a request. Turning it off cancels the active stream; older callbacks cannot restore the answer or start another request. Stop, returning from a reply, closing Cue's panel, and changing credentials cancel pending work. A retry is always explicit, and re-enabling networking never resubmits a question. Cancellation cannot recall text OpenAI already received or guarantee that server-side generation or billing stops immediately.
 
@@ -152,19 +155,18 @@ Unicode/CLDR source data; the running app never downloads these resources.
 ## 正體中文
 
 Cue 在設定中提供全域網路存取開關，管理 Cue 自己發出的請求。關閉後，
-自動與手動檢查更新都會停用。自 Cue 0.6.0 起提供的 Google 瀏覽器搜尋使用獨立
+自動與手動檢查更新都會停用。Google 瀏覽器搜尋使用獨立
 功能開關。App 索引、本機 App／指令搜尋與學習、剪貼簿記錄、系統指令、
-簡繁轉換、連結清理、emoji 搜尋、計算機與一般單位換算仍可使用。GPT 問答與
+簡繁轉換、連結清理、emoji 搜尋、計算機、一般單位換算與 Spotlight 本機檔名搜尋仍可使用。GPT 問答與
 翻譯需要這項全域許可；幣值換算也一樣，即使已快取匯率也需要允許連網。
 
 ### GPT 問答與翻譯
 
-Cue 0.9.0 起提供 GPT。只有明確選擇**問 GPT**、**GPT 翻譯**或**重試**，才會將目前文字傳送至 `https://api.openai.com/v1/responses`；打字、顯示選項、開啟 GPT 設定或更改模型都不會請求答案。請求包含該段文字、模型與簡短的任務指示，不包含 App 清單、搜尋學習資料、剪貼簿歷史、其他視窗或先前回答，也不啟用即時網頁搜尋工具。金鑰存於使用者的 macOS 鑰匙圈，不放進偏好設定或 App 套件。
+只有明確選擇**問 GPT**、**GPT 翻譯**或**重試**，才會將目前文字傳送至 `https://api.openai.com/v1/responses`；打字、顯示選項、開啟 GPT 設定或更改模型都不會請求答案。請求包含該段文字、模型與簡短的任務指示，不包含 App 清單、搜尋學習資料、剪貼簿歷史、其他視窗或先前回答，也不啟用即時網頁搜尋工具。金鑰存於使用者的 macOS 鑰匙圈，不放進偏好設定或 App 套件。
 
 讀取金鑰前與開始請求前都會檢查全域網路許可。關閉網路會取消回答串流，過期回呼不能恢復答案或發出新請求。停止、返回、收起 Cue 視窗及修改金鑰也會取消進行中的工作；重試必須明確操作，重新允許網路不會自動重送。取消無法收回 OpenAI 已收到的文字，也不能保證伺服器端生成或計費立即停止。
 
 連線不使用 Cookie 或磁碟快取，拒絕重新導向，且傳送 `store: false`。Cue 不會將提問或回答存成對話歷史或搜尋學習資料；拷貝答案則會寫入系統剪貼簿，適用一般剪貼簿記錄規則。`store: false` 不代表 OpenAI 端完全零保留，仍適用其 [API 資料政策](https://developers.openai.com/api/docs/guides/your-data)。詳見 [GPT 設定與行為](gpt.md)。
-
 
 ### 預設值與已儲存的選擇
 
@@ -196,6 +198,9 @@ Command+1–9 才會執行。即使已有本機結果，也可用 Command+Return
 Google 依各自的歷史記錄、帳號及隱私設定處理。空白輸入與輸入法組字期間都
 不會送出搜尋。詳見 [Google 搜尋](web-search.md)。
 
+明確輸入 `f ` 的檔案搜尋只查詢本機 Spotlight 索引，不會轉成瀏覽器或 GPT 動作。
+選擇開啟結果後交由 macOS／預設 App 處理；對方可能自行下載雲端檔案。
+
 Google 搜尋在交給瀏覽器前會再次檢查自己的瀏覽器搜尋開關。全域開關可以維持
 關閉，因為瀏覽器的請求並非由 Cue 發出。在 **Google 搜尋設定**關閉瀏覽器搜尋，
 才會阻止新的交接，結果會顯示停用原因而不開啟瀏覽器。兩個開關都不能取消已
@@ -210,7 +215,7 @@ Google 搜尋在交給瀏覽器前會再次檢查自己的瀏覽器搜尋開關�
 
 ### 匯率與本機單位換算
 
-Cue 0.8.0 起提供幣值換算。允許 Cue 自行連網時，
+允許 Cue 自行連網時，
 辨識出的幣值查詢可觸發下載固定的 HTTPS 匯率表：
 `https://open.er-api.com/v6/latest/USD`。每次都取得同一份以美元為基準的資料，
 換算在本機完成；不會送出金額、輸入文字、來源或目標幣別。服務提供者仍會
@@ -283,38 +288,15 @@ fail closed. An explicit saved user choice overrides this build metadata.
 發布封裝流程只在暫存的 App 內改成 `true`；缺少值時預設關閉。已儲存的明確
 使用者選擇優先於這項建置資料。
 
-## 0.5.0 verification / 0.5.0 驗證
+## Verification / 驗證
 
-The optimized policy harness passes 324 checks using isolated preferences. The
-updater harness passes 68 checks covering offline startup, daily scheduling,
-preference restoration, canceled/stale callbacks, and real Sparkle delegate
-selectors and request guards. It uses an injected engine and native user-driver
-protocol fixtures without starting Sparkle or making network requests. These
-checks do not constitute packet capture or an end-to-end update installation.
-The installed Release app was also checked in English and Traditional Chinese:
-source defaults are off, both update controls are disabled, and the menu reports
-that networking is off. Packaging separately validates source and DMG defaults.
+Run `scripts/check-network-policy.sh`, `scripts/check-updates.sh` and
+`scripts/check-build-network-policy.sh` for isolated runtime, updater and bundle
+default checks. They cover offline startup, explicit choices, canceled/stale
+callbacks and dependency request guards. Feature harnesses separately cover
+GPT and currency transitions with injected transports. These checks do not
+constitute packet capture or an end-to-end update installation.
 
-最佳化政策測試以隔離偏好設定通過 324 項檢查；更新測試通過 68 項，涵蓋離線啟動、
-每日排程、偏好還原、取消及過期回呼，以及實際 Sparkle 委派介面與請求檢查。
-更新測試使用注入引擎及原生使用者介面協定的測試物件，不會啟動 Sparkle 或發送
-網路請求，因此不等同封包擷取或完整更新安裝測試。另已在安裝的 Release App
-檢查英文及正體中文介面：來源版預設關閉網路，兩種更新控制均停用，選單也顯示
-網路關閉。封裝流程會另外驗證原始碼與 DMG 的預設值。
-
-A separate, randomly identified QA app using the final 0.5.0 executable was also
-tested against a loopback server serving an unchanged signed feed/archive. Turning
-network access off during a real Sparkle feed check closed the connection after
-1,553 of 1,554 bytes; during an archive download it closed after 3,047,424 of
-3,231,531 bytes. Both update controls immediately became disabled. The server
-withheld completion deliberately, so no old fixture update could install. This
-confirms cancellation through the real Sparkle stack; it does not test public
-HTTPS delivery, final installation, or every possible transition timing. The QA
-app and server were stopped, with production preferences untouched.
-
-另以最終 0.5.0 執行檔建立隨機識別碼的獨立測試 App，連到提供未改動之簽署列表
-與安裝檔的本機回環伺服器。真正的 Sparkle 列表檢查在關閉網路後，於傳輸
-1,553／1,554 位元組時斷線；安裝檔下載則於 3,047,424／3,231,531 位元組時斷線，
-兩種更新控制也立即停用。伺服器刻意不傳完，確保舊測試更新不可能安裝。
-此測試確認真正 Sparkle 流程能取消，不代表已驗證公開 HTTPS 傳輸、最終安裝
-或所有切換時序。測試 App 與伺服器已結束，正式偏好設定未受影響。
+網路政策、更新器及建置預設都有隔離檢查，涵蓋離線啟動、明確偏好、取消與
+過期回呼。GPT 與幣值換算另以注入傳輸層驗證切換行為；這些檢查不等同
+封包擷取或完整更新安裝測試。

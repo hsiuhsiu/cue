@@ -1,4 +1,5 @@
 "menu.settings" = "Settings…";
+"menu.windowSettings" = "Window Settings…";
 "menu.checkForUpdates" = "Check for Updates…";
 "menu.updateAvailable" = "Update Available (%@)…";
 "menu.updateAccessibility" = "Cue — update available";

@@ -41,3 +41,6 @@
 "general.heading" = "一般與操作";
 "network_updates.heading" = "網路與更新";
 "action.done" = "完成";
+"backup.heading" = "備份與移轉";
+"backup.export" = "匯出設定…";
+"backup.import" = "匯入設定…";

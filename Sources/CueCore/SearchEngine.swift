@@ -31,6 +31,10 @@ public enum SearchEngine {
         }
 
         let queryCharacters = Array(query.filter { !$0.isWhitespace })
+        let queryBytes = Array(query.utf8)
+        // Bound the simple byte matcher. Long expressions and unusual metadata
+        // keep Foundation's general substring algorithm instead of O(n × m) work.
+        let asciiQuery = queryBytes.count <= 64 && queryBytes.allSatisfy { $0 < 128 } ? queryBytes : nil
         let scorer = usage.scorer(normalizedQuery: query)
         let hasUsage = !usage.isEmpty
         // Sort scalar indices/scores, not IndexedApplication's strings and arrays.
@@ -39,7 +43,7 @@ public enum SearchEngine {
         candidates.reserveCapacity(applications.count)
         for index in applications.indices {
             let application = applications[index]
-            guard let rank = rank(application, query: query, characters: queryCharacters) else {
+            guard let rank = rank(application, query: query, characters: queryCharacters, asciiQuery: asciiQuery) else {
                 continue
             }
             candidates.append(Candidate(index: index, rank: rank,
@@ -94,7 +98,8 @@ public enum SearchEngine {
     private static func rank(
         _ application: IndexedApplication,
         query: String,
-        characters queryCharacters: [Character]
+        characters queryCharacters: [Character],
+        asciiQuery: [UInt8]?
     ) -> Rank? {
         var best: Rank?
         if let alias = application.normalizedSearchAlias {
@@ -106,7 +111,7 @@ public enum SearchEngine {
             }
         }
         for name in application.searchNames {
-            guard let candidate = rank(name, query: query, characters: queryCharacters) else { continue }
+            guard let candidate = rank(name, query: query, characters: queryCharacters, asciiQuery: asciiQuery) else { continue }
             if let previous = best {
                 if candidate < previous { best = candidate }
             } else {
@@ -121,7 +126,8 @@ public enum SearchEngine {
     private static func rank(
         _ searchName: SearchName,
         query: String,
-        characters queryCharacters: [Character]
+        characters queryCharacters: [Character],
+        asciiQuery: [UInt8]?
     ) -> Rank? {
         let name = searchName.name
         let characters = searchName.characters
@@ -136,8 +142,15 @@ public enum SearchEngine {
                 return Rank(category: 2, penalty: 0, position: start, length: length)
             }
         }
-        if let range = name.range(of: query) {
-            let position = name.distance(from: name.startIndex, to: range.lowerBound)
+        let substringPosition: Int?
+        if let asciiQuery, let nameBytes = searchName.asciiBytes {
+            substringPosition = firstMatch(of: asciiQuery, in: nameBytes)
+        } else if let range = name.range(of: query) {
+            substringPosition = name.distance(from: name.startIndex, to: range.lowerBound)
+        } else {
+            substringPosition = nil
+        }
+        if let position = substringPosition {
             return Rank(category: 3, penalty: 0, position: position, length: length)
         }
 
@@ -165,6 +178,20 @@ public enum SearchEngine {
             }
         }
         return best
+    }
+
+    /// All bytes are ASCII, so byte offsets are also the character offsets used
+    /// by ranking. Unicode/canonical matching must keep using Foundation above.
+    private static func firstMatch(of query: [UInt8], in bytes: [UInt8]) -> Int? {
+        guard let first = query.first, query.count <= bytes.count else { return nil }
+        for start in 0...(bytes.count - query.count) where bytes[start] == first {
+            var matched = 1
+            while matched < query.count && bytes[start + matched] == query[matched] {
+                matched += 1
+            }
+            if matched == query.count { return start }
+        }
+        return nil
     }
 
     private static func subsequenceEnd(

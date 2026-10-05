@@ -9,7 +9,10 @@ final class HotKeyManager {
     private var handler: EventHandlerRef?
     private var registeredShortcut: LauncherShortcut?
     private var registeredID: UInt32?
-    private var nextID: UInt32 = 1
+    private var isPressed = false
+    // Every manager shares one Carbon target/signature. IDs must be unique across
+    // the launcher and window mode, including replacement registrations.
+    private static var nextID: UInt32 = 1
     private let onPress: () -> Void
     private static let signature: OSType = 0x43756531 // Cue1
 
@@ -19,40 +22,79 @@ final class HotKeyManager {
 
     /// Claim the replacement first so a conflict never disables the working shortcut.
     func register(shortcut: LauncherShortcut = .default) -> OSStatus {
-        guard shortcut.isValid else { return OSStatus(paramErr) }
+        let prepared = prepare(shortcut: shortcut)
+        guard prepared.status == noErr else { return prepared.status }
+        if let registration = prepared.registration { commit(registration) }
+        return noErr
+    }
+
+    /// Reserve both replacements before releasing either current shortcut. A
+    /// conflict (including swapping two occupied shortcuts) leaves both intact.
+    static func replacePair(
+        launcher: HotKeyManager, launcherShortcut: LauncherShortcut,
+        window: HotKeyManager, windowShortcut: LauncherShortcut?
+    ) -> OSStatus {
+        guard launcher !== window else { return OSStatus(paramErr) }
+        if let windowShortcut,
+           launcherShortcut.keyCode == windowShortcut.keyCode,
+           launcherShortcut.modifiers == windowShortcut.modifiers { return OSStatus(paramErr) }
+        let first = launcher.prepare(shortcut: launcherShortcut)
+        guard first.status == noErr else { return first.status }
+        let second = windowShortcut.map { window.prepare(shortcut: $0) }
+        if let second, second.status != noErr {
+            if let reservation = first.registration { UnregisterEventHotKey(reservation.reference) }
+            return second.status
+        }
+        if let reservation = first.registration { launcher.commit(reservation) }
+        if let reservation = second?.registration { window.commit(reservation) }
+        if windowShortcut == nil { window.unregister() }
+        return noErr
+    }
+
+    private struct Registration {
+        let reference: EventHotKeyRef
+        let shortcut: LauncherShortcut
+        let identifier: UInt32
+    }
+
+    private func prepare(shortcut: LauncherShortcut) -> (registration: Registration?, status: OSStatus) {
+        guard shortcut.isValid else { return (nil, OSStatus(paramErr)) }
         if let registeredShortcut,
            registeredShortcut.keyCode == shortcut.keyCode,
            registeredShortcut.modifiers == shortcut.modifiers {
-            return noErr
+            return (nil, noErr)
         }
         let handlerStatus = installHandlerIfNeeded()
-        guard handlerStatus == noErr else { return handlerStatus }
+        guard handlerStatus == noErr else { return (nil, handlerStatus) }
 
-        let identifier = nextID
-        nextID &+= 1
-        if nextID == 0 { nextID = 1 }
+        let identifier = Self.nextID
+        Self.nextID &+= 1
+        if Self.nextID == 0 { Self.nextID = 1 }
         var replacement: EventHotKeyRef?
         let status = RegisterEventHotKey(
             shortcut.keyCode, shortcut.carbonModifiers,
             EventHotKeyID(signature: Self.signature, id: identifier),
             GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &replacement
         )
-        guard status == noErr else { return status }
-        guard let replacement else { return OSStatus(eventInternalErr) }
+        guard status == noErr else { return (nil, status) }
+        guard let replacement else { return (nil, OSStatus(eventInternalErr)) }
+        return (Registration(reference: replacement, shortcut: shortcut, identifier: identifier), noErr)
+    }
 
+    private func commit(_ registration: Registration) {
         let previous = hotKey
-        hotKey = replacement
-        registeredShortcut = shortcut
-        registeredID = identifier
+        hotKey = registration.reference
+        registeredShortcut = registration.shortcut
+        registeredID = registration.identifier
+        isPressed = false
         if let previous { UnregisterEventHotKey(previous) }
-        return noErr
     }
 
     private func installHandlerIfNeeded() -> OSStatus {
         guard handler == nil else { return noErr }
-        var eventType = EventTypeSpec(
-            eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)
-        )
+        var eventTypes = [kEventHotKeyPressed, kEventHotKeyReleased].map {
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32($0))
+        }
         return InstallEventHandler(
             GetApplicationEventTarget(),
             { _, event, context in
@@ -69,13 +111,21 @@ final class HotKeyManager {
                           identifier.id == manager.registeredID else {
                         return OSStatus(eventNotHandledErr)
                     }
-                    manager.onPress()
+                    if GetEventKind(event) == UInt32(kEventHotKeyReleased) {
+                        manager.isPressed = false
+                    } else if !manager.isPressed {
+                        manager.isPressed = true
+                        manager.onPress()
+                    }
                     return noErr
                 }
             },
-            1, &eventType, Unmanaged.passUnretained(self).toOpaque(), &handler
+            eventTypes.count, &eventTypes, Unmanaged.passUnretained(self).toOpaque(), &handler
         )
     }
+
+    /// macOS may sleep before delivering the release event for a held shortcut.
+    func resetPressedState() { isPressed = false }
 
     func unregister() {
         if let hotKey { UnregisterEventHotKey(hotKey) }
@@ -84,6 +134,7 @@ final class HotKeyManager {
         handler = nil
         registeredShortcut = nil
         registeredID = nil
+        isPressed = false
     }
 }
 

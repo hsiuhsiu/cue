@@ -73,6 +73,31 @@ final class AppAliasPreferences {
         return nil
     }
 
+    /// Import supplies the complete merged snapshot, including path-based aliases
+    /// already local to this Mac. Validate everything before changing any value.
+    static func backupValidationError(_ values: [String: String], conversion: ChineseConversionAliases) -> String? {
+        guard values.count <= maximumAliases else { return AppAliasText.limit }
+        var used = Set<String>()
+        let reserved = Set([conversion.traditional, conversion.simplified].map(normalize).filter { !$0.isEmpty })
+        for (identifier, value) in values {
+            guard isValidIdentifier(identifier) else { return AppAliasText.invalidApp }
+            guard let normalized = validated(value), !normalized.isEmpty else { return AppAliasText.invalid }
+            guard used.insert(normalized).inserted else { return AppAliasText.duplicate }
+            guard !reserved.contains(normalized) else { return AppAliasText.conversionConflict }
+        }
+        return nil
+    }
+
+    @discardableResult
+    func replaceForBackup(_ values: [String: String], conversion: ChineseConversionAliases) -> String? {
+        if let error = Self.backupValidationError(values, conversion: conversion) { return error }
+        guard aliases != values else { return nil }
+        aliases = values
+        defaults.set(values, forKey: Self.storageKey)
+        onChange?(values)
+        return nil
+    }
+
     /// Used by the conversion editor too, so conflicts cannot be introduced by
     /// editing the other side of an existing app/command alias pair.
     func conflict(with conversionAliases: ChineseConversionAliases) -> String? {

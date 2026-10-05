@@ -41,3 +41,6 @@
 "general.heading" = "General & Interaction";
 "network_updates.heading" = "Network & Updates";
 "action.done" = "Done";
+"backup.heading" = "Backup & Transfer";
+"backup.export" = "Export Settings…";
+"backup.import" = "Import Settings…";

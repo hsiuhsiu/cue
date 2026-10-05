@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import CueCore
 import Sparkle
 
 private enum UpdateText {
@@ -183,6 +184,7 @@ final class UpdateController: ObservableObject {
 @MainActor
 final class SparkleUpdateEngine: NSObject, UpdateEngine, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
     private let callbacks: UpdateEngineCallbacks
+    private nonisolated let versionDisplayer: CueUpdateVersionDisplayer
     private var updater: SPUUpdater!
     private var driver: NetworkAwareUserDriver!
     private var subscription: AnyCancellable?
@@ -192,6 +194,7 @@ final class SparkleUpdateEngine: NSObject, UpdateEngine, SPUUpdaterDelegate, SPU
 
     init(bundle: Bundle, callbacks: UpdateEngineCallbacks) {
         self.callbacks = callbacks
+        versionDisplayer = CueUpdateVersionDisplayer(bundle: bundle)
         super.init()
         driver = NetworkAwareUserDriver(
             underlying: SPUStandardUserDriver(hostBundle: bundle, delegate: self),
@@ -263,9 +266,42 @@ final class SparkleUpdateEngine: NSObject, UpdateEngine, SPUUpdaterDelegate, SPU
 
     func updaterShouldPromptForPermissionToCheck(forUpdates updater: SPUUpdater) -> Bool { false }
 
+    nonisolated func standardUserDriverRequestsVersionDisplayer() -> (any SUVersionDisplay)? {
+        versionDisplayer
+    }
+
     nonisolated func standardUserDriverShouldShowVersionHistory(for item: SUAppcastItem) -> Bool {
         // Sparkle's generic "no update" modal alert can outlive dismissal. Omit
         // its direct browser action so that a stale alert cannot bypass policy.
         false
+    }
+}
+
+/// Display metadata does not participate in Sparkle's numeric build comparison.
+/// Keeping the channel here distinguishes, for example, 0.10.0-beta.1 from the
+/// final 0.10.0 without Sparkle appending internal build numbers in parentheses.
+final class CueUpdateVersionDisplayer: NSObject, SUVersionDisplay, @unchecked Sendable {
+    // Immutable after initialization; Sparkle's nonisolated delegate may read it.
+    private let installedVersion: String?
+
+    init(bundle: Bundle) {
+        installedVersion = AppVersion(bundle: bundle).displayVersion
+        super.init()
+    }
+
+    func formatUpdateVersion(fromUpdate update: SUAppcastItem,
+                             andBundleDisplayVersion bundleDisplayVersion: AutoreleasingUnsafeMutablePointer<NSString>,
+                             withBundleVersion bundleVersion: String) -> String {
+        if let installedVersion {
+            bundleDisplayVersion.pointee = installedVersion as NSString
+        }
+        // Feed versions are the publisher's public labels. Never add a build
+        // suffix or copy the installed build's beta/dev channel to an update.
+        return update.displayVersionString
+    }
+
+    func formatBundleDisplayVersion(_ bundleDisplayVersion: String, withBundleVersion bundleVersion: String,
+                                    matchingUpdate: SUAppcastItem?) -> String {
+        installedVersion ?? bundleDisplayVersion
     }
 }

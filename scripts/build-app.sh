@@ -23,6 +23,10 @@ esac
 
 [[ "$(uname -s)" == Darwin ]] || fail "Cue requires macOS and full Xcode."
 "$repo_root/scripts/check-build-network-policy.sh"
+"$repo_root/scripts/check-version.sh"
+display_version="$("$repo_root/scripts/check-version.sh" --display)"
+cmp "$repo_root/LICENSE" "$repo_root/Sources/Cue/Resources/Cue-LICENSE.txt" \
+    || fail "The bundled Cue license must match LICENSE."
 
 icon_resources=(
     AppIcon.icns MenuBarIconTemplate.png MenuBarIconTemplate@2x.png
@@ -61,7 +65,7 @@ while IFS= read -r process_path; do
         || fail "Quit Cue from its menu before rebuilding $app_directory. This lets pending clipboard saves finish."
 done <<< "$process_paths"
 
-printf 'Building %s for this Mac; output: %s\n' "$xcode_configuration" "$app_directory"
+printf 'Building Cue %s with %s optimization; output: %s\n' "$display_version" "$xcode_configuration" "$app_directory"
 
 build_directory="$repo_root/.build/local-xcode"
 xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration "$xcode_configuration" \
@@ -73,6 +77,12 @@ trap 'rm -rf "$temporary_directory"' EXIT
 staged_app="$temporary_directory/Cue.app"
 ditto "$build_directory/Build/Products/$xcode_configuration/Cue.app" "$staged_app"
 "$repo_root/scripts/check-build-network-policy.sh" source "$staged_app"
+"$repo_root/scripts/check-version.sh" "$staged_app"
+[[ "$("$repo_root/scripts/check-version.sh" --display "$staged_app")" == "$display_version" ]] \
+    || fail "The built app version does not match the source version."
+[[ "$(plutil -extract CFBundleVersion raw -o - "$staged_app/Contents/Info.plist")" \
+    == "$(plutil -extract CFBundleVersion raw -o - "$repo_root/Resources/Info.plist")" ]] \
+    || fail "The built app's internal build does not match the source."
 [[ "$(plutil -extract CFBundleIconFile raw -o - "$staged_app/Contents/Info.plist")" == AppIcon ]] \
     || { printf 'The built app is missing its AppIcon reference.\n' >&2; exit 1; }
 for resource in "${icon_resources[@]}"; do
@@ -81,7 +91,7 @@ for resource in "${icon_resources[@]}"; do
 done
 
 xcrun swift "$repo_root/scripts/check-localizations.swift" "$staged_app"
-for resource in ChineseConversion.cuecc OpenCC-LICENSE.txt OpenCC-NOTICE.txt EmojiCatalog.json Unicode-LICENSE.txt Emoji-NOTICE.txt; do
+for resource in Cue-LICENSE.txt ChineseConversion.cuecc OpenCC-LICENSE.txt OpenCC-NOTICE.txt EmojiCatalog.json Unicode-LICENSE.txt Emoji-NOTICE.txt; do
     cmp "$repo_root/Sources/Cue/Resources/$resource" "$staged_app/Contents/Resources/$resource" \
         || fail "Missing or changed bundled resource: $resource."
 done

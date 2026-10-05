@@ -9,6 +9,11 @@
 "index.updating" = "正在更新應用程式索引…";
 "index.updated" = "索引已更新 · %ld 個應用程式";
 "results.empty" = "找不到符合的結果";
+"files.prompt" = "輸入檔名的一部分";
+"files.loading" = "正在搜尋檔名…";
+"files.empty" = "索引中沒有符合的檔名";
+"files.unavailable" = "暫時無法搜尋檔案，請重試或檢查 Spotlight 設定。";
+"files.tooLong" = "請縮短檔名搜尋文字";
 "search.google" = "以 Google 搜尋";
 "search.browser" = "預設瀏覽器";
 "search.google.shortcut" = "使用 Google 搜尋這段文字（⌘Return）";
@@ -81,3 +86,6 @@
 "gpt.networkOff" = "網路已關閉";
 
 "gpt.help" = "將這段文字傳送至 OpenAI · GPT 設定（⌘,）";
+
+"command.windowControls" = "視窗調整";
+"command.windowSettings" = "視窗設定";

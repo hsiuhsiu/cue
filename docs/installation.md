@@ -1,26 +1,30 @@
 # 安裝 Cue
 
-Cue 是選單列中的 macOS 啟動器，提供 App 搜尋、GPT 問答與翻譯、即時計算、單位與幣值換算、剪貼簿記錄、離線簡繁轉換與系統指令。按下 **Option+Space** 即可開始輸入；安裝不需要 Xcode 或終端機。
+Cue 是選單列中的 macOS 啟動器，提供 App 與檔名搜尋、視窗調整、GPT 問答與翻譯、即時計算、單位與幣值換算、剪貼簿記錄、離線簡繁轉換與系統指令。按下 **Option+Space** 即可開始輸入；安裝不需要 Xcode 或終端機。
+
+[Cue 官網](https://yihsiu.org/cue/)介紹產品理念與功能；以下是安裝、更新及首次授權步驟。
 
 ## 下載
 
-- [下載 Cue 0.9.1 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v0.9.1/Cue-0.9.1-universal.dmg)
-- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v0.9.1)
+- [下載 Cue 1.0.0 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v1.0.0/Cue-1.0.0-universal.dmg)
+- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v1.0.0)
 
 儲存庫與下載現在都已公開，不需要 GitHub 帳號。版本說明同時提供 English／正體中文。
 
-安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。此版本僅在 **Apple silicon、macOS 27.0** 實際執行測試；Intel 與其他 macOS 版本尚未驗證。
+安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。自動化執行檢查使用 **Apple silicon、macOS 27.0、Xcode 27**；Intel 與其他 macOS 版本尚未實機驗證。本輪未完成最終安裝版的桌面操作、真實 Spotlight 正向案例及完整公開更新安裝；詳見[版本驗證限制](https://github.com/hsiuhsiu/cue/releases/tag/v1.0.0)。
 
 ## 安裝與更新
 
 1. 若 Cue 正在執行，先從選單列的 Cue 圖示選擇**結束 Cue／Quit Cue**。
-2. 開啟下載的 **Cue-0.9.1-universal.dmg**。
+2. 開啟下載的 **Cue-<版本>-universal.dmg**。
 3. 將 **Cue.app** 拖曳至 **Applications／應用程式**。若已有舊版本，選擇取代。
 4. 從「應用程式」開啟 Cue，再退出掛載的 Cue 磁碟映像。
 
 Cue 會出現在選單列，不會顯示 Dock 圖示。按下 **Option+Space**，或從選單列選擇**顯示 Cue／Show Cue**即可開啟搜尋面板。
 
-已有 Cue 且允許使用網路、選單提供「檢查更新」時，也可直接從 App 內更新至 0.9.1。若沒有此選項，依上方步驟安裝即可，原有設定會保留。
+已有 Cue 且允許使用網路、選單提供「檢查更新」時，也可直接從 App 內更新。若沒有此選項，依上方步驟安裝即可，原有設定會保留。
+
+視窗調整**預設啟用**，按 **Option+M** 進入；曾儲存的關閉選擇會保留。需要輔助使用權限時，Cue 會顯示引導。從選單列**視窗設定…**可查看目前 App 的授權狀態、開啟系統設定或更改快捷鍵；更新後即使系統開關仍開啟，也可能需要重新授權目前版本。詳見[視窗操作與授權排解](window-controls.md#新安裝與更新後的授權)。
 
 ## 從原始碼安裝
 
@@ -84,7 +88,7 @@ Cue 會搜尋 App 的顯示名稱、Bundle 名稱及檔名，因此 **Code** 也
 
 ### 依使用習慣排序
 
-Cue 會記住成功開啟的 App 或指令。同一文字符合程度內，優先考慮相同關鍵字的選擇，再參考使用頻率與近期使用；完全符合的 App 仍排在較弱的 App 符合結果前面。相同關鍵字的成功選擇也能讓 App 超過碰巧符合的內建指令，例如 `it` 的 iTerm2；明確設定的完整指令別名仍優先。資料只存本機，打字、取消或失敗操作不會記錄，背景學習完成也不會讓眼前的列表突然跳動。詳見[搜尋習慣與效能說明](performance-adaptive-search.md)。
+Cue 會記住成功開啟的 App 或指令。同一文字符合程度內，優先考慮相同關鍵字的選擇，再參考使用頻率與近期使用；完全符合的 App 仍排在較弱的 App 符合結果前面。相同關鍵字的成功選擇也能讓 App 超過碰巧符合的內建指令，例如 `it` 的 iTerm2；明確設定的完整指令別名仍優先。資料只存本機，打字、取消或失敗操作不會記錄，背景學習完成也不會讓眼前的列表突然跳動。詳見[搜尋習慣與效能說明](performance.md)。
 
 ### 即時計算
 

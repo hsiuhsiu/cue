@@ -8,6 +8,9 @@ private enum SettingsText {
     static let invalidShortcut = L10n.string("shortcut.invalid", table: "Settings", value: "Use ⌘, ⌥ or ⌃ with a key. Choose a shortcut that is not reserved for Cue actions or standard editing.")
     static let shortcutError = L10n.string("shortcut.error", table: "Settings", value: "Shortcut error: %@")
     static let general = L10n.string("general.heading", table: "Settings", value: "General & Interaction")
+    static let backup = L10n.string("backup.heading", table: "Settings", value: "Backup & Transfer")
+    static let exportSettings = L10n.string("backup.export", table: "Settings", value: "Export Settings…")
+    static let importSettings = L10n.string("backup.import", table: "Settings", value: "Import Settings…")
     static let networkAndUpdates = L10n.string("network_updates.heading", table: "Settings", value: "Network & Updates")
     static let done = L10n.string("action.done", table: "Settings", value: "Done")
     static let keyboardShortcut = L10n.string("shortcut.heading", table: "Settings", value: "Keyboard Shortcut")
@@ -51,6 +54,8 @@ private enum SettingsText {
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var onClose: (() -> Void)?
+    var onExportSettings: (() -> Void)?
+    var onImportSettings: (() -> Void)?
     private let loginItem: LoginItemController
 
     init(settings: CueSettings, updates: UpdateController, loginItem: LoginItemController, networkPolicy: NetworkPolicy,
@@ -68,7 +73,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.contentView = NSHostingView(rootView: CueSettingsView(
             settings: settings, updates: updates, loginItem: loginItem, networkPolicy: networkPolicy,
-            applyShortcut: applyShortcut, close: { [weak self] in self?.window?.performClose(nil) }
+            applyShortcut: applyShortcut, close: { [weak self] in self?.window?.performClose(nil) },
+            exportSettings: { [weak self] in self?.onExportSettings?() },
+            importSettings: { [weak self] in self?.onImportSettings?() }
         ))
         window.delegate = self
         window.center()
@@ -120,6 +127,8 @@ struct CueSettingsView: View {
     @ObservedObject var networkPolicy: NetworkPolicy
     let applyShortcut: (LauncherShortcut) -> String?
     let close: () -> Void
+    var exportSettings: () -> Void = {}
+    var importSettings: () -> Void = {}
     @State private var shortcutError: String?
 
     var body: some View {
@@ -159,6 +168,14 @@ struct CueSettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08)))
+            HStack {
+                Text(SettingsText.backup).font(.headline)
+                Spacer()
+                Button(SettingsText.exportSettings, action: exportSettings)
+                    .accessibilityIdentifier("settings.export")
+                Button(SettingsText.importSettings, action: importSettings)
+                    .accessibilityIdentifier("settings.import")
+            }
         }.frame(maxWidth: .infinity)
     }
 
@@ -254,20 +271,16 @@ struct CueSettingsView: View {
     }
 
     private var appVersion: String {
-        guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
-            return SettingsText.developmentBuild
-        }
-        if let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
-            return "\(version) (\(build))"
-        }
-        return version
+        AppVersion().displayVersion ?? SettingsText.developmentBuild
     }
 }
 
-private struct ShortcutRecorder: NSViewRepresentable {
+struct ShortcutRecorder: NSViewRepresentable {
     let shortcut: LauncherShortcut
     let onCapture: (LauncherShortcut) -> String?
     let onBegin: () -> Void
+    var accessibilityLabel: String? = nil
+    var accessibilityHelp: String? = nil
 
     func makeNSView(context: Context) -> ShortcutRecorderButton {
         let button = ShortcutRecorderButton()
@@ -276,8 +289,8 @@ private struct ShortcutRecorder: NSViewRepresentable {
         button.font = .monospacedSystemFont(ofSize: 13, weight: .medium)
         button.target = button
         button.action = #selector(ShortcutRecorderButton.beginRecording)
-        button.setAccessibilityLabel(SettingsText.recorderLabel)
-        button.setAccessibilityHelp(SettingsText.recorderHelp)
+        button.setAccessibilityLabel(accessibilityLabel ?? SettingsText.recorderLabel)
+        button.setAccessibilityHelp(accessibilityHelp ?? SettingsText.recorderHelp)
         return button
     }
 
@@ -290,7 +303,7 @@ private struct ShortcutRecorder: NSViewRepresentable {
 }
 
 @MainActor
-private final class ShortcutRecorderButton: NSButton {
+final class ShortcutRecorderButton: NSButton {
     var shortcut = LauncherShortcut.default
     var onCapture: ((LauncherShortcut) -> String?)?
     var onBegin: (() -> Void)?
@@ -352,7 +365,7 @@ private final class ShortcutRecorderButton: NSButton {
         }
     }
 
-    fileprivate func finishRecording() {
+    func finishRecording() {
         isRecording = false
         title = shortcut.localizedDisplayName
     }

@@ -94,6 +94,13 @@ struct ClipboardSearchBenchmark {
                 firstQueries.append(["category": category, "ms": elapsed, "matches": results.count])
             }
         }
+        var pruneTimings: [Double] = []
+        for index in 0..<100 {
+            let start = DispatchTime.now().uptimeNanoseconds
+            let retained = try await store.prune(retention: index.isMultiple(of: 2) ? .week : .forever, now: now)
+            pruneTimings.append(milliseconds(since: start))
+            precondition(retained.count == count)
+        }
         let output: [String: Any] = [
             "build": "swiftc -O, Swift 6, \(architecture)",
             "entries": loaded.count, "text_utf8_bytes": maximumBytes,
@@ -102,6 +109,7 @@ struct ClipboardSearchBenchmark {
             "query_count": timings.count, "search": summary(timings),
             "by_category": byCategory.mapValues(summary), "matches_summed_by_category": counts,
             "first_ten_queries": firstQueries,
+            "idle_prune": summary(pruneTimings),
             "timing_scope": "MainActor await -> actor search -> return; no UI rendering; no warm-up queries",
         ]
         let outputData = try JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys])

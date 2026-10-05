@@ -161,6 +161,17 @@ public actor ClipboardStore {
 
     public func prune(retention: ClipboardRetention = .default, now: Date = Date()) throws -> [ClipboardEntry] {
         if !isLoaded { return try load(retention: retention, now: now) }
+        guard now.timeIntervalSinceReferenceDate.isFinite else { throw ClipboardStoreError.corruptStore }
+        // Every committed snapshot is already sorted, deduplicated, and bounded.
+        // Most minute-by-minute maintenance has nothing to remove; inspect just
+        // the timestamp endpoints instead of sorting and hashing up to 4 MiB.
+        // A backward clock change still takes the full timestamp repair path.
+        if let newest = entries.first, let oldest = entries.last {
+            let hasExpired = retention.expiration.map { now.timeIntervalSince(oldest.copiedAt) >= $0 } ?? false
+            if newest.copiedAt <= now, !hasExpired { return entries }
+        } else {
+            return entries
+        }
         try commit(bounded(entries, retention: retention, now: now))
         return entries
     }

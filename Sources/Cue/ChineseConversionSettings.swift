@@ -68,6 +68,15 @@ final class ChineseConversionPreferences: ObservableObject {
         onChange?(value)
     }
 
+    /// The coordinator has validated this pair against the final merged app
+    /// aliases, allowing a joint edit without transient cross-feature conflicts.
+    func replaceForBackup(_ value: ChineseConversionAliases) {
+        guard aliases != value else { return }
+        defaults.set(["traditional": value.traditional, "simplified": value.simplified], forKey: Self.key)
+        aliases = value
+        onChange?(value)
+    }
+
     struct AliasConflict: LocalizedError {
         let message: String
         var errorDescription: String? { message }

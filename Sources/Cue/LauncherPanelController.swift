@@ -41,6 +41,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private let gpt: GPTModel?
     private let performSystemAction: @MainActor (SystemAction) async throws -> Void
     private let openApplication: @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void
+    private let openFile: @MainActor (URL, @escaping @MainActor (Error?) -> Void) -> Void
     private let openWebURL: @MainActor (URL, URL?, @escaping @MainActor (Error?) -> Void) -> Void
     private let webSearchPreferences: WebSearchPreferences
     private let resolveBrowser: @Sendable (String) -> URL?
@@ -58,6 +59,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private let frontmostProcess: @MainActor () -> Int32?
     private let restoreSource: @MainActor (Int32) -> Bool
     private var sourceProcessID: Int32?
+    var windowControlSource: Int32? { panel.isVisible || isSuspendedForSettings ? sourceProcessID : nil }
     private var conversionTask: Task<Void, Never>?
     private var conversionRequest = 0
     private var showingClipboard = false
@@ -96,6 +98,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private var preferences = LauncherPreferences()
     private var invocation = 0
     var onSettings: (() -> Void)?
+    var onWindowControls: ((Int32?) -> Void)?
+    var onWindowSettings: (() -> Void)?
     var onConversionSettings: (() -> Void)?
     var onWebSearchSettings: (() -> Void)?
     var onGPTSettings: (() -> Void)?
@@ -107,6 +111,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
          gpt: GPTModel? = nil,
          performSystemAction: @escaping @MainActor (SystemAction) async throws -> Void = SystemActions.perform,
          openApplication: @escaping @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemApplication,
+         openFile: @escaping @MainActor (URL, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemFile,
          webSearchPreferences: WebSearchPreferences? = nil,
          openWebURL: @escaping @MainActor (URL, URL?, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemWebURL,
          resolveBrowser: @escaping @Sendable (String) -> URL? = {
@@ -128,6 +133,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         self.model = model
         self.performSystemAction = performSystemAction
         self.openApplication = openApplication
+        self.openFile = openFile
         self.openWebURL = openWebURL
         self.webSearchPreferences = webSearchPreferences ?? WebSearchPreferences()
         self.resolveBrowser = resolveBrowser
@@ -206,7 +212,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         if panel.isVisible { dismiss() } else { show() }
     }
 
-    func show(resetQuery: Bool = true) {
+    func show(resetQuery: Bool = true, sourceProcessIdentifier: Int32? = nil) {
         if isSuspendedForSettings {
             resumeAfterSettings()
             return
@@ -217,6 +223,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             return
         }
         prepareInvocation(resetQuery: resetQuery)
+        if let sourceProcessIdentifier { sourceProcessID = sourceProcessIdentifier }
         launcherView.scrollToSelection()
         let screen: NSScreen?
         switch preferences.display {
@@ -351,6 +358,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         cancelConversion()
         clipboard.cancelPendingCopy()
         emoji.cancelPendingCopy()
+        model.suspendFileSearch()
+        model.icons.prepare([])
         if showingGPT { gpt?.suspendForSettings() }
         panel.orderOut(nil)
         return true
@@ -362,6 +371,11 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     func restoreSettingsContext() -> Bool {
         guard isSuspendedForSettings else { return false }
         isSuspendedForSettings = false
+        model.resumeFileSearch()
+        model.icons.prepare(model.results.compactMap {
+            if case .application(let application) = $0 { return application }
+            return nil
+        })
         if showingGPT { gpt?.resumeAfterSettings() }
         return true
     }
@@ -509,8 +523,14 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             runSystemAction(.lockScreen)
         case .screenOff:
             runSystemAction(.screenOff)
+        case .windowControls:
+            onWindowControls?(sourceProcessID)
+        case .windowSettings:
+            onWindowSettings?()
         case .application(let application):
             launch(application)
+        case .file(let file):
+            launchFile(file)
         }
     }
 
@@ -619,7 +639,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         cancelCalculationCopy()
         cancelLinkCleaning()
         let query = model.query
-        guard !model.isQueryEmpty, webSearchTask == nil else { return }
+        guard !model.isQueryEmpty, !model.isFileSearch, webSearchTask == nil else { return }
         // Explicit browser handoffs have their own feature switch. Cue makes no
         // HTTP request, suggestion lookup, DNS lookup, or query-history write.
         guard webSearchPreferences.isEnabled else {
@@ -679,6 +699,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             onGPTSettings?()
         case .convertToTraditional, .convertToSimplified, .chineseConversionSettings:
             onConversionSettings?()
+        case .windowControls, .windowSettings:
+            onWindowSettings?()
         default:
             onSettings?()
         }
@@ -840,6 +862,30 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         NSWorkspace.shared.openApplication(at: application.url, configuration: configuration) { _, error in
+            Task { @MainActor in completion(error) }
+        }
+    }
+
+    private func launchFile(_ file: FileSearchResult) {
+        let query = model.query
+        // Finder/default app owns opening. Never read contents, resolve aliases,
+        // or fetch cloud placeholders on the search or selection path.
+        dismiss(returnFocus: false)
+        let launchInvocation = invocation
+        openFile(file.url) { [weak self] error in
+            guard let self, let error, self.invocation == launchInvocation else { return }
+            self.model.setQuery(query)
+            self.show(resetQuery: false)
+            self.model.launchError = L10n.format(
+                LauncherText.shared.launchError, file.name, error.localizedDescription
+            )
+        }
+    }
+
+    private static func openSystemFile(_ url: URL, completion: @escaping @MainActor (Error?) -> Void) {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.open(url, configuration: configuration) { _, error in
             Task { @MainActor in completion(error) }
         }
     }

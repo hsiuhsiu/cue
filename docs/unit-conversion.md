@@ -2,7 +2,7 @@
 
 ## English
 
-Available in Cue 0.8.0. Enter a number and unit directly in Cue's main launcher. No separate page
+Enter a number and unit directly in Cue's main launcher. No separate page
 or setting is needed.
 
 ### Convert and copy
@@ -94,7 +94,7 @@ macOS Universal Clipboard and other clipboard managers have their own settings.
 
 ## 正體中文
 
-Cue 0.8.0 起提供。直接在 Cue 主搜尋輸入
+直接在 Cue 主搜尋輸入
 數值與單位，不需要進入另一個頁面，也沒有額外設定。
 
 ### 換算與拷貝

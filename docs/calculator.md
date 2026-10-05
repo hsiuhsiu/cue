@@ -2,7 +2,7 @@
 
 ## English
 
-Available in Cue 0.7.0 and later. Type an expression directly in Cue's main
+Type an expression directly in Cue's main
 launcher to see its answer.
 There is no separate calculator page or setting.
 
@@ -94,7 +94,7 @@ Clipboard and other clipboard managers follow their own settings.
 
 ## 正體中文
 
-Cue 0.7.0 起提供。直接在 Cue 主搜尋輸入算式，
+直接在 Cue 主搜尋輸入算式，
 即可看到答案，不需要進入另一個計算機頁面，也沒有額外設定。
 
 ### 計算與拷貝

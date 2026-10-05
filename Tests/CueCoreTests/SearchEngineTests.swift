@@ -54,6 +54,41 @@ final class SearchEngineTests: XCTestCase {
         XCTAssertEqual(names([app("Café")], query: "cafe"), ["Café"])
     }
 
+    func testASCIISubstringsKeepLiteralPositionsAndOrdering() {
+        // The leading digit prevents fuzzy word-initial matching, so every hit
+        // must have exactly the same literal substring as Foundation finds.
+        let spellings = ["0ababa", "0aab", "0babb", "0bbbb", "0abcabc", "0cab", "0aaab", "0ab"]
+        let applications = spellings.map { app($0) }
+        for query in ["a", "ab", "bab", "abc", "bb", "aaaa", "cabc", "ababa", "ababaX"] {
+            let expected = spellings.compactMap { name -> (String, Int)? in
+                guard let range = name.range(of: query.lowercased()) else { return nil }
+                return (name, name.distance(from: name.startIndex, to: range.lowerBound))
+            }.sorted { left, right in
+                if left.1 != right.1 { return left.1 < right.1 }
+                if left.0.count != right.0.count { return left.0.count < right.0.count }
+                return left.0 < right.0
+            }.map(\.0)
+            XCTAssertEqual(names(applications, query: query), expected, query)
+            XCTAssertEqual(names(applications.reversed(), query: query), expected, query)
+        }
+    }
+
+    func testASCIIAccelerationPreservesUnicodeAndWidthFolding() {
+        let applications = [app("工具 Café Editor"), app("０Ｃａｆｅ"), app("0café"), app("版本工具")]
+        XCTAssertEqual(names(applications, query: "cafe"), ["工具 Café Editor", "0café", "０Ｃａｆｅ"])
+        XCTAssertEqual(names(applications, query: "工具"), ["工具 Café Editor", "版本工具"])
+        XCTAssertEqual(names(applications, query: "版本"), ["版本工具"])
+        XCTAssertEqual(names([app("0한글工具")], query: "\u{1112}\u{1161}\u{11AB}글"), ["0한글工具"])
+    }
+
+    func testLongASCIISubstringsKeepGeneralMatchingSemantics() {
+        let applications = [app("0" + String(repeating: "a", count: 700) + "bc")]
+        XCTAssertEqual(names(applications, query: String(repeating: "a", count: 65) + "bc"),
+                       applications.map(\.name))
+        XCTAssertEqual(names(applications, query: "abc"), applications.map(\.name))
+        XCTAssertEqual(names(applications, query: String(repeating: "a", count: 65) + "bd"), [])
+    }
+
     func testReasonableSubsequenceAndInitials() {
         let applications = [app("Terminal"), app("Safari"), app("Visual Studio Code"), app("Calendar")]
         XCTAssertEqual(names(applications, query: "trm"), ["Terminal"])

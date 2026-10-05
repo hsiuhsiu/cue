@@ -11,11 +11,12 @@ struct CheckUpdates {
         checkController(checks)
         checkUserDriver(checks)
         checkSparkleBoundaries(checks)
+        checkVersionDisplay(checks)
         if !checks.failures.isEmpty {
             checks.failures.forEach { print("FAIL: \($0)") }
             exit(1)
         }
-        print("Update network-policy regression passed: \(checks.count) checks; no network, updater startup, UI, or installation occurred.")
+        print("Update network-policy/version regression passed: \(checks.count) checks; no network, updater startup, UI, or installation occurred.")
     }
 
     @MainActor private static func checkController(_ checks: Checks) {
@@ -214,12 +215,91 @@ struct CheckUpdates {
                       "A late offline appcast must neither show UI nor publish a reminder")
     }
 
-    @MainActor private static func appcastItem() -> SUAppcastItem {
+    @MainActor private static func appcastItem(version: String = "0.5.0", build: String = "5") -> SUAppcastItem {
         // Public legacy initializer is sufficient for this local data-only fixture.
         SUAppcastItem(dictionary: [
-            "title": "Fixture", "sparkle:version": "5", "sparkle:shortVersionString": "0.5.0",
+            "title": "Fixture", "sparkle:version": build, "sparkle:shortVersionString": version,
             "enclosure": ["url": "https://invalid.example/Cue.zip", "length": "1", "type": "application/octet-stream"],
         ])!
+    }
+
+    @MainActor private static func checkVersionDisplay(_ checks: Checks) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("cue-update-version-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        do {
+            func bundle(_ name: String, _ info: [String: Any]) throws -> Bundle {
+                let app = root.appendingPathComponent("\(name).app")
+                let contents = app.appendingPathComponent("Contents")
+                try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+                var metadata = info
+                metadata["CFBundleIdentifier"] = "com.yyhsiu.cue.tests.versions.\(name)"
+                metadata["CFBundleName"] = "Cue Fixture"
+                metadata["CFBundlePackageType"] = "APPL"
+                let data = try PropertyListSerialization.data(fromPropertyList: metadata, format: .xml, options: 0)
+                try data.write(to: contents.appendingPathComponent("Info.plist"))
+                guard let bundle = Bundle(url: app) else {
+                    throw NSError(domain: "CueVersionFixture", code: 1)
+                }
+                return bundle
+            }
+
+            let beta = CueUpdateVersionDisplayer(bundle: try bundle("beta", [
+                "CFBundleShortVersionString": "0.10.0", "CFBundleVersion": "12",
+                "CueBuildChannel": "beta", "CuePrereleaseNumber": 1,
+            ]))
+            let release = appcastItem(version: "0.10.0", build: "13")
+            var installed: NSString = "0.10.0"
+            let available = beta.formatUpdateVersion(fromUpdate: release, andBundleDisplayVersion: &installed,
+                                                    withBundleVersion: "12")
+            checks.expect(installed == "0.10.0-beta.1" && available == "0.10.0",
+                          "An installed beta and its same-base final release must have distinct public version labels")
+            checks.expect(!installed.contains("(") && !available.contains("("),
+                          "Update UI must not append numeric build numbers in parentheses")
+            checks.expect(beta.formatBundleDisplayVersion("0.10.0", withBundleVersion: "12", matchingUpdate: nil)
+                            == "0.10.0-beta.1",
+                          "The no-update alert must use the same installed beta label")
+            checks.expect(beta.formatBundleDisplayVersion("0.10.0", withBundleVersion: "12", matchingUpdate: release)
+                            == "0.10.0-beta.1",
+                          "A matching feed item must not replace the installed build's public channel label")
+            checks.expect(release.versionString == "13" && release.displayVersionString == "0.10.0",
+                          "Formatting must preserve the feed's original build and public version")
+            let comparator = SUStandardVersionComparator()
+            checks.expect(comparator.compareVersion("12", toVersion: release.versionString) == .orderedAscending,
+                          "Sparkle must still order numeric beta build 12 before final build 13")
+
+            let legacy = CueUpdateVersionDisplayer(bundle: try bundle("legacy", [
+                "CFBundleShortVersionString": "0.9.1", "CFBundleVersion": "11",
+            ]))
+            var legacyInstalled: NSString = "0.9.1"
+            let legacyAvailable = legacy.formatUpdateVersion(
+                fromUpdate: appcastItem(version: "0.9.1", build: "12"),
+                andBundleDisplayVersion: &legacyInstalled, withBundleVersion: "11"
+            )
+            checks.expect(legacyInstalled == "0.9.1" && legacyAvailable == "0.9.1",
+                          "Legacy metadata must remain a plain stable label even when feed and bundle bases match")
+            checks.expect(legacy.formatBundleDisplayVersion("0.9.1", withBundleVersion: "11", matchingUpdate: nil)
+                            == "0.9.1",
+                          "A legacy installed build must not gain a build-number suffix in no-update UI")
+
+            let missing = CueUpdateVersionDisplayer(bundle: try bundle("missing", [:]))
+            var suppliedLabel: NSString = "Supplied by Sparkle"
+            let suppliedUpdate = missing.formatUpdateVersion(fromUpdate: release, andBundleDisplayVersion: &suppliedLabel,
+                                                             withBundleVersion: "12")
+            checks.expect(suppliedLabel == "Supplied by Sparkle" && suppliedUpdate == "0.10.0",
+                          "Missing bundle metadata must preserve Sparkle's supplied display label")
+            checks.expect(missing.formatBundleDisplayVersion("Supplied by Sparkle", withBundleVersion: "12", matchingUpdate: nil)
+                            == "Supplied by Sparkle",
+                          "The no-update path must also retain its safe metadata fallback")
+            for selector in [
+                "formatUpdateDisplayVersionFromUpdate:andBundleDisplayVersion:withBundleVersion:",
+                "formatBundleDisplayVersion:withBundleVersion:matchingUpdate:",
+            ] {
+                checks.expect(beta.responds(to: NSSelectorFromString(selector)),
+                              "The version formatter must expose Sparkle's public selector \(selector)")
+            }
+        } catch {
+            checks.expect(false, "Unable to construct isolated version fixtures: \(error)")
+        }
     }
 
     @MainActor private static func checkSparkleBoundaries(_ checks: Checks) {
@@ -278,11 +358,14 @@ struct CheckUpdates {
                       "Sparkle must never show its own automatic-network consent prompt")
         checks.expect(!engine.standardUserDriverShouldShowVersionHistory(for: item),
                       "A stale standard modal alert must not retain an ungated external browser action")
+        checks.expect(engine.standardUserDriverRequestsVersionDisplayer() is CueUpdateVersionDisplayer,
+                      "The real Sparkle driver delegate must install Cue's public-version formatter")
         for selector in [
             "updater:mayPerformUpdateCheck:error:", "updater:shouldProceedWithUpdate:updateCheck:error:",
             "updater:shouldDownloadReleaseNotesForUpdate:", "updater:willDownloadUpdate:withRequest:",
             "updater:didFinishUpdateCycleForUpdateCheck:error:", "updaterShouldPromptForPermissionToCheckForUpdates:",
             "standardUserDriverShouldShowVersionHistoryForAppcastItem:",
+            "standardUserDriverRequestsVersionDisplayer",
         ] {
             checks.expect(engine.responds(to: NSSelectorFromString(selector)),
                           "The runtime must expose the real optional Sparkle delegate selector \(selector)")

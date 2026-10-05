@@ -2,8 +2,6 @@
 
 ## English
 
-Available in Cue 0.6.0.
-
 ### Use it
 
 1. Copy one HTTP or HTTPS link.
@@ -17,7 +15,7 @@ Available in Cue 0.6.0.
 
 Cue reports progress, the number of removed parameters, that no parameters can
 be safely removed, or a protected signed link. Invalid clipboard content produces an explanation
-without replacing it. There are no settings for this first version.
+without replacing it. This command has no feature settings.
 
 ### What changes
 
@@ -71,8 +69,6 @@ and other clipboard managers follow their own settings; see the
 
 ## 正體中文
 
-自 Cue 0.6.0 起提供。
-
 ### 使用方式
 
 1. 複製一個 HTTP 或 HTTPS 連結。
@@ -83,7 +79,7 @@ and other clipboard managers follow their own settings; see the
 4. 在 Cue 查看結果，按 **Esc** 收起主視窗，再到需要的位置按 **Command+V** 貼上。
 
 Cue 會顯示處理進度、移除參數數量、沒有可安全移除的參數，或簽署網址受保護的結果。
-若剪貼簿內容無效，會顯示原因而不取代內容。第一版沒有額外的功能設定。
+若剪貼簿內容無效，會顯示原因而不取代內容。此功能沒有額外的功能設定。
 
 ### 會修改哪些內容
 

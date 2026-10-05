@@ -63,6 +63,10 @@ public struct IndexedApplication: Identifiable, Hashable, Sendable {
 struct SearchName: Hashable, Sendable {
     let name: String
     let characters: [Character]
+    /// Latin application names dominate most indexes. Keep their byte spelling
+    /// beside the Unicode tokens so substring matching can avoid NSString/ICU.
+    /// Non-ASCII names retain the Unicode search path and its matching rules.
+    let asciiBytes: [UInt8]?
     let wordStarts: [Int]
     let wordSuffixes: [String]
     let initials: [Character]
@@ -71,6 +75,8 @@ struct SearchName: Hashable, Sendable {
         self.name = name
         let characters = Array(name)
         self.characters = characters
+        let bytes = Array(name.utf8)
+        self.asciiBytes = bytes.count <= 512 && bytes.allSatisfy { $0 < 128 } ? bytes : nil
         let wordStarts = characters.indices.filter { index in
             let isWordCharacter = characters[index].isLetter || characters[index].isNumber
             let followsSeparator = index == 0

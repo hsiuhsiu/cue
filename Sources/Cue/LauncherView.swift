@@ -30,6 +30,19 @@ private final class ResultCell: NSTableCellView {
     let aliasButton = NSButton()
     var hasAppActions = false
     var preferredDetailWidth: CGFloat = 86
+    var hasFileDetail = false {
+        didSet {
+            guard hasFileDetail != oldValue else { return }
+            let titleFont = NSFont.systemFont(ofSize: hasFileDetail ? 17 : 20)
+            title.font = titleFont
+            titleHeight = ceil(titleFont.ascender - titleFont.descender + titleFont.leading)
+            detail.font = .systemFont(ofSize: hasFileDetail ? 11 : 12)
+            detailHeight = ceil(detail.intrinsicContentSize.height)
+            detail.alignment = hasFileDetail ? .left : .right
+            detail.lineBreakMode = hasFileDetail ? .byTruncatingMiddle : .byTruncatingTail
+            needsLayout = true
+        }
+    }
     private var titleHeight: CGFloat = 0
     private var detailHeight: CGFloat = 0
     private var numberHeight: CGFloat = 0
@@ -72,10 +85,20 @@ private final class ResultCell: NSTableCellView {
         icon.frame = NSRect(x: 8, y: (bounds.height - 28) / 2, width: 28, height: 28)
         let detailWidth: CGFloat = detail.stringValue.isEmpty ? 0 : preferredDetailWidth
         let actionWidth: CGFloat = hasAppActions ? 32 : 0
-        title.frame = NSRect(x: 46, y: (bounds.height - titleHeight) / 2,
-                             width: max(0, bounds.width - 102 - detailWidth - actionWidth), height: titleHeight)
-        detail.frame = NSRect(x: bounds.width - detailWidth - 56 - actionWidth, y: (bounds.height - detailHeight) / 2,
-                              width: detailWidth, height: detailHeight)
+        if hasFileDetail {
+            let contentHeight = titleHeight + detailHeight
+            let top = (bounds.height - contentHeight) / 2
+            let titleY = isFlipped ? top : bounds.height - top - titleHeight
+            let detailY = isFlipped ? top + titleHeight : top
+            let contentWidth = max(0, bounds.width - 102)
+            title.frame = NSRect(x: 46, y: titleY, width: contentWidth, height: titleHeight)
+            detail.frame = NSRect(x: 46, y: detailY, width: contentWidth, height: detailHeight)
+        } else {
+            title.frame = NSRect(x: 46, y: (bounds.height - titleHeight) / 2,
+                                 width: max(0, bounds.width - 102 - detailWidth - actionWidth), height: titleHeight)
+            detail.frame = NSRect(x: bounds.width - detailWidth - 56 - actionWidth, y: (bounds.height - detailHeight) / 2,
+                                  width: detailWidth, height: detailHeight)
+        }
         aliasButton.frame = NSRect(x: bounds.width - 82, y: (bounds.height - 28) / 2, width: 28, height: 28)
         number.frame = NSRect(x: bounds.width - 48, y: (bounds.height - numberHeight) / 2,
                               width: 38, height: numberHeight)
@@ -102,6 +125,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private let status = NSTextField(labelWithString: "")
     private let rateProvider = NSButton(title: "Rates By Exchange Rate API", target: nil, action: nil)
     private let separator = NSBox()
+    private let fileProgress = NSProgressIndicator()
     private let actionsButton = NSButton(
         title: L10n.string("search.actionsButton", table: "Launcher", value: "Actions ⌘K"),
         target: nil, action: nil
@@ -110,19 +134,21 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private var inputLineHeight: CGFloat = 0
     private var displayedResults: [LauncherResult] = []
     private var displayedQuery = ""
+    private var displayedIconRevision = -1
     private var displayedAllowsWebSearch = false
     private var displayedAllowsGPTNetwork = false
     private var isQueryEmpty = true
     private var isUpdating = false
     private var lastPreferredHeight: CGFloat = 56
+    private var pendingFileHeight: CGFloat?
 
     override var isFlipped: Bool { true }
 
     var preferredHeight: CGFloat {
         let statusHeight: CGFloat = status.isHidden && rateProvider.isHidden ? 0 : 26
         guard !isQueryEmpty else { return 56 + statusHeight }
-        guard !displayedResults.isEmpty else { return 120 + statusHeight }
-        return 64 + CGFloat(displayedResults.count) * 42 + statusHeight
+        let resultHeight = displayedResults.isEmpty ? 120 : 64 + CGFloat(displayedResults.count) * 42
+        return max(resultHeight + statusHeight, pendingFileHeight ?? 0)
     }
 
     init(model: LauncherModel, onSubmit: @escaping () -> Void,
@@ -153,6 +179,11 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         // below its caret. Resolve this once, outside the typing/layout path.
         inputLineHeight = ceil(searchField.intrinsicContentSize.height)
         separator.boxType = .separator
+        fileProgress.style = .spinning
+        fileProgress.controlSize = .small
+        fileProgress.isDisplayedWhenStopped = false
+        fileProgress.isHidden = true
+        fileProgress.setAccessibilityLabel(text.fileSearchLoading)
         actionsButton.bezelStyle = .rounded
         actionsButton.controlSize = .small
         actionsButton.font = .systemFont(ofSize: 12)
@@ -201,7 +232,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         rateProvider.target = self
         rateProvider.action = #selector(openRateProvider)
         rateProvider.isHidden = true
-        for view in [searchField, separator, scroll, emptyLabel, status, rateProvider, actionsButton] { addSubview(view) }
+        for view in [searchField, separator, scroll, emptyLabel, status, rateProvider, actionsButton, fileProgress] { addSubview(view) }
         model.onChange = { [weak self] in self?.render() }
         model.icons.onLoad = { [weak self] id in self?.updateIcon(id) }
         render()
@@ -236,7 +267,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
               event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
               event.keyCode == UInt16(kVK_ANSI_K),
               (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return false }
-        if !event.isARepeat && !model.isQueryEmpty { onSearchActions() }
+        if !event.isARepeat && !model.isQueryEmpty && !model.isFileSearch { onSearchActions() }
         return true
     }
 
@@ -246,7 +277,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
               event.keyCode == UInt16(kVK_Return) || event.keyCode == UInt16(kVK_ANSI_KeypadEnter),
               (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return false }
         // Never submit provisional IME text or repeat a browser handoff when held.
-        if !event.isARepeat && !model.isQueryEmpty { onWebSearch() }
+        if !event.isARepeat && !model.isQueryEmpty && !model.isFileSearch { onWebSearch() }
         return true
     }
 
@@ -273,7 +304,8 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     override func layout() {
         super.layout()
         material.frame = bounds
-        let actionsWidth = actionsButton.isHidden ? 0 : actionsButtonWidth + 12
+        let actionsWidth = actionsButton.isHidden ? (fileProgress.isHidden ? 0 : 24) : actionsButtonWidth + 12
+        fileProgress.frame = NSRect(x: bounds.width - 34, y: 20, width: 16, height: 16)
         searchField.frame = NSRect(x: 18, y: (56 - inputLineHeight) / 2,
                                   width: max(0, bounds.width - 36 - actionsWidth), height: inputLineHeight)
         actionsButton.frame = NSRect(x: bounds.width - actionsButtonWidth - 16, y: 15,
@@ -297,7 +329,15 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         let queryChanged = displayedQuery != model.query
         displayedQuery = model.query
         isQueryEmpty = model.isQueryEmpty
-        actionsButton.isHidden = isQueryEmpty
+        actionsButton.isHidden = isQueryEmpty || model.isFileSearch
+        if fileProgress.isHidden == model.isSearchingFiles {
+            fileProgress.isHidden = !model.isSearchingFiles
+            if model.isSearchingFiles { fileProgress.startAnimation(nil) }
+            else { fileProgress.stopAnimation(nil) }
+        }
+        // A metadata round trip must not collapse and reopen the panel on every
+        // key. Hold its height only while pending; the final result can resize it.
+        pendingFileHeight = model.isSearchingFiles ? max(pendingFileHeight ?? 0, lastPreferredHeight) : nil
         if searchField.stringValue != model.query { searchField.stringValue = model.query }
         let visibleResults = isQueryEmpty ? [] : model.results
         let resultsChanged = displayedResults != visibleResults
@@ -305,9 +345,15 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         let gptAvailabilityChanged = displayedAllowsGPTNetwork != model.allowsGPTNetwork
         displayedAllowsWebSearch = model.allowsWebSearch
         displayedAllowsGPTNetwork = model.allowsGPTNetwork
-        if resultsChanged || (availabilityChanged && visibleResults.contains(where: \.isWebSearch))
+        let iconsChanged = displayedIconRevision != model.icons.revision
+        displayedIconRevision = model.icons.revision
+        if resultsChanged || iconsChanged || (availabilityChanged && visibleResults.contains(where: \.isWebSearch))
             || (gptAvailabilityChanged && visibleResults.contains(where: \.isGPTAction)) {
             displayedResults = visibleResults
+            model.icons.prepare(visibleResults.compactMap {
+                if case .application(let application) = $0 { return application }
+                return nil
+            })
             table.reloadData()
         }
         let row = displayedResults.firstIndex { $0.id == model.selectedID }
@@ -325,13 +371,17 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         scroll.isHidden = displayedResults.isEmpty
         emptyLabel.isHidden = isQueryEmpty || !displayedResults.isEmpty
         separator.isHidden = isQueryEmpty
-        emptyLabel.stringValue = model.isIndexing ? text.findingApplications : text.noResults
+        emptyLabel.stringValue = model.isFileSearch
+            ? (model.fileSearchStatus ?? text.noResults)
+            : (model.isIndexing ? text.findingApplications : text.noResults)
         let error = model.launchError ?? model.shortcutError
         let showsRates = visibleResults.contains { if case .conversion(let result) = $0 { return result.isCurrency }; return false }
         rateProvider.isHidden = !showsRates
-        let message = error ?? model.actionStatus ?? (showsRates ? model.currencyRateDate : nil)
-            ?? (model.isIndexing ? text.updatingIndex : (isQueryEmpty ? nil : model.indexStatus))
-            ?? (model.isShowingSearchActions ? text.searchActions : nil)
+        let modeStatus = model.isFileSearch
+            ? (displayedResults.isEmpty || model.isSearchingFiles ? nil : model.fileSearchStatus)
+            : ((model.isIndexing ? text.updatingIndex : (isQueryEmpty ? nil : model.indexStatus))
+               ?? (model.isShowingSearchActions ? text.searchActions : nil))
+        let message = error ?? model.actionStatus ?? (showsRates ? model.currencyRateDate : nil) ?? modeStatus
         status.stringValue = message ?? ""
         status.isHidden = message == nil
         status.textColor = error == nil ? .secondaryLabelColor : .systemRed
@@ -364,9 +414,16 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         cell.title.textColor = .labelColor
         cell.toolTip = nil
         cell.hasAppActions = false
+        if case .file = result { cell.hasFileDetail = true }
+        else { cell.hasFileDetail = false }
         cell.aliasButton.isHidden = true
         cell.preferredDetailWidth = result.isWebSearch ? 140 : 86
         switch result {
+        case .file(let file):
+            cell.title.stringValue = file.name
+            cell.detail.stringValue = file.parentPath
+            cell.icon.image = model.icons.image(for: file)
+            cell.toolTip = file.url.path
         case .conversion(let conversion):
             cell.title.stringValue = (conversion.isApproximate ? "≈ " : "= ") + conversion.value + " " + conversion.unitSymbol
             cell.detail.stringValue = text.calculationCopy
@@ -439,6 +496,12 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
             cell.detail.stringValue = text.command
         case .lockScreen:
             cell.title.stringValue = text.lockScreen
+            cell.detail.stringValue = text.command
+        case .windowControls:
+            cell.title.stringValue = text.windowControls
+            cell.detail.stringValue = text.command
+        case .windowSettings:
+            cell.title.stringValue = text.windowSettings
             cell.detail.stringValue = text.command
         case .screenOff:
             cell.title.stringValue = text.screenOff
@@ -526,7 +589,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     }
 
     @objc private func showActions() {
-        guard !model.isQueryEmpty,
+        guard !model.isQueryEmpty, !model.isFileSearch,
               (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }
         onSearchActions()
         window?.makeFirstResponder(searchField)

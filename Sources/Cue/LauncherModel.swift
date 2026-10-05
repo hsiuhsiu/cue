@@ -16,6 +16,11 @@ struct LauncherText {
     let updatingIndex = L10n.string("index.updating", table: "Launcher", value: "Updating app index…")
     let indexUpdated = L10n.string("index.updated", table: "Launcher", value: "Index updated · %ld applications")
     let noResults = L10n.string("results.empty", table: "Launcher", value: "No results found")
+    let fileSearchPrompt = L10n.string("files.prompt", table: "Launcher", value: "Type part of a filename")
+    let fileSearchLoading = L10n.string("files.loading", table: "Launcher", value: "Searching filenames…")
+    let fileSearchEmpty = L10n.string("files.empty", table: "Launcher", value: "No indexed filenames match")
+    let fileSearchUnavailable = L10n.string("files.unavailable", table: "Launcher", value: "File search is unavailable. Try again or check Spotlight settings.")
+    let fileSearchTooLong = L10n.string("files.tooLong", table: "Launcher", value: "Use a shorter filename search")
     let googleSearch = L10n.string("search.google", table: "Launcher", value: "Search Google")
     let defaultBrowser = L10n.string("search.browser", table: "Launcher", value: "Default browser")
     let webSearchShortcut = L10n.string("search.google.shortcut", table: "Launcher", value: "Search this text in Google (⌘Return)")
@@ -64,6 +69,8 @@ struct LauncherText {
     let clipboardHistory = L10n.string("command.clipboardHistory", table: "Launcher", value: "Clipboard History")
     let sleep = L10n.string("command.sleep", table: "Launcher", value: "Sleep")
     let lockScreen = L10n.string("command.lockScreen", table: "Launcher", value: "Lock Screen")
+    let windowControls = L10n.string("command.windowControls", table: "Launcher", value: "Window Controls")
+    let windowSettings = L10n.string("command.windowSettings", table: "Launcher", value: "Window Settings")
     let screenOff = L10n.string("command.screenOff", table: "Launcher", value: "Screen Off")
     let convertToTraditional = L10n.string("command.convertToTraditional", table: "Launcher", value: "Convert to Traditional Chinese")
     let convertToSimplified = L10n.string("command.convertToSimplified", table: "Launcher", value: "Convert to Simplified Chinese")
@@ -92,12 +99,16 @@ final class LauncherModel {
     private(set) var isShowingSearchActions = false
     private(set) var isShowingBrowserActions = false
     private(set) var allowsGPTNetwork = false
-    var launchError: String? { didSet { if launchError != oldValue { onChange?() } } }
-    var shortcutError: String? { didSet { if shortcutError != oldValue { onChange?() } } }
-    var actionStatus: String? { didSet { if actionStatus != oldValue { onChange?() } } }
+    var isFileSearch: Bool { fileSearchQuery != nil }
+    private(set) var fileSearchStatus: String?
+    var launchError: String? { didSet { if launchError != oldValue { notifyChange() } } }
+    var shortcutError: String? { didSet { if shortcutError != oldValue { notifyChange() } } }
+    var actionStatus: String? { didSet { if actionStatus != oldValue { notifyChange() } } }
     var onQueryChange: (() -> Void)?
     var onSelectionChange: (() -> Void)?
     var onChange: (() -> Void)?
+    private var updateDepth = 0
+    private var needsNotification = false
     let icons: AppIconCache
 
     private let text = LauncherText.shared
@@ -120,6 +131,16 @@ final class LauncherModel {
     private var changingCurrencyActivity = false
     private var displayedRateDate: Date?
     private(set) var currencyRateDate: String?
+    private var fileSearch: (any FileSearching)?
+    private var fileSearchQuery: FileSearchQuery?
+    private var fileSearchResults: [LauncherResult] = []
+    private var fileSearchGeneration: UInt64 = 0
+    private var hasPendingFileSearch = false
+    var isSearchingFiles: Bool { hasPendingFileSearch }
+    private var requestedFileTerm: String?
+    private var requestedFileLimit = 0
+    private var fileSelectionWasMoved = false
+    private var isFileSearchSuspended = false
 
     init(applications: [IndexedApplication] = [], usage: SearchUsageSnapshot = .empty,
          usageStore: SearchUsageStore? = nil,
@@ -127,6 +148,7 @@ final class LauncherModel {
          applicationAliases: [String: String] = [:],
          awaitingInitialIndex: Bool = false,
          currencyRates: CurrencyRatesController? = nil,
+         fileSearch: (any FileSearching)? = nil,
          icons: AppIconCache = AppIconCache()) {
         self.icons = icons
         self.applications = applications.map {
@@ -138,13 +160,14 @@ final class LauncherModel {
         self.conversionAliases = conversionAliases
         self.hasLoadedApplications = !awaitingInitialIndex
         self.currencyRates = currencyRates
+        self.fileSearch = fileSearch
         currencyRates?.onChange = { [weak self] in
             guard let self, !self.changingCurrencyActivity else { return }
             self.onQueryChange?() // A revoked rate/permission also cancels a pending copy.
             self.updateRateDate()
             self.cachedQueries.removeAll(keepingCapacity: true)
             self.updateResults(preservingSelection: true)
-            self.onChange?()
+            self.notifyChange()
         }
     }
 
@@ -167,6 +190,7 @@ final class LauncherModel {
         // Expressions stay private even when the user chooses a matching app or
         // command below the answer. This check runs only after an explicit action.
         guard !isStopping, !resultID.hasPrefix(LauncherResult.googleSearch.id),
+              !resultID.hasPrefix("file:"), FileSearchQuery.parse(query) == nil,
               !resultID.hasPrefix("action:gpt-"),
               resultID != LauncherResult.calculationID,
               !resultID.hasPrefix(LauncherResult.conversionIDPrefix),
@@ -178,6 +202,7 @@ final class LauncherModel {
 
     func prepareForTermination() async {
         isStopping = true
+        suspendFileSearch()
         queryClassificationTask?.cancel()
         queryClassificationTask = nil
         currencyRates?.stop()
@@ -187,19 +212,22 @@ final class LauncherModel {
 
     func setQuery(_ value: String) {
         guard value != query else { return }
+        updateDepth += 1
+        defer { finishUpdates() }
         onQueryChange?()
         adoptPendingUsage()
         query = value
         classifyQuery()
-        if isQueryEmpty {
+        if isQueryEmpty || isFileSearch {
             isShowingSearchActions = false
             isShowingBrowserActions = false
         }
         updateCurrencyActivity()
         launchError = nil
         indexStatus = nil
+        updateFileSearch()
         updateResults()
-        onChange?()
+        notifyChange()
     }
 
     func setResultLimit(_ value: Int) {
@@ -207,8 +235,9 @@ final class LauncherModel {
         guard limit != maxResults else { return }
         maxResults = limit
         cachedQueries.removeAll(keepingCapacity: true)
+        if isFileSearch { updateFileSearch() }
         updateResults(preservingSelection: true)
-        onChange?()
+        notifyChange()
     }
 
     func setAllowsWebSearch(_ allowed: Bool) {
@@ -224,18 +253,18 @@ final class LauncherModel {
         cachedQueries.removeAll(keepingCapacity: true)
         if enabled && launchError == text.webSearchDisabled { launchError = nil }
         updateResults(preservingSelection: true)
-        onChange?()
+        notifyChange()
     }
 
     func toggleSearchActions() {
-        guard !isQueryEmpty else { return }
+        guard !isQueryEmpty, !isFileSearch else { return }
         onQueryChange?() // Cancel a pending handoff before changing the available actions.
         isShowingSearchActions.toggle()
         isShowingBrowserActions = false
         updateCurrencyActivity()
         launchError = nil
         updateResults()
-        onChange?()
+        notifyChange()
     }
 
     @discardableResult
@@ -244,7 +273,7 @@ final class LauncherModel {
             onQueryChange?() // Leaving this page invalidates a pending browser handoff.
             isShowingBrowserActions = false
             updateResults()
-            onChange?()
+            notifyChange()
             return true
         }
         guard isShowingSearchActions else { return false }
@@ -265,19 +294,19 @@ final class LauncherModel {
     }
 
     func showSearchBrowsers() {
-        guard !isQueryEmpty else { return }
+        guard !isQueryEmpty, !isFileSearch else { return }
         onQueryChange?()
         isShowingSearchActions = true
         isShowingBrowserActions = true
         updateCurrencyActivity()
         updateResults()
-        onChange?()
+        notifyChange()
     }
 
     func setAllowsGPTNetwork(_ allowed: Bool) {
         guard allowed != allowsGPTNetwork else { return }
         allowsGPTNetwork = allowed
-        onChange?()
+        notifyChange()
     }
 
     func setConversionAliases(_ aliases: ChineseConversionAliases) {
@@ -285,7 +314,7 @@ final class LauncherModel {
         conversionAliases = aliases
         cachedQueries.removeAll(keepingCapacity: true)
         updateResults(preservingSelection: true)
-        onChange?()
+        notifyChange()
     }
 
     /// Explicit edits update prepared app values once, never preferences during typing.
@@ -295,7 +324,7 @@ final class LauncherModel {
         applications = applications.map { $0.withSearchAlias(aliases[$0.aliasPreferenceID]) }
         cachedQueries.removeAll(keepingCapacity: true)
         updateResults(preservingSelection: true)
-        onChange?()
+        notifyChange()
     }
 
     @discardableResult
@@ -304,7 +333,7 @@ final class LauncherModel {
         isIndexing = true
         indexStatus = nil
         launchError = nil
-        onChange?()
+        notifyChange()
         let discovered = await Task.detached(priority: .userInitiated) { AppIndex.scan() }.value
         // Use the current choices even if an alias was edited during the scan.
         applications = discovered.map { $0.withSearchAlias(applicationAliases[$0.aliasPreferenceID]) }
@@ -314,28 +343,37 @@ final class LauncherModel {
         isIndexing = false
         updateResults(preservingSelection: true)
         indexStatus = L10n.format(text.indexUpdated, applications.count)
-        onChange?()
+        notifyChange()
         return true
     }
 
     func reset() {
+        updateDepth += 1
+        defer { finishUpdates() }
         adoptPendingUsage()
         query = ""
         classifyQuery()
         isShowingSearchActions = false
         isShowingBrowserActions = false
+        isFileSearchSuspended = false
+        updateFileSearch()
         updateCurrencyActivity()
         launchError = nil
         indexStatus = nil
         updateResults()
-        onChange?()
+        notifyChange()
     }
 
     func select(_ id: LauncherResult.ID?) {
         guard selectedID != id else { return }
+        updateDepth += 1
+        defer { finishUpdates() }
+        if isFileSearch, hasPendingFileSearch, results.contains(where: { $0.id == id }) {
+            fileSelectionWasMoved = true
+        }
         onSelectionChange?()
         selectedID = id
-        onChange?()
+        notifyChange()
     }
 
     func moveSelection(by offset: Int) {
@@ -350,7 +388,9 @@ final class LauncherModel {
             selectedID = nil
             return
         }
-        if isShowingSearchActions {
+        if isFileSearch {
+            results = fileSearchResults
+        } else if isShowingSearchActions {
             results = isShowingBrowserActions ? webSearchResults : queryActions
         } else if !isSearchQuery {
             // Keep the complete pasted text for explicit actions, but never fold,
@@ -394,13 +434,13 @@ final class LauncherModel {
         // after wake when the expiry callback has not yet run.
         updateCurrencyActivity()
         updateResults(preservingSelection: true)
-        onChange?()
+        notifyChange()
         guard currencyRates?.allowsNetwork == true, case .ready = currencyRates?.state else { return false }
         return selectedResult == result
     }
 
     private func updateCurrencyActivity() {
-        let parsed = isSearchQuery ? ConversionQuery.parse(query) : nil
+        let parsed = isSearchQuery && !isFileSearch ? ConversionQuery.parse(query) : nil
         currencyQuery = parsed?.source.isCurrency == true ? parsed : nil
         changingCurrencyActivity = true
         currencyRates?.setActive(currencyQuery != nil && !isShowingSearchActions)
@@ -409,6 +449,7 @@ final class LauncherModel {
     }
 
     private func classifyQuery() {
+        fileSearchQuery = FileSearchQuery.parse(query)
         queryGeneration &+= 1
         queryClassificationTask?.cancel()
         queryClassificationTask = nil
@@ -426,6 +467,84 @@ final class LauncherModel {
             }
             inspected += 1
         }
+    }
+
+    /// A settings detour must not keep a Spotlight request alive behind the UI.
+    func suspendFileSearch() {
+        isFileSearchSuspended = true
+        requestedFileTerm = nil
+        fileSearchGeneration &+= 1
+        let wasSearching = hasPendingFileSearch
+        cancelPendingFileSearch()
+        if wasSearching {
+            fileSearchStatus = nil
+            notifyChange()
+        }
+    }
+
+    func resumeFileSearch() {
+        guard isFileSearchSuspended, !isStopping else { return }
+        isFileSearchSuspended = false
+        guard isFileSearch else { return }
+        updateFileSearch()
+        updateResults()
+        notifyChange()
+    }
+
+    private func updateFileSearch() {
+        // Edits to the mode prefix/outer whitespace do not change the actual
+        // filename request. Keep its current work and visible rows intact.
+        if let request = fileSearchQuery, request.canSearch,
+           requestedFileTerm == request.term, requestedFileLimit == maxResults,
+           !isFileSearchSuspended, !isStopping { return }
+        fileSearchGeneration &+= 1
+        cancelPendingFileSearch()
+        requestedFileTerm = nil
+        fileSelectionWasMoved = false
+        fileSearchStatus = nil
+        guard let request = fileSearchQuery, request.canSearch else {
+            fileSearchResults = []
+            if let request = fileSearchQuery {
+                fileSearchStatus = request.isTooLong ? text.fileSearchTooLong : text.fileSearchPrompt
+            }
+            return
+        }
+        // Reuse only the handful of already visible matches, within this one
+        // invocation. Every retained row is checked against the new filename;
+        // unrelated old rows are never selectable while Spotlight catches up.
+        let previous = fileSearchResults.compactMap { result -> FileSearchResult? in
+            if case .file(let file) = result { return file }
+            return nil
+        }
+        fileSearchResults = FileSearchRanking.results(from: previous, term: request.term, limit: maxResults)
+            .map(LauncherResult.file)
+        guard !isStopping, !isFileSearchSuspended else { return }
+        requestedFileTerm = request.term
+        requestedFileLimit = maxResults
+        fileSearchStatus = text.fileSearchLoading
+        if fileSearch == nil { fileSearch = SpotlightFileSearchService() }
+        let generation = fileSearchGeneration
+        hasPendingFileSearch = true
+        fileSearch?.search(request.term, limit: maxResults) { [weak self] response in
+            guard let self, !self.isStopping, !self.isFileSearchSuspended,
+                  self.hasPendingFileSearch, self.fileSearchGeneration == generation else { return }
+            self.hasPendingFileSearch = false
+            if response.error == nil, !self.fileSelectionWasMoved {
+                self.fileSearchResults = Array(response.results.prefix(self.maxResults)).map(LauncherResult.file)
+            }
+            // Once the user navigates retained matches, keep those numbered
+            // choices fixed. The next edit/invocation adopts fresh ordering.
+            self.fileSearchStatus = response.error != nil ? self.text.fileSearchUnavailable
+                : (self.fileSearchResults.isEmpty ? self.text.fileSearchEmpty : nil)
+            self.updateResults(preservingSelection: true)
+            self.notifyChange()
+        }
+    }
+
+    private func cancelPendingFileSearch() {
+        guard hasPendingFileSearch else { return }
+        hasPendingFileSearch = false
+        fileSearch?.cancel()
     }
 
     /// Very long whitespace prefixes are rare, but scanning them synchronously
@@ -455,7 +574,7 @@ final class LauncherModel {
             guard self.isQueryEmpty != empty else { return }
             self.isQueryEmpty = empty
             self.updateResults()
-            self.onChange?()
+            self.notifyChange()
         }
     }
 
@@ -476,6 +595,21 @@ final class LauncherModel {
         usage = pendingUsage
         self.pendingUsage = nil
         cachedQueries.removeAll(keepingCapacity: true)
+    }
+
+    /// Publish one coherent snapshot for a synchronous input action, including
+    /// status-clearing callbacks. This does not defer work to another run loop.
+    private func notifyChange() {
+        if updateDepth > 0 { needsNotification = true }
+        else { onChange?() }
+    }
+
+    private func finishUpdates() {
+        updateDepth -= 1
+        if updateDepth == 0, needsNotification {
+            needsNotification = false
+            onChange?()
+        }
     }
 
     private func enqueueUsage(_ operation: @escaping @Sendable (SearchUsageStore) async -> SearchUsageSnapshot) {

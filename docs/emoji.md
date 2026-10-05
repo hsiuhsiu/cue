@@ -2,7 +2,7 @@
 
 ## English
 
-Available in Cue 0.6.0. Search a bundled emoji catalog using English or
+Search a bundled emoji catalog using English or
 Traditional Chinese names and keywords, then copy the result from the keyboard.
 
 ### Find and copy an emoji
@@ -43,7 +43,7 @@ settings. See the [clipboard guide](clipboard.md) and [network policy](network-p
 
 ## 正體中文
 
-自 Cue 0.6.0 起提供。用英文或正體中文名稱、關鍵字搜尋內附的 emoji 目錄，
+用英文或正體中文名稱、關鍵字搜尋內附的 emoji 目錄，
 再直接以鍵盤拷貝結果。
 
 ### 尋找與拷貝 emoji
@@ -57,7 +57,7 @@ settings. See the [clipboard guide](clipboard.md) and [network policy](network-p
 
 Emoji 搜尋欄空白時顯示一組固定的起始項目。頁面最多顯示九個符合結果、
 不顯示捲軸；按一下只會選取項目，可縮小搜尋範圍來找其他結果。
-**Esc** 返回主搜尋。第一版沒有額外設定，也不會自動貼入其他 App。
+**Esc** 返回主搜尋。此功能沒有額外設定，也不會自動貼入其他 App。
 Emoji 搜尋只在此頁處理，找不到結果時不會轉成 Google 搜尋。
 
 ### 目錄與隱私

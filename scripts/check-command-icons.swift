@@ -23,6 +23,8 @@ struct CheckCommandIcons {
         (.askGPT, .askGPT, "Ask GPT"),
         (.translateGPT, .translateGPT, "GPT translation"),
         (.gptSettings, .gptSettings, "GPT settings"),
+        (.windowControls, .windowControls, "Window controls"),
+        (.windowSettings, .windowSettings, "Window settings"),
         (.calculator, .calculation(Calculator.evaluate("1+1")!), "Calculator"),
     ]
 
@@ -39,6 +41,8 @@ struct CheckCommandIcons {
             }
             await checkRenderer(checks)
             let cache = await checkCache(checks)
+            await checkApplicationCache(checks)
+            await checkApplicationViewInvalidation(checks)
             await checkView(checks)
             let browserImages = await checkBrowserCache(checks)
             await checkBrowserView(checks)
@@ -60,7 +64,7 @@ struct CheckCommandIcons {
             print("Command-icon regression failed: \(checks.failures.count) failures / \(checks.count) checks.")
             exit(1)
         }
-        print("Command-icon regression passed: \(checks.count) checks; two scales, distinct artwork, stable caches, browser badges, off-main refresh, stale callbacks, and native row isolation. Lookup timing excludes rendering and input delivery.")
+        print("Command-icon regression passed: \(checks.count) checks; two scales, distinct artwork, bounded application decoding/cache, browser badges, off-main refresh, stale callbacks, and native row isolation. Lookup timing excludes rendering and input delivery.")
     }
 
     @MainActor
@@ -117,7 +121,10 @@ struct CheckCommandIcons {
         checks.expect(callbacks.isEmpty, "Construction and cold lookups must return before rendering callbacks")
         checks.expect(placeholders.allSatisfy { $0 === placeholders[0] },
                       "Cold command lookups must reuse one placeholder without per-row image creation")
+        let initialRevision = cache.revision
         cache.invalidate()
+        checks.expect(cache.revision == initialRevision + 1,
+                      "Invalidation advances the revision even before any application icons have loaded")
         await checks.eventually("Invalidation during initial rendering must still deliver all command images") {
             callbacks.count == commands.count
         }
@@ -135,7 +142,12 @@ struct CheckCommandIcons {
                           "Cached artwork must retain matching ordinary and Retina representations")
             checks.expect(cache.image(for: commands[offset].0) === image, "Repeated lookup must return the same cached image")
         }
+        let loadedRevision = cache.revision
+        checks.expect(loadedRevision == initialRevision + 1,
+                      "Ordinary loading and image lookups do not advance the invalidation revision")
         cache.invalidate()
+        checks.expect(cache.revision == loadedRevision + 1,
+                      "Every later invalidation advances the revision exactly once")
         checks.expect(commands.enumerated().allSatisfy { cache.image(for: $0.element.0) === images[$0.offset] },
                       "Reindexing app icons must not discard already rendered command artwork")
 
@@ -165,6 +177,161 @@ struct CheckCommandIcons {
         }
         checks.expect(released == nil, "An initial background task must not retain an abandoned cache")
         return cache
+    }
+
+    @MainActor
+    private static func checkApplicationCache(_ checks: IconChecks) async {
+        let apps = (0..<300).map { index in
+            IndexedApplication(name: "Synthetic \(index)", url: URL(fileURLWithPath: "/Synthetic/App\(index).app"))
+        }
+        let fixture = ApplicationIconFixture(blockFirst: 2)
+        let cache = AppIconCache(resolveBrowser: { _ in nil }, loadBrowserIcon: { _ in nil },
+                                 loadApplicationIcon: { fixture.load($0) })
+        var callbacks: [String] = []
+        cache.onLoad = { id in if id.hasPrefix("/Synthetic/") { callbacks.append(id) } }
+        cache.prepare(Array(apps.prefix(9)))
+        let placeholder = cache.image(for: apps[0])
+        await checks.eventually("Only the bounded application workers enter stalled synthetic decoders") {
+            fixture.state.calls.count == 2
+        }
+        // Both reads stay blocked across fast typing and repeated manual reindex.
+        // Cancelling only their awaiting tasks would otherwise start new OS reads.
+        for start in 9...50 {
+            cache.prepare(Array(apps[start..<(start + 9)]))
+            cache.invalidate()
+        }
+        let finalTargets = Array(apps[70..<79])
+        cache.prepare(finalTargets)
+        checks.expect(fixture.state.calls.count == 2 && fixture.state.maximumActive == 2,
+                      "New queries and invalidation cannot spawn additional decoders while two OS reads remain in flight")
+        fixture.releaseBlockedReads()
+        await checks.eventually("After stale reads drain, the latest nine targets all become ready") {
+            callbacks.count == finalTargets.count
+        }
+        checks.expect(fixture.state.calls.count == 11 && fixture.state.maximumActive <= AppIconCache.maximumApplicationWorkers,
+                      "Rapid result replacement drops every intermediate queued request and keeps actual concurrency bounded")
+        checks.expect(Set(callbacks) == Set(finalTargets.map(\.id)) && cache.cachedApplicationCount == 9,
+                      "Reindex discards stale decoded images and publishes only the newest generation")
+        checks.expect(!fixture.state.onMain, "All application icon reads and decoding remain off the main thread")
+        let images = finalTargets.map { cache.image(for: $0) }
+        checks.expect(images.allSatisfy { $0 !== placeholder }, "Each visible application receives its decoded image")
+        cache.prepare(finalTargets)
+        checks.expect(finalTargets.enumerated().allSatisfy { cache.image(for: $0.element) === images[$0.offset] }
+                      && fixture.state.calls.count == 11,
+                      "Warm preparation and drawing keep image identity without starting additional work")
+
+        for start in stride(from: 80, to: apps.count, by: 9) {
+            let targets = Array(apps[start..<min(start + 9, apps.count)])
+            let previousCount = callbacks.count
+            cache.prepare(targets)
+            await checks.eventually("A synthetic cache-capacity batch completes") {
+                callbacks.count == previousCount + targets.count
+            }
+            checks.expect(cache.cachedApplicationCount <= AppIconCache.maximumApplicationImages,
+                          "Browsing many applications never grows the decoded image cache beyond its cap")
+        }
+        // Add enough earlier, uncached targets to cross the cap.
+        for start in stride(from: 10, to: 70, by: 9) {
+            let targets = Array(apps[start..<min(start + 9, 70)])
+            let previousCount = callbacks.count
+            cache.prepare(targets)
+            await checks.eventually("A synthetic cache-eviction batch completes") {
+                callbacks.count == previousCount + targets.count
+            }
+        }
+        checks.expect(cache.cachedApplicationCount == AppIconCache.maximumApplicationImages,
+                      "Crossing the cache limit evicts old decoded images instead of retaining every visited application")
+        let newest = Array(apps[64..<70])
+        let newestImages = newest.map { cache.image(for: $0) }
+        checks.expect(newest.enumerated().allSatisfy { cache.image(for: $0.element) === newestImages[$0.offset] },
+                      "Eviction protects currently visible application icons")
+
+        let closedFixture = ApplicationIconFixture(blockFirst: 2)
+        let closed = AppIconCache(resolveBrowser: { _ in nil }, loadBrowserIcon: { _ in nil },
+                                  loadApplicationIcon: { closedFixture.load($0) })
+        closed.prepare(Array(apps.prefix(9)))
+        await checks.eventually("Close fixture starts its two allowed reads") { closedFixture.state.calls.count == 2 }
+        closed.prepare([])
+        closedFixture.releaseBlockedReads()
+        await checks.eventually("Closing drains already-started reads") { closed.cachedApplicationCount == 2 }
+        checks.expect(closedFixture.state.calls.count == 2,
+                      "Hiding the launcher drops queued icon work and finishes only unavoidable in-flight reads")
+        print("Application icon stress: 42 rapid target changes/reindexes behind stalled reads; 2 concurrent decoders, 11 total decodes for the final 9 results; cache capped at 256 images.")
+    }
+
+    @MainActor
+    private static func checkApplicationViewInvalidation(_ checks: IconChecks) async {
+        let apps = (1...9).map { index in
+            IndexedApplication(name: "Fixture \(index)",
+                               url: URL(fileURLWithPath: "/Synthetic/Fixture\(index).app"))
+        }
+        let fixture = ApplicationIconFixture(blockFirst: 0)
+        let cache = AppIconCache(resolveBrowser: { _ in nil }, loadBrowserIcon: { _ in nil },
+                                 loadApplicationIcon: { fixture.load($0) })
+        let model = LauncherModel(applications: apps, icons: cache)
+        let view = LauncherView(model: model, onSubmit: {}, onCancel: {}, onSettings: {})
+        let window = NSPanel(contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel],
+                             backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = view
+        defer { window.contentView = nil; window.close() }
+        guard let scroll = view.subviews.compactMap({ $0 as? NSScrollView }).first,
+              let table = scroll.documentView as? NSTableView else {
+            checks.expect(false, "The icon-invalidation fixture must expose its native table")
+            return
+        }
+        let dataSource = CountingDataSource(view)
+        table.dataSource = dataSource
+        model.setQuery("fixture")
+        window.setContentSize(NSSize(width: 640, height: view.preferredHeight))
+        view.layoutSubtreeIfNeeded()
+        for row in model.results.indices { _ = table.view(atColumn: 0, row: row, makeIfNecessary: true) }
+        await checks.eventually("Synthetic application rows finish their first icon decode") {
+            cache.cachedApplicationCount == apps.count
+        }
+        checks.expect(fixture.state.calls.count == apps.count,
+                      "Native initial preparation decodes each visible synthetic application once")
+        let originalImages = apps.map { cache.image(for: $0) }
+        model.select(LauncherResult.application(apps[3]).id)
+        let originalResults = model.results
+        let selectedID = model.selectedID
+        let revision = cache.revision
+        dataSource.rowCountRequests = 0
+
+        // A rebuilt index may contain exactly the same result values. Publishing
+        // an unrelated availability change exercises this redraw boundary without
+        // reading the real app inventory or toggling any actual network policy.
+        cache.invalidate()
+        model.setAllowsGPTNetwork(true)
+        checks.expect(cache.revision == revision + 1 && model.results == originalResults
+                      && model.query == "fixture" && model.selectedID == selectedID,
+                      "Icon invalidation leaves the existing query, results, and keyboard selection unchanged")
+        checks.expect(dataSource.rowCountRequests > 0,
+                      "A changed icon revision reloads native rows even when their result values are identical")
+        // Do not ask image(for:) to start work here: the view's preparation must
+        // independently notice invalidation and request these fresh images.
+        await checks.eventually("The unchanged visible applications are re-decoded after invalidation") {
+            fixture.state.calls.count == apps.count * 2 && cache.cachedApplicationCount == apps.count
+        }
+        view.layoutSubtreeIfNeeded()
+        for (row, result) in model.results.enumerated() {
+            guard case .application(let app) = result,
+                  let sourceIndex = apps.firstIndex(where: { $0.id == app.id }),
+                  let cell = table.view(atColumn: 0, row: row, makeIfNecessary: true) as? NSTableCellView else {
+                checks.expect(false, "Each synthetic application must retain its native row")
+                continue
+            }
+            let replacement = cache.image(for: app)
+            checks.expect(replacement !== originalImages[sourceIndex] && cell.imageView?.image === replacement,
+                          "An unchanged application row replaces old artwork with its freshly decoded cache image")
+        }
+        dataSource.rowCountRequests = 0
+        model.setAllowsGPTNetwork(false)
+        checks.expect(cache.revision == revision + 1 && dataSource.rowCountRequests == 0
+                      && fixture.state.calls.count == apps.count * 2,
+                      "Unchanged icon revisions do not reload app-only rows or restart decoding on later availability notifications")
+        checks.expect(!fixture.state.onMain && !window.isVisible,
+                      "The native invalidation regression remains offscreen with all decodes off-main")
     }
 
     @MainActor
@@ -550,6 +717,46 @@ struct CheckCommandIcons {
     }
 
     private enum CheckError: Error { case usage, preview }
+}
+
+/// Synthetic decoding with two deliberately stalled calls. Does not inspect
+/// installed apps, Launch Services, or any user file.
+private final class ApplicationIconFixture: @unchecked Sendable {
+    private let lock = NSLock()
+    private let gate = DispatchSemaphore(value: 0)
+    private let blockFirst: Int
+    private let bitmap = BrowserIconFixture.bitmap(red: 0.2, green: 0.5, blue: 0.8)
+    private var calls: [URL] = []
+    private var active = 0
+    private var maximumActive = 0
+    private var onMain = false
+
+    init(blockFirst: Int) { self.blockFirst = blockFirst }
+
+    func load(_ url: URL) -> CGImage? {
+        lock.lock()
+        calls.append(url)
+        active += 1
+        maximumActive = max(maximumActive, active)
+        onMain = onMain || Thread.isMainThread
+        let shouldBlock = calls.count <= blockFirst
+        lock.unlock()
+        if shouldBlock { _ = gate.wait(timeout: .now() + 5) }
+        lock.lock()
+        active -= 1
+        lock.unlock()
+        return bitmap
+    }
+
+    func releaseBlockedReads() {
+        for _ in 0..<blockFirst { gate.signal() }
+    }
+
+    var state: (calls: [URL], maximumActive: Int, onMain: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (calls, maximumActive, onMain)
+    }
 }
 
 /// Entirely synthetic browser discovery/decoding, including a single suspended

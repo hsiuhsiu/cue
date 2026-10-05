@@ -203,6 +203,31 @@ final class ClipboardModel {
         onChange?()
     }
 
+    /// Destructive retention work follows a successfully committed, explicitly
+    /// confirmed import. It never runs during validation or rollback.
+    func stageRetentionForBackup(_ value: ClipboardRetention) {
+        // The running monitor/maintenance keep using the old retention until the
+        // coordinator confirms persistence. A failed import can undo this value.
+        defaults.set(value.rawValue, forKey: Self.retentionKey)
+    }
+
+    func finishImportedRetention(_ value: ClipboardRetention) async -> Bool {
+        retention = value
+        onChange?()
+        guard !isStopping, hasLoaded else { return false }
+        await operations?.value
+        do {
+            _ = try await store.prune(retention: retention, now: Date())
+            errorMessage = nil
+            refreshSearch()
+            return true
+        } catch {
+            errorMessage = Self.storageError
+            onChange?()
+            return false
+        }
+    }
+
     func removeSelected() {
         guard !isStopping, let id = selectedID, displayedQuery == query else { return }
         cancelPendingCopy()

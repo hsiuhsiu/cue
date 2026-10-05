@@ -9,6 +9,12 @@ default. Use GitHub's **Pre-release** option only when the user explicitly
 requests a prerelease. Describe signing and platform-testing limitations in
 the release notes and installation guide regardless of the release label.
 
+Local source milestones use `-beta.N` or `-dev.N` labels; these
+labels do not create public preview releases. Xcode **Release** means compiler
+optimization, not a stable release channel. The normal packaging script requires
+`CueBuildChannel=stable` and refuses beta/dev metadata before it builds or accesses
+the signing key. See [versioning](versioning.md) for the complete rules and helper.
+
 ## Signing key
 
 The Cue update key is stored in the maintainer's login Keychain under the
@@ -53,10 +59,14 @@ App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使�
 
 ## Prepare and verify
 
-1. Set `CFBundleShortVersionString` and increment `CFBundleVersion` in
-   `Resources/Info.plist`. Sparkle compares the monotonically increasing build
-   number; for example, 0.9.0 uses build 10 after 0.8.0's build 9. Never reset
-   the build number when changing the displayed version. Write **both English and Traditional Chinese** sections in
+1. Synchronize the repository, then use `./scripts/set-version.sh <version> stable`
+   to finalize the milestone in `Resources/Info.plist`. It automatically increments
+   the internal build, sets the stable channel, and removes the prerelease field.
+   Beta-to-stable also increments the build. Sparkle compares this
+   build number, which must never reset or contain a beta suffix. Run
+   `./scripts/check-version.sh --release`: both the numeric version and build must
+   exceed every stable item in the local appcast. The script does not fetch remote
+   state or rewrite published assets. Write **both English and Traditional Chinese** sections in
    `docs/releases/v<version>.md`, with equivalent changes and limitations.
    Start with one `# Cue <version> — ...` title, then the language sections.
    The GitHub notes formatter separates this heading from the body so the
@@ -64,6 +74,12 @@ App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使�
    this format before building or signing.
    Update README and installation download links. Finalize the notes before
    running the release script because they become part of the signed feed.
+   For releases introducing or changing window controls, include the default-on
+   behavior, Option+M, the menu-bar Window Settings entry, and permission setup
+   for both new installs and updates in both languages. Link the recovery guide
+   for an enabled macOS switch that Cue still reports as untrusted. Existing
+   explicit off choices stay off; a previously granted permission is not proof
+   that the new executable is trusted.
 2. Run `./scripts/release.sh` with full Xcode. It tests, builds both
    architectures, preserves Sparkle's framework/helper signatures, signs the
    complete Cue bundle locally, creates the DMG, and signs/verifies the archive
@@ -73,7 +89,7 @@ App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使�
    `appcast.xml`, and `SHA256SUMS.txt`. Do not edit the generated signed feed,
    notes, or DMG afterward. SHA-256 is a transfer check, not a publisher identity.
 4. Run the optimized launcher, command-icon, adaptive-search, clipboard, settings,
-   localization, web-search, GPT, app-alias, link-cleaner, emoji, calculator, unit-conversion, currency-rate, system-action, selected-text, conversion-lifecycle, network-policy,
+   localization, web-search, file-search, GPT, app-alias, link-cleaner, emoji, calculator, unit-conversion, currency-rate, system-action, selected-text, conversion-lifecycle, network-policy,
    and updater checks. Clipboard checks must use synthetic data and private pasteboards.
    Run `scripts/check-unit-conversion.sh` and `scripts/check-currency-rates.sh`
    with their synthetic queries, injected transport and private cache/pasteboards.
@@ -91,6 +107,11 @@ App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使�
    permission changes while awaiting a key, cancellation and stale-stream
    rejection. Test the native answer/settings pages in both languages.
    Never embed a real API key in source, tests, notes or release assets.
+   Run `scripts/check-window-settings.sh` and `scripts/check-window-mode.sh`
+   with injected permission state. Verify first use, valid existing permission,
+   stale/revoked permission after updates, returning from System Settings,
+   preserved explicit disablement, shortcut conflicts and no replay of old
+   layout actions. These tests must not request or reset real system permission.
    Record live GPT testing separately from simulated checks; a missing
    maintainer API key does not turn mocked answers into a live validation.
    Run `scripts/check-login-item.sh` with its injected service; it must not change
@@ -114,32 +135,41 @@ App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使�
    before signing; do not claim it passed based on packaging checks alone.
 6. Test actual browser downloads on another Mac when available. Record tested
    machines accurately; compiling Intel and targeting macOS 14 does not prove
-   runtime compatibility there. Version 0.1.0 needs one manual installation of
-   the current release because it has no updater; installing 0.1.1
-   first is unnecessary. Version 0.1.1 and later can use the in-app updater.
+   runtime compatibility there. Use the app updater or the installation guide
+   for manual replacement, and verify that existing preferences are preserved.
 
 The script refuses to overwrite an existing version directory. Inspect and
 move aside failed/unpublished attempts before retrying; never silently replace
 an already-published build with different bytes.
 
+版本資料請使用 `set-version.sh` 集中更新；從 beta 轉正式也會遞增 build，
+避免 Sparkle 將兩者視為同一份 App。發佈前須同步 repo；`check-version.sh --release`
+會以本機 appcast 驗證正式 channel 與遞增版本，不會連線、發布或更動舊產物。
+`check-version-tests.sh` 使用隔離資料驗證版本轉換及回退拒絕。完整中英說明見
+[版本規則](versioning.md)。
+
 ## Publish assets before the feed
 
 Commit and push the reviewed source. Create and push an annotated version tag
-on that commit. Publish the tested assets and bilingual notes; for 0.9.0:
+on that commit. Publish the tested assets and bilingual notes, deriving the version
+from the validated metadata:
 
 ```sh
-git tag -a v0.9.0 -m "Cue 0.9.0 GPT and app search"
+./scripts/check-version.sh --release
+cue_version="$(plutil -extract CFBundleShortVersionString raw -o - Resources/Info.plist)"
+cue_notes="docs/releases/v${cue_version}.md"
+git tag -a "v${cue_version}" -m "Cue ${cue_version}"
 git push origin main
-git push origin v0.9.0
-./scripts/github-release-notes.sh --body docs/releases/v0.9.0.md \
-  > .build/github-release-v0.9.0.md
-gh release create v0.9.0 \
-  .build/releases/0.9.0/Cue-0.9.0-universal.dmg \
-  .build/releases/0.9.0/appcast.xml \
-  .build/releases/0.9.0/SHA256SUMS.txt \
+git push origin "v${cue_version}"
+./scripts/github-release-notes.sh --body "$cue_notes" \
+  > ".build/github-release-v${cue_version}.md"
+gh release create "v${cue_version}" \
+  ".build/releases/${cue_version}/Cue-${cue_version}-universal.dmg" \
+  ".build/releases/${cue_version}/appcast.xml" \
+  ".build/releases/${cue_version}/SHA256SUMS.txt" \
   --repo hsiuhsiu/cue --verify-tag --latest \
-  --title "$(./scripts/github-release-notes.sh --title docs/releases/v0.9.0.md)" \
-  --notes-file .build/github-release-v0.9.0.md
+  --title "$(./scripts/github-release-notes.sh --title "$cue_notes")" \
+  --notes-file ".build/github-release-v${cue_version}.md"
 ```
 
 Never upload the complete titled source file as GitHub's release body. Confirm
@@ -163,3 +193,31 @@ Verify the live feed's signature and perform a manual update check. GitHub's
 raw-content cache may take a short time to refresh. Installation guidance must
 use the system's app-specific first-launch approval flow; do not remove
 quarantine or disable Gatekeeper.
+
+## Website
+
+The public website lives in `website/`, with English at `/cue/` and Traditional
+Chinese at `/cue/zh-Hant/`. It is plain HTML/CSS with local artwork, no JavaScript,
+analytics or external fonts. Preview it with
+`python3 -m http.server 8765 --bind 127.0.0.1 --directory website`.
+
+The account's existing Pages domain serves the site at
+`https://yihsiu.org/cue/`; `https://hsiuhsiu.github.io/cue/` redirects there.
+Keep HTTPS enforcement enabled for this repository and use the served domain
+for canonical and language-alternate URLs.
+
+`.github/workflows/pages.yml` publishes only `website/` to GitHub Pages when those
+files change on `main`; it can also be dispatched manually. The repository's
+Pages build source must be **GitHub Actions**. Never upload the repository root,
+build products, logs or signing material as the Pages artifact.
+
+The download buttons point to GitHub's latest release. Publish a new release
+before adding its milestone link to the website. Update both language pages
+together and check language switching, internal anchors, mobile layouts and
+download links. Keep installation steps in the linked documentation, not on
+the homepage.
+
+官網來源位於 `website/`，英文與正體中文各有獨立頁面。GitHub Pages workflow
+只發布這個目錄，不包含儲存庫根目錄、建置產物或簽章資料。下載按鈕連到最新
+正式 release；新增沿革連結前先完成該版發布，兩語頁面同步更新。安裝步驟保留
+在連結的文件裡，不放在首頁。

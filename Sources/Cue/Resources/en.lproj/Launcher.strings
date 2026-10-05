@@ -9,6 +9,11 @@
 "index.updating" = "Updating app index…";
 "index.updated" = "Index updated · %ld applications";
 "results.empty" = "No results found";
+"files.prompt" = "Type part of a filename";
+"files.loading" = "Searching filenames…";
+"files.empty" = "No indexed filenames match";
+"files.unavailable" = "File search is unavailable. Try again or check Spotlight settings.";
+"files.tooLong" = "Use a shorter filename search";
 "search.google" = "Search Google";
 "search.browser" = "Default browser";
 "search.google.shortcut" = "Search this text in Google (⌘Return)";
@@ -81,3 +86,6 @@
 "gpt.networkOff" = "Network off";
 
 "gpt.help" = "Send this text to OpenAI · GPT settings (⌘,)";
+
+"command.windowControls" = "Window Controls";
+"command.windowSettings" = "Window Settings";

@@ -191,6 +191,54 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertEqual(modified, marker)
     }
 
+    func testPruneSkipsUnchangedHistoryButExpiresAtBoundaryAfterRetentionChange() async throws {
+        let (directory, file, store) = try fixture()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        _ = try await store.record(text: "oldest", retention: .forever, now: start)
+        let saved = try await store.record(text: "newest", retention: .forever, now: start.addingTimeInterval(60))
+        let marker = start.addingTimeInterval(-10)
+        try FileManager.default.setAttributes([.modificationDate: marker], ofItemAtPath: file.path)
+        for retention in ClipboardRetention.allCases {
+            let unchanged = try await store.prune(retention: retention, now: start.addingTimeInterval(3_599))
+            XCTAssertEqual(unchanged, saved)
+        }
+        let modified = try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date
+        XCTAssertEqual(modified, marker)
+        let expired = try await store.prune(retention: .hour, now: start.addingTimeInterval(3_600))
+        XCTAssertEqual(expired.map(\.text), ["newest"])
+        let reloaded = try await ClipboardStore(fileURL: file).load(retention: .forever, now: start.addingTimeInterval(3_600))
+        XCTAssertEqual(reloaded, expired)
+    }
+
+    func testPruneRepairsBackwardClockEvenWithForeverRetention() async throws {
+        let (directory, file, store) = try fixture()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        _ = try await store.record(text: "first", retention: .forever, now: start)
+        _ = try await store.record(text: "second", retention: .forever, now: start.addingTimeInterval(60))
+        let earlier = start.addingTimeInterval(-60)
+        let repaired = try await store.prune(retention: .forever, now: earlier)
+        XCTAssertEqual(repaired.map(\.text), ["second", "first"])
+        XCTAssertTrue(repaired.allSatisfy { $0.copiedAt == earlier })
+        let reloaded = try await ClipboardStore(fileURL: file).load(retention: .forever, now: earlier)
+        XCTAssertEqual(reloaded, repaired)
+        let expired = try await store.prune(retention: .hour, now: earlier.addingTimeInterval(3_600))
+        XCTAssertTrue(expired.isEmpty)
+    }
+
+    func testPruneRejectsInvalidTimeEvenForEmptyLoadedStore() async throws {
+        let (directory, _, store) = try fixture()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        _ = try await store.load(retention: .forever, now: start)
+        for value in [Double.infinity, -Double.infinity, .nan] {
+            do {
+                _ = try await store.prune(retention: .forever, now: Date(timeIntervalSinceReferenceDate: value))
+                XCTFail("Expected invalid maintenance timestamp to be rejected")
+            } catch {
+                XCTAssertEqual(error as? ClipboardStoreError, .corruptStore)
+            }
+        }
+    }
+
     func testPersistenceUsesOwnerOnlyDirectoryAndFilePermissions() async throws {
         let (directory, file, store) = try fixture()
         defer { try? FileManager.default.removeItem(at: directory) }

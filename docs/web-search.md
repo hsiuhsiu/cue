@@ -2,8 +2,8 @@
 
 ## English
 
-Available in Cue 0.6.0. Search with your Mac's default browser or browsers
-you explicitly add in Google Search Settings. Cue 0.9.0 adds [GPT answers and translation](gpt.md).
+Search with your Mac's default browser or browsers
+you explicitly add in Google Search Settings. Text actions also include [GPT answers and translation](gpt.md).
 
 ### Search from the launcher
 
@@ -66,15 +66,15 @@ navigation or recall text already sent. See the [network policy](network-policy.
 
 ### GPT text actions
 
-Cue 0.9.0 adds **Ask GPT** and **Translate with GPT** to
+Cue includes **Ask GPT** and **Translate with GPT** in
 Command+K and unmatched-query fallback. These send text directly to OpenAI only
 when executed, require a user-supplied API key, and obey the global network
 setting. Google browser actions retain their independent permission. See [GPT](gpt.md).
 
 ## 正體中文
 
-自 Cue 0.6.0 起提供。可用這台 Mac 的
-預設瀏覽器，或在 Google 搜尋設定中自行加入的瀏覽器搜尋。Cue 0.9.0 另加入 [GPT 問答與翻譯](gpt.md)。
+可用這台 Mac 的
+預設瀏覽器，或在 Google 搜尋設定中自行加入的瀏覽器搜尋。文字動作另有 [GPT 問答與翻譯](gpt.md)。
 
 ### 從主視窗搜尋
 
@@ -126,7 +126,7 @@ Google 搜尋網址，並在開啟前再次確認瀏覽器搜尋開關。該開�
 
 ### GPT 文字動作
 
-Cue 0.9.0 的 Command+K 與無符合結果時，加入**問 GPT**與**GPT 翻譯**。
+Command+K 與無符合結果時，也有**問 GPT**與**GPT 翻譯**。
 只有執行才會將文字傳到 OpenAI，需要自行提供 API 金鑰，並遵守全域網路開關；
 Google 瀏覽器搜尋繼續使用獨立許可。額外瀏覽器超過六個時會收進**其他瀏覽器⋯**，
 每頁仍維持最多九項，所有已加入瀏覽器都可使用。詳見 [GPT 說明](gpt.md)。

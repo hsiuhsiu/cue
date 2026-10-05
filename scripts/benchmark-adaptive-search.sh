@@ -12,6 +12,7 @@ fi
 source_root="$repo_root"
 build_flags=(-D ADAPTIVE_SEARCH)
 model_dependencies=(
+    "$repo_root/Sources/Cue/FileSearchService.swift"
     "$repo_root/Sources/Cue/CurrencyRatesController.swift"
     "$repo_root/Sources/Cue/NetworkPolicy.swift"
 )

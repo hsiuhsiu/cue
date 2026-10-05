@@ -273,6 +273,8 @@ private actor ConverterFixture {
         check(retainedPermissionContext && controller.isSuspendedForSettings
               && model.query == "st" && model.selectedResult == .convertToTraditional,
               "A permission error opens feature settings without discarding the original command")
+        check(controller.windowControlSource == 42_424,
+              "A window-mode handoff from suspended Settings retains the original app instead of Cue")
         let denied = await selections.counts()
         check(denied.captures == beforePermission.captures + 1
               && denied.replacements == beforePermission.replacements && denied.discards == beforePermission.discards,
