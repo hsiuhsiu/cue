@@ -4,83 +4,33 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>Cue</title>
         <item>
-            <title>1.0.0</title>
-            <pubDate>Sun, 04 Oct 2026 20:01:58 -0700</pubDate>
-            <sparkle:version>13</sparkle:version>
-            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <title>1.1.0</title>
+            <pubDate>Wed, 07 Oct 2026 09:12:47 -0700</pubDate>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# Cue 1.0.0 — Your everyday keyboard toolkit / 日常鍵盤工具箱
+            <description sparkle:format="markdown"><![CDATA[# Cue 1.1.0 — Command history and easier source installs / 指令歷史與更簡單的原始碼安裝
 
 ## English
 
-Cue 1.0 brings window controls, portable settings and filename search to its
-native macOS launcher, alongside the existing clipboard, text, calculation and
-GPT tools. Fast, simple and lightweight remain its core principles.
+Cue can now recall executed inputs with the arrow keys, and building your own copy no longer requires full Xcode.
 
-[Website](https://yihsiu.org/cue/) · [Download Cue 1.0.0](https://github.com/hsiuhsiu/cue/releases/download/v1.0.0/Cue-1.0.0-universal.dmg) · [Checksums](https://github.com/hsiuhsiu/cue/releases/download/v1.0.0/SHA256SUMS.txt)
+[Download Cue 1.1.0](https://github.com/hsiuhsiu/cue/releases/download/v1.1.0/Cue-1.1.0-universal.dmg) · [Checksums](https://github.com/hsiuhsiu/cue/releases/download/v1.1.0/SHA256SUMS.txt)
 
 ### What's new
 
-- **Window controls:** press **Option+M** for the current window. Use
-  **Option+arrows** for halves, **Command+arrows** to move between displays,
-  **Return** to fill the usable desktop without creating a fullscreen Space,
-  **Space** to center, **Tab** to restore, and **1–9** for saved percentage
-  layouts. Choose whether the panel stays open after an adjustment.
-  The feature defaults to **on**, including upgrades without a saved window
-  configuration; an explicitly saved off choice is preserved. Open
-  **Window Settings…** from Cue's menu bar, search `window settings`, or press
-  **Command+,** in window mode to configure it.
-- **Permission guidance for new and existing users:** window controls require
-  macOS **Privacy & Security → Accessibility** permission, called **Device
-  Control and Data Access** in macOS 27. Missing or revoked permission opens a
-  guide with the actual status, a system-settings link and **Check Again**.
-  Returning from System Settings refreshes the status; no prompt appears just
-  because Cue starts, and old layout actions are not replayed. A grant from an
-  older executable may no longer be valid after an update. If the system switch
-  is on but Cue remains untrusted, follow the
-  [current-app recovery steps](https://github.com/hsiuhsiu/cue/blob/v1.0.0/docs/window-controls.md#新安裝與更新後的授權).
-- **Settings backup and transfer:** **Settings → Backup & Transfer** exports
-  portable preferences, aliases, selected browsers and window layouts. Imports
-  show a selectable preview and preserve the destination Mac's network, recording,
-  window-enablement, startup and permission choices. Ordinary JSON excludes API
-  keys. Optional password protection encrypts the backup; including an OpenAI key
-  requires encryption and an additional explicit choice. Passwords require at
-  least 12 characters and are not saved or recoverable. Clipboard contents and
-  search-learning history are excluded. See the
-  [backup guide](https://github.com/hsiuhsiu/cue/blob/v1.0.0/docs/settings-portability.md).
-- **Filename search:** type **`f` + space + a filename fragment**, for example
-  `f report` or `f 發票`. Search local Spotlight metadata for files and folders;
-  use **Return** or **Command+1–9** to open a result in its default app. Results
-  show parent paths and stay within nine rows. Cue does not scan document contents,
-  search network volumes or send file queries to Google/GPT. It works with Cue
-  networking off and depends on Spotlight's indexing, exclusions and access rules.
-  Known APFS data-volume aliases are normalized so eligible user files are not
-  mistaken for system files. See the
-  [file-search guide](https://github.com/hsiuhsiu/cue/blob/v1.0.0/docs/file-search.md).
-- **Responsiveness and reliability:** app matching reuses prepared name data;
-  icon decoding and caches have bounded concurrency and size. File refinements
-  retain still-matching rows and panel height while pending, then preserve
-  numbered choices once navigation begins. Background cancellation rejects stale
-  results, input edits publish one coherent update, and unchanged clipboard
-  expiration checks avoid unnecessary sorting. These changes add no typing debounce.
-- **Clear versions and MIT licensing:** Settings, About and update dialogs show
-  **1.0.0** without a parenthesized internal build number. Update ordering keeps
-  its separate increasing counter. Cue is now distributed under the
-  [MIT License](https://github.com/hsiuhsiu/cue/blob/v1.0.0/LICENSE); bundled
-  third-party components and data retain their own licenses.
+- **Recall previous commands:** open Cue with an empty input, press **↑** for older executed inputs and **↓** for newer ones. **Return** executes the recalled action; **Esc**, or moving past the newest entry, returns to blank. Editing ends recall and restores normal result-selection arrows. IME composition keeps control of its own keys.
+- **Command History:** type **`history`**, **`command history`**, or **`指令歷史`** to search past inputs. Each page shows up to nine numbered entries with the action and date/time. **Use / Return** or **Command+1–9** restores an entry for review; press Return again in the launcher to execute. The original action is preserved, including Google versus GPT translation. A missing app, file or browser does not silently select a different action.
+- **Local recording controls:** recording is **on by default**, including submitted Google/GPT text, calculations, conversions, filename queries and local commands. Failed execution attempts can also appear; drafts, responses, clipboard contents and text selected in other apps are excluded. Repeated input for the same action moves to the top. Limits are **200 entries, 30 days and 512 KiB of text**; inputs over 32 KiB are skipped. Delete a selected entry with **Command+Delete**, or plain **Delete** when the history search is empty. The page's gear / **Command+,** opens recording and clear-all controls. Turning recording off retains existing entries until deletion or expiry. History stays on this Mac, is excluded from settings backups, and is separate from search-ranking learning. See the [history guide](https://github.com/hsiuhsiu/cue/blob/v1.1.0/docs/command-history.md).
+- **Source installation with Command Line Tools:** `scripts/install-app.sh` now builds an optimized, self-contained app with **Swift 6 or later Command Line Tools**. Full Xcode is optional for this installation path. Bundled languages, artwork, emoji, offline conversion dictionaries and Sparkle remain available after moving the app away from the checkout. See the [source installation guide](https://github.com/hsiuhsiu/cue/blob/v1.1.0/docs/building.md).
+
+History loading and saving run in the background. Ordinary typing does not read or filter the history file; recall uses a bounded memory snapshot. Editing immediately after recall updates the input once, without restoring the old text over the first keystroke.
 
 ### Install or upgrade
 
-With Cue networking allowed, choose **Check for Updates…**, then download and
-**Install and Relaunch**. To install manually, quit Cue, open the DMG, drag
-**Cue.app** into **Applications**, replace an existing copy if needed, then open
-it there. The app lives in the menu bar; **Option+Space** opens the launcher.
-Settings, clipboard history and search learning are preserved. Updating needs a
-writable installed location, not the read-only DMG; installation and restart
-remain your choice.
+If Cue networking is allowed, choose **Check for Updates…**, then **Install and Relaunch**. For a manual install, quit Cue, open the DMG, drag **Cue.app** into **Applications**, replace the existing copy if needed, and open it there. **Option+Space** opens Cue. Existing settings, clipboard history and search learning are preserved. Use a writable installation location, not the read-only DMG.
 
-To build your own copy, install full Xcode with Swift 6 or later, complete its
-license/setup, quit any running Cue, then run:
+For a source install, run `xcode-select --install` if needed and wait for Command Line Tools installation to finish. Quit Cue, then run:
 
 ```sh
 git clone https://github.com/hsiuhsiu/cue.git
@@ -89,96 +39,36 @@ cd cue
 open "$HOME/Applications/Cue.app"
 ```
 
-For source updates, quit Cue and run `git pull --ff-only` and
-`./scripts/install-app.sh`, then reopen it. Source builds default to Cue-owned
-networking and automatic checks **off**; official DMGs default to **on**. Saved
-choices take precedence. Explicit browser search has its own switch. Installing
-an in-app update replaces a source build with the published binary; it does not
-compile your repository. See the
-[source guide](https://github.com/hsiuhsiu/cue/blob/v1.0.0/docs/building.md).
+To update an existing clone, quit Cue, run `git pull --ff-only` and `./scripts/install-app.sh`, then reopen the installed app. Source builds default to Cue-owned networking and automatic checks **off**; official DMGs default to **on**. Explicit saved choices take precedence. Browser search has its own switch. An in-app update installs the published binary rather than compiling your clone.
 
-### Verification and limits
+### Validation and limitations
 
-The pre-release review passed **287 optimized core tests**, 30 groups of isolated
-feature/integration checks, and Apple silicon/Intel compilation. Tests use
-synthetic data, private pasteboards, temporary preferences, injected services and
-offscreen native views. Host checks ran on **Apple silicon / macOS 27.0 / Xcode
-27**. Component performance measurements do not establish keyboard-to-display
-latency or a comparison with other launchers.
+Validation uses optimized core tests, isolated feature checks, temporary preferences, private pasteboards, injected services and offscreen native views on **Apple silicon / macOS 27 / Xcode 27**. Command History is checked in both English and Traditional Chinese. The source installation path was built and its relocated resources/signatures verified using standalone **Command Line Tools / Swift 6.4**. Offscreen timing measurements do not establish physical input-to-display latency.
 
-This round did **not** complete a live-desktop check of the final installed app,
-multi-display/app compatibility, fresh or updated macOS permission flows, or a
-full public Sparkle download/install/relaunch. A positive real-Spotlight fixture
-remained inconclusive: both Cue and macOS `mdfind` returned no match for the
-new fixture, despite metadata being visible. Injected positive-result checks
-passed; they do not prove a target Mac's index is searchable. Real GPT/currency
-requests and sleep/lock/display-off/login cycles were not rerun.
+The universal download targets **macOS 14 or later**, with both Apple silicon and Intel code. Intel and other macOS versions were not tested on hardware. This release does not include a fresh installed-app desktop check or an end-to-end public Sparkle download/install/relaunch test. Live GPT/currency requests, Spotlight indexing, power actions and macOS permission flows were not re-tested; their isolated checks do not prove live behavior.
 
-The universal app targets **macOS 14+**, but **Intel and macOS versions other than
-27 were not runtime-tested**. App size constraints can limit window adjustments;
-macOS Secure Input may intercept Option+letter shortcuts, so use Window Settings
-to choose another combination when needed.
-
-Cue is **ad hoc-signed, without Apple Developer ID signing or notarization**.
-Sparkle's update signatures do not replace Apple's first-launch checks. If macOS
-blocks opening the app, use the app-specific approval steps in the
-[installation guide](https://github.com/hsiuhsiu/cue/blob/v1.0.0/docs/installation.md).
-Window controls and Chinese text replacement need permission for the currently
-installed copy; rebuilding or updating can invalidate an older grant.
+Cue remains **ad hoc signed, without Apple Developer ID signing or notarization**. Sparkle's update signatures do not replace Apple's first-launch approval. Follow the [installation guide](https://github.com/hsiuhsiu/cue/blob/v1.1.0/docs/installation.md) if macOS blocks opening. Window controls and selected-text conversion may need permission granted again for the updated executable.
 
 ## 正體中文
 
-Cue 1.0 將視窗調整、設定移轉與檔名搜尋加入原生 macOS 啟動器，搭配既有的
-剪貼簿、文字處理、計算及 GPT 工具。快速、簡潔、輕量仍是核心原則。
+Cue 現在可以用方向鍵回看已執行的輸入，自行編譯安裝也不再需要完整 Xcode。
 
-[官網](https://yihsiu.org/cue/) · [下載 Cue 1.0.0](https://github.com/hsiuhsiu/cue/releases/download/v1.0.0/Cue-1.0.0-universal.dmg) · [檢查碼](https://github.com/hsiuhsiu/cue/releases/download/v1.0.0/SHA256SUMS.txt)
+[下載 Cue 1.1.0](https://github.com/hsiuhsiu/cue/releases/download/v1.1.0/Cue-1.1.0-universal.dmg) · [校驗碼](https://github.com/hsiuhsiu/cue/releases/download/v1.1.0/SHA256SUMS.txt)
 
-### 新功能與改善
+### 新功能
 
-- **視窗調整：**按 **Option+M** 控制目前視窗。**Option+方向鍵**套用半屏、
-  **Command+方向鍵**移動顯示器、**Return** 填滿可用桌面而不建立全螢幕 Space、
-  **空白鍵**置中、**Tab** 還原、**1–9** 套用已儲存的比例配置；可設定調整後
-  是否保留面板。功能**預設啟用**，包含尚無視窗設定的舊版升級；明確儲存的
-  關閉選擇會保留。從 Cue 選單列選擇**視窗設定…**、搜尋 `window settings`，
-  或在視窗模式按 **Command+,** 即可調整。
-- **新安裝與更新後的授權引導：**視窗調整需要 macOS **隱私權與安全性 →
-  輔助使用**權限；macOS 27 英文名稱為 **Device Control and Data Access**。
-  缺少或撤銷權限時，會顯示實際狀態、系統設定入口與**重新檢查**。從系統設定
-  返回會更新狀態；Cue 啟動時不直接索取權限，也不重播授權前的配置操作。
-  更新後，舊執行檔的授權不一定仍有效。若系統開關已開啟但 Cue 仍未獲信任，
-  請依[目前安裝版本的排解步驟](https://github.com/hsiuhsiu/cue/blob/v1.0.0/docs/window-controls.md#新安裝與更新後的授權)處理。
-- **設定備份與移轉：**在**設定 → 備份與移轉**匯出偏好、別名、指定瀏覽器與
-  視窗配置；匯入前可預覽並選擇區塊，保留目的 Mac 的網路、記錄、視窗啟用、
-  登入啟動與權限選擇。一般 JSON 不含 API key；可選密碼加密，攜帶 OpenAI
-  金鑰則必須加密並另外明確勾選。密碼至少 12 個字元，不會儲存，忘記後無法
-  復原。剪貼簿內容與搜尋學習記錄不列入備份。詳見
-  [備份說明](https://github.com/hsiuhsiu/cue/blob/v1.0.0/docs/settings-portability.md)。
-- **檔名搜尋：**輸入 **`f`＋空格＋部分檔名**，例如 `f report` 或 `f 發票`，
-  即可透過本機 Spotlight 索引搜尋檔案及資料夾。按 **Return** 或
-  **Command+1–9** 用預設 App 開啟；結果顯示所在路徑，最多九列。Cue 不讀取
-  文件內容、不搜尋網路磁碟，也不把檔案查詢交給 Google／GPT。關閉 Cue 網路
-  仍可使用，結果依 Spotlight 索引、排除範圍及權限而定。已正規化已知的 APFS
-  資料卷宗別名，避免一般使用者檔案被當成系統檔案排除。詳見
-  [檔案搜尋說明](https://github.com/hsiuhsiu/cue/blob/v1.0.0/docs/file-search.md)。
-- **操作反應與穩定性：**App 比對重用預先整理的名稱；圖示解碼及快取都有
-  工作數量與容量上限。檔案查詢尚未完成時保留仍符合的列及視窗高度，開始
-  選取後固定編號。取消機制拒絕過期回覆、每次輸入編輯只發布一次完整更新，
-  剪貼簿沒有過期項目時也避免重複排序。這些改善不加入打字等待或 debounce。
-- **清楚的版號與 MIT 授權：**設定、「關於」及更新視窗顯示 **1.0.0**，不再
-  附上括號建置號；更新排序仍使用獨立遞增的內部編號。Cue 採用
-  [MIT 授權](https://github.com/hsiuhsiu/cue/blob/v1.0.0/LICENSE)，內附的第三方
-  元件及資料維持各自授權。
+- **回看先前指令：**叫出 Cue，在空白輸入欄按 **↑** 看較舊的已執行輸入，按 **↓** 看較新的記錄。**Return** 執行回看的動作；**Esc** 或往下超過最新一筆會回到空白。修改文字就結束回看，恢復原本上下鍵選取結果的操作；中文組字仍保有自己的按鍵操作。
+- **指令歷史：**輸入 **`history`**、**`command history`** 或**「指令歷史」**搜尋過去的輸入。每頁最多九筆，顯示編號、動作與日期時間。按**使用／Return** 或 **Command+1–9** 將輸入放回主視窗，確認後再按 Return 執行。會保留原本的動作，例如 Google 搜尋或 GPT 翻譯；App、檔案或瀏覽器找不到時，不會偷偷改選另一個動作。
+- **本機記錄控制：**記錄**預設開啟**，包含送出的 Google／GPT 文字、計算式、換算、檔名查詢及本機指令，也可能包含執行失敗的嘗試。草稿、回答、剪貼簿內容及其他 App 選取的文字不記錄。相同輸入執行相同動作會移到最上方。最多 **200 筆、30 天、512 KiB 文字**；超過 32 KiB 的輸入不記錄。按 **Command+Delete** 刪除選取記錄，搜尋欄空白時也能直接按 **Delete**。該頁齒輪／**Command+,** 可關閉記錄或清空全部；關閉記錄後，既有內容保留到刪除或到期。歷史只存這台 Mac、不隨設定備份，也不加入搜尋排序學習。詳見[指令歷史說明](https://github.com/hsiuhsiu/cue/blob/v1.1.0/docs/command-history.md)。
+- **只用 Command Line Tools 即可安裝：**`scripts/install-app.sh` 現在以 **Swift 6 以上的 Command Line Tools** 編譯並打包最佳化 App，這條安裝路徑不需完整 Xcode。雙語資源、圖示、emoji、離線繁簡詞庫與 Sparkle 都包含在 App 裡，移離儲存庫後仍可使用。詳見[原始碼安裝指引](https://github.com/hsiuhsiu/cue/blob/v1.1.0/docs/building.md)。
+
+歷史的載入與存檔在背景進行；一般打字不讀取或搜尋歷史檔案，上下鍵只使用有容量限制的記憶體快照。回看後立即修改文字，只更新一次輸入，不會把舊文字蓋回第一個按鍵。
 
 ### 安裝或升級
 
-允許 Cue 自行連網後，選擇**檢查更新⋯**、下載，再依提示**安裝並重新啟動**
-（**Install and Relaunch**）。也可先結束 Cue，開啟 DMG，將 **Cue.app** 拖入
-**Applications／應用程式**，需要時取代舊版，再從該位置開啟。Cue 常駐選單列，
-按 **Option+Space** 叫出主視窗。設定、剪貼簿記錄與搜尋學習資料會保留。
-更新需要可寫入的安裝位置，不能直接在唯讀 DMG 裡執行；安裝與重啟由你選擇。
+允許 Cue 自行連網後，可選**檢查更新⋯**，再依提示**安裝並重新啟動**（**Install and Relaunch**）。手動安裝則先結束 Cue，開啟 DMG，將 **Cue.app** 拖入 **Applications／應用程式**，需要時取代舊版，再從該位置開啟。按 **Option+Space** 叫出 Cue。既有設定、剪貼簿記錄與搜尋學習資料會保留；請從可寫入的安裝位置執行，不要直接在唯讀 DMG 內更新。
 
-自行建置需先安裝含 Swift 6 以上的完整 Xcode、完成授權與設定，並結束正在
-執行的 Cue，再執行：
+自行編譯時，若尚未安裝 Command Line Tools，先執行 `xcode-select --install` 並等安裝完成。結束 Cue 後執行：
 
 ```sh
 git clone https://github.com/hsiuhsiu/cue.git
@@ -187,40 +77,20 @@ cd cue
 open "$HOME/Applications/Cue.app"
 ```
 
-日後更新原始碼版時，先結束 Cue，執行 `git pull --ff-only` 與
-`./scripts/install-app.sh`，再開啟。原始碼版預設**關閉** Cue 自行連網與自動
-檢查更新，正式 DMG 預設**開啟**；已儲存的明確選擇優先。瀏覽器搜尋另有獨立
-開關。從 Cue 內安裝更新會換成發布的執行檔，不會替儲存庫編譯。詳見
-[原始碼指引](https://github.com/hsiuhsiu/cue/blob/v1.0.0/docs/building.md)。
+更新既有 clone 時，先結束 Cue，在儲存庫執行 `git pull --ff-only` 與 `./scripts/install-app.sh`，再開啟已安裝的 App。原始碼版預設**關閉** Cue 自行連網與自動檢查更新，正式 DMG 預設**開啟**；已儲存的明確選擇優先，瀏覽器搜尋另有獨立開關。Cue 內的更新會安裝發布的執行檔，不會替 clone 編譯。
 
 ### 驗證與限制
 
-發布前審查通過 **287 項最佳化核心測試**、30 組隔離功能／整合檢查，以及
-Apple silicon／Intel 編譯。測試採用合成資料、專用測試剪貼簿、暫存設定、
-注入服務及離屏原生介面；執行環境為 **Apple silicon／macOS 27.0／Xcode 27**。
-元件效能量測不等同按鍵到畫面的總延遲，也不是與其他啟動器的比較。
+驗證在 **Apple silicon／macOS 27／Xcode 27** 執行最佳化核心測試與隔離功能檢查，使用暫存設定、專用測試剪貼簿、注入服務及離屏原生介面。指令歷史涵蓋英文與正體中文；原始碼安裝路徑也已使用獨立的 **Command Line Tools／Swift 6.4** 完成建置，並驗證移動後的資源與簽章。離屏元件量測不等同實際按鍵到螢幕的延遲。
 
-本輪**尚未完成**最終安裝版本的實際桌面驗證、多顯示器／不同 App 相容性、
-全新或更新後的 macOS 授權流程，以及完整的公開 Sparkle 下載／安裝／重啟。
-真實 Spotlight 正向測試仍無法下結論：新建測試檔雖可讀到 metadata，Cue 與
-macOS `mdfind` 都找不到。模擬正向結果檢查已通過，但不能證明目標 Mac 的
-索引能搜尋到檔案。本輪也未重跑真實 GPT／匯率請求，以及睡眠、鎖定、關閉
-顯示器或登入啟動循環。
+通用版最低目標為 **macOS 14**，包含 Apple silicon 與 Intel 執行檔；Intel 與其他 macOS 版本未做實機驗證。本輪沒有重新驗證最終安裝版本的桌面操作，也未完成公開 Sparkle 下載／安裝／重啟全流程；真實 GPT／匯率請求、Spotlight 索引、電源操作及 macOS 權限流程也未重測，隔離檢查不能代替這些實際操作。
 
-通用版最低目標為 **macOS 14**，但 **Intel 與 macOS 27 以外的版本未做實機
-執行驗證**。App 的尺寸限制可能影響視窗調整；macOS 安全輸入也可能攔截
-Option＋字母，遇到時可在視窗設定改用其他組合。
-
-Cue 使用 **ad hoc 簽章，沒有 Apple Developer ID 簽署，也未經 Apple 公證**。
-Sparkle 更新簽章不會取代 Apple 的首次開啟檢查。若 macOS 阻擋啟動，請依
-[安裝說明](https://github.com/hsiuhsiu/cue/blob/v1.0.0/docs/installation.md)完成針對
-Cue 的允許程序。視窗調整及簡繁文字取代需要授權目前安裝的那份 App；重新
-建置或更新可能使舊授權失效。
+Cue 維持 **ad hoc 簽章，沒有 Apple Developer ID 簽署，也未經 Apple 公證**。Sparkle 更新簽章不取代 Apple 的首次開啟允許程序；若 macOS 阻擋，請依[安裝說明](https://github.com/hsiuhsiu/cue/blob/v1.1.0/docs/installation.md)處理。更新執行檔後，視窗控制及選取文字轉換可能需要重新授權。
 ]]></description>
-            <enclosure url="https://github.com/hsiuhsiu/cue/releases/download/v1.0.0/Cue-1.0.0-universal.dmg" length="8236170" type="application/octet-stream" sparkle:edSignature="ySLXzy/7RrMY9+r7o4mM5px94v/TqKdoHUQ8aDYmsjUkmJe3ruXmFjVnwZm8qbNR0UhdsKoiuLW+ANZGawu3BA=="></enclosure>
+            <enclosure url="https://github.com/hsiuhsiu/cue/releases/download/v1.1.0/Cue-1.1.0-universal.dmg" length="8404606" type="application/octet-stream" sparkle:edSignature="OEJlVXi/lQsH1Hzn0LSt0teyutQDpCJsruzeX3wB3lbCHizwAqZSyX5wth7iduQQfB5hz78GXqh79n63H4OiAg=="></enclosure>
         </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: Gu7blqSWCt6wW0/c0PPSxlsoBQSVlXxn2KUHi4r/eq8HLy35aIaj/MlcaXZafmDM4eHT8sUGNsakYtKV7scVAw==
-length: 14836
+edSignature: 3JxcmAEFVBoX9L5rmP1Ig0NNXgiDnxt8XUopqwVClZl9OYLa3P1cIYEoaZliNOmOG9WijZmVbnMvcnF5qMjHBg==
+length: 11195
 -->
