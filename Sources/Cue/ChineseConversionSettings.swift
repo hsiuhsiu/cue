@@ -140,9 +140,9 @@ private struct ChineseConversionSettingsView: View {
     @ObservedObject var preferences: ChineseConversionPreferences
     var accessGranted: Bool
     let close: () -> Void
-    @State private var traditional: String
-    @State private var simplified: String
-    @State private var error: String?
+    @ViewState private var traditional: String
+    @ViewState private var simplified: String
+    @ViewState private var error: String?
 
     init(preferences: ChineseConversionPreferences, accessGranted: Bool, close: @escaping () -> Void) {
         self.preferences = preferences

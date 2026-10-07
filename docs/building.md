@@ -2,11 +2,11 @@
 
 ## English
 
-You can build Cue directly from GitHub without downloading a DMG. You need a Mac, full **Xcode with Swift 6 or later**, and an internet connection for the first build to fetch the pinned Sparkle dependency. No paid Apple Developer account, signing certificate, or maintainer update-signing key is required.
+You can build Cue directly from GitHub without downloading a DMG. You need a Mac running macOS 14 or later, **Command Line Tools with Swift 6 or later**, and an internet connection for the first build to fetch the pinned Sparkle dependency. Full Xcode is optional. No paid Apple Developer account, signing certificate, or maintainer update-signing key is required.
 
 ### First installation
 
-1. Install Xcode, open it once, and finish its license and first-launch setup. Do this again after upgrading Xcode if it asks, including Xcode 27. Command Line Tools alone are not sufficient.
+1. Run `xcode-select --install` in Terminal if Command Line Tools are not installed, and finish the macOS installer before continuing. If the script reports an older Swift compiler, update Command Line Tools in **System Settings → Software Update**. You do not need to install or open Xcode.
 2. Quit any running Cue through its menu bar **Quit Cue** command.
 3. Run these commands in Terminal:
 
@@ -17,7 +17,9 @@ cd cue
 open "$HOME/Applications/Cue.app"
 ```
 
-The installer makes an optimized **Release** build for your Mac's architecture, checks the complete app signature, and installs it at **`~/Applications/Cue.app`**. It uses local ad-hoc signing and preserves Sparkle's own signed helpers. It does not ask for a signing key or change macOS security settings. The default location requires no administrator access.
+The installer uses Swift Package Manager to make an optimized **Release** build for your Mac's architecture, checks the complete app signature, and installs it at **`~/Applications/Cue.app`**. It packages the icons, translations, offline dictionaries, emoji catalog, and updater into the app. It uses local ad-hoc signing and preserves Sparkle's own signed helpers. It does not ask for a signing key or change macOS security settings. The default location requires no administrator access.
+
+The CLT-only build and relocated-bundle checks have been verified with Command Line Tools 27 / Swift 6.4 on Apple silicon running macOS 27. Intel and older toolchains have not been revalidated for this installer change.
 
 Cue lives in the menu bar, with no Dock icon. Press **Option+Space** to open it. The installed app remains available after reboot and is independent of the repository and `.build` folder; you can open it from your home folder's Applications directory. To start it automatically, turn on **Settings → General & Interaction → Launch at login**. If macOS requires approval, use **Open Login Items…** and allow Cue in System Settings. You can turn this off in Cue or macOS at any time.
 
@@ -48,7 +50,7 @@ Rebuilding or updating an ad-hoc signed app can invalidate its previous Accessib
 ### Other build options
 
 ```sh
-# Check Xcode setup without building or changing any files.
+# Check Command Line Tools/Swift setup without building or changing any files.
 ./scripts/build-app.sh --check
 
 # Build only; output stays in the repository at .build/Cue.app.
@@ -66,15 +68,17 @@ Rebuilding or updating an ad-hoc signed app can invalidate its previous Accessib
 
 `./scripts/install-app.sh --check` also checks the install destination and that Cue has quit, without changing files. A destination containing spaces is supported when quoted. Keep one daily-use copy of Cue and launch that installed copy; running `.build/Cue.app` or a copy from Xcode is a separate development session.
 
-The scripts prefer `/Applications/Xcode.app` and honor an explicit `DEVELOPER_DIR`. If Xcode is elsewhere, prefix the command with its developer directory, for example `DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer" ./scripts/install-app.sh`. The preflight reports incomplete setup and does not accept Apple's license for you. You can also open `Cue.xcodeproj` in Xcode and run the **Cue** scheme; use the install script for a persistent daily-use installation.
+The scripts prefer `/Library/Developer/CommandLineTools` when installed and honor an explicit `DEVELOPER_DIR`, without changing your global `xcode-select` setting. To select the standalone tools explicitly, use `DEVELOPER_DIR=/Library/Developer/CommandLineTools ./scripts/install-app.sh`. If only Xcode is installed, the selected Xcode toolchain also works. Installing Xcode for source installation is unnecessary; the script handles compilation, resources, framework embedding, and signing for you.
+
+For development or the maintainer's universal DMG pipeline, Xcode remains available: open `Cue.xcodeproj` and run the **Cue** scheme. The local installer builds only the current Mac's architecture, not a universal DMG.
 
 ## 正體中文
 
-不下載 DMG 也能直接從 GitHub 建置 Cue。需要 Mac、內含 **Swift 6 以上的完整 Xcode**，首次建置也需要網路以下載固定版本的 Sparkle 相依套件。**不需要付費 Apple Developer 帳號、簽章憑證或維護者的更新簽章金鑰**。
+不下載 DMG 也能直接從 GitHub 建置 Cue。需要 macOS 14 以上的 Mac，以及含 **Swift 6 以上的 Command Line Tools**；不必安裝完整 Xcode。首次建置也需要網路以下載固定版本的 Sparkle 相依套件。**不需要付費 Apple Developer 帳號、簽章憑證或維護者的更新簽章金鑰**。
 
 ### 第一次安裝
 
-1. 安裝並開啟 Xcode，完成授權與首次啟動設定。升級後若再次要求設定（包含 Xcode 27），請先完成；只有 Command Line Tools 無法建置 Cue。
+1. 若尚未安裝 Command Line Tools，在「終端機」執行 `xcode-select --install`，等 macOS 安裝完成後再繼續。若腳本顯示 Swift 版本太舊，到**系統設定 → 軟體更新**更新 Command Line Tools 即可，不需要安裝或開啟 Xcode。
 2. 若 Cue 正在執行，先從選單列選擇**結束 Cue**。
 3. 在「終端機」執行：
 
@@ -85,7 +89,9 @@ cd cue
 open "$HOME/Applications/Cue.app"
 ```
 
-安裝程式會依這台 Mac 的架構產生最佳化的 **Release** 版本，檢查完整 App 簽章，並安裝至 **`~/Applications/Cue.app`**。它使用本機 ad-hoc 簽章，保留 Sparkle 自己的簽章，不會要求簽章金鑰，也不會變更 macOS 安全設定。預設安裝位置不需要管理者權限。
+安裝程式會使用 Swift Package Manager，依這台 Mac 的架構產生最佳化的 **Release** 版本，檢查完整 App 簽章，並安裝至 **`~/Applications/Cue.app`**。圖示、翻譯、離線詞庫、emoji 資料與更新元件都會包進 App。它使用本機 ad-hoc 簽章，保留 Sparkle 自己的簽章，不會要求簽章金鑰，也不會變更 macOS 安全設定。預設安裝位置不需要管理者權限。
+
+只使用 Command Line Tools 的建置與搬移後的 App 檢查，已在 macOS 27、Apple silicon、Command Line Tools 27／Swift 6.4 通過；本次安裝流程修改尚未重新驗證 Intel 與較舊工具鏈。
 
 Cue 會出現在選單列，不會有 Dock 圖示；按 **Option+Space** 即可叫出。安裝後的 App 獨立於儲存庫與 `.build` 目錄，重開機後仍會留在使用者個人資料夾內的「Applications／應用程式」。若希望登入 Mac 後自動執行，開啟 **設定 → 一般與操作 → 登入時啟動**。macOS 若要求授權，按**開啟登入項目⋯**，再到系統設定允許 Cue；之後可隨時從 Cue 或 macOS 關閉。
 
@@ -116,7 +122,7 @@ open "$HOME/Applications/Cue.app"
 ### 其他選項
 
 ```sh
-# 只檢查 Xcode 是否準備完成，不建置、不變更檔案。
+# 只檢查 Command Line Tools／Swift 是否準備完成，不建置、不變更檔案。
 ./scripts/build-app.sh --check
 
 # 只建置；產物位於儲存庫內的 .build/Cue.app。
@@ -134,4 +140,6 @@ open "$HOME/Applications/Cue.app"
 
 `./scripts/install-app.sh --check` 也會檢查安裝位置與 Cue 是否已結束，不會修改檔案。路徑包含空白時，請加上引號。建議保留一份日常使用的 Cue，並開啟已安裝的那份；`.build/Cue.app` 與 Xcode 產生的 App 是另外的開發執行環境。
 
-腳本優先使用 `/Applications/Xcode.app`，也支援手動指定 `DEVELOPER_DIR`。若 Xcode 位於其他位置，可使用例如 `DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer" ./scripts/install-app.sh`。檢查會指出尚未完成的設定，不會代替你接受 Apple 授權。也可以在 Xcode 開啟 `Cue.xcodeproj` 並執行 **Cue** scheme；需要固定、可日常使用的安裝版本時，請使用安裝腳本。
+若有安裝，腳本優先使用 `/Library/Developer/CommandLineTools`，也支援明確指定 `DEVELOPER_DIR`，不會更改全機的 `xcode-select` 設定。例如 `DEVELOPER_DIR=/Library/Developer/CommandLineTools ./scripts/install-app.sh` 可指定使用獨立的命令列工具。若只裝了 Xcode，也可以使用目前選取的 Xcode 工具鏈。日常安裝不需要額外安裝 Xcode，編譯、資源打包、更新元件與簽章都由腳本處理。
+
+需要開發或製作維護者發布用的通用 DMG 時，仍可使用 Xcode：開啟 `Cue.xcodeproj` 並執行 **Cue** scheme。本機安裝腳本只編譯目前 Mac 使用的架構，不製作通用 DMG。

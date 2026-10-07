@@ -16,12 +16,7 @@ for argument in "$@"; do
         *) usage >&2; exit 2 ;;
     esac
 done
-case "$configuration" in
-    debug) xcode_configuration=Debug ;;
-    release) xcode_configuration=Release ;;
-esac
-
-[[ "$(uname -s)" == Darwin ]] || fail "Cue requires macOS and full Xcode."
+[[ "$(uname -s)" == Darwin ]] || fail "Cue requires macOS."
 "$repo_root/scripts/check-build-network-policy.sh"
 "$repo_root/scripts/check-version.sh"
 display_version="$("$repo_root/scripts/check-version.sh" --display)"
@@ -37,24 +32,20 @@ for resource in "${icon_resources[@]}"; do
         || { printf 'Missing icon resource: %s\n' "$resource" >&2; exit 1; }
 done
 
-# Prefer the installed Xcode toolchain; an explicit selection always wins.
-if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
-    export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+# Prefer standalone Command Line Tools; an explicit selection always wins.
+# Do not change the user's global xcode-select setting or require Xcode setup.
+if [[ -z "${DEVELOPER_DIR:-}" && -d /Library/Developer/CommandLineTools ]]; then
+    export DEVELOPER_DIR=/Library/Developer/CommandLineTools
 fi
 
-if ! /usr/bin/xcodebuild -version; then
-    fail "Install full Xcode, open it and complete setup. If Xcode is in another location, set DEVELOPER_DIR to its Contents/Developer directory. Command Line Tools alone cannot build Cue."
-fi
-if ! /usr/bin/xcodebuild -checkFirstLaunchStatus; then
-    fail "Open Xcode and complete its license and first-launch setup, then run this command again. Repeat this after an Xcode upgrade if requested."
-fi
 swift_version="$(/usr/bin/xcrun swift --version)" \
-    || fail "The selected Xcode Swift compiler is unavailable. Open Xcode and complete setup."
+    || fail "Install Command Line Tools with 'xcode-select --install', finish installation, then retry. Full Xcode is not required. If DEVELOPER_DIR is set, check that it points to a working toolchain."
 swift_major="$(printf '%s\n' "$swift_version" | sed -nE 's/.*Swift version ([0-9]+).*/\1/p' | head -n 1)"
 [[ "$swift_major" =~ ^[0-9]+$ && "$swift_major" -ge 6 ]] \
-    || fail "Cue needs Swift 6 or later. Select a current full Xcode using DEVELOPER_DIR."
+    || fail "Cue needs Swift 6 or later. Update Command Line Tools in System Settings > Software Update, then retry."
 /usr/bin/xcrun --sdk macosx --show-sdk-path >/dev/null \
-    || fail "The macOS SDK is unavailable. Open Xcode and complete setup."
+    || fail "The macOS SDK is unavailable. Install or update Command Line Tools, then retry."
+printf '%s\n' "$swift_version"
 [[ "$check_only" -eq 0 ]] || { printf 'Build prerequisites are ready.\n'; exit 0; }
 
 app_directory="$repo_root/.build/Cue.app"
@@ -65,17 +56,51 @@ while IFS= read -r process_path; do
         || fail "Quit Cue from its menu before rebuilding $app_directory. This lets pending clipboard saves finish."
 done <<< "$process_paths"
 
-printf 'Building Cue %s with %s optimization; output: %s\n' "$display_version" "$xcode_configuration" "$app_directory"
+printf 'Building Cue %s (%s); output: %s\n' "$display_version" "$configuration" "$app_directory"
 
-build_directory="$repo_root/.build/local-xcode"
-xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration "$xcode_configuration" \
-    -destination "platform=macOS,arch=$(uname -m)" -derivedDataPath "$build_directory" \
-    CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES build
+build_directory="$repo_root/.build/local-swiftpm"
+# An installed app uses its main bundle's resources, just like the Xcode build.
+# SwiftPM's generated Bundle.module lookup varies across build engines and can
+# fall back to an absolute build path; do not rely on that path after installing.
+build_arguments=(--scratch-path "$build_directory" --configuration "$configuration" --product Cue
+    --jobs 2 -Xswiftc -DCUE_APP_BUNDLE -Xlinker -rpath -Xlinker @executable_path/../Frameworks)
+/usr/bin/xcrun swift build "${build_arguments[@]}"
+# SwiftPM's output layout differs between toolchain versions/build engines.
+products_directory="$(/usr/bin/xcrun swift build "${build_arguments[@]}" --show-bin-path)"
+[[ -x "$products_directory/Cue" ]] || fail "SwiftPM did not produce a Cue executable."
+[[ -d "$products_directory/Cue_Cue.bundle" ]] || fail "SwiftPM did not produce Cue's resource bundle."
+sparkle_framework="$build_directory/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+[[ -d "$sparkle_framework" ]] || fail "The pinned Sparkle framework is missing."
 
 temporary_directory="$(mktemp -d "$repo_root/.build/.cue-app.XXXXXX")"
 trap 'rm -rf "$temporary_directory"' EXIT
 staged_app="$temporary_directory/Cue.app"
-ditto "$build_directory/Build/Products/$xcode_configuration/Cue.app" "$staged_app"
+mkdir -p "$staged_app/Contents/MacOS" "$staged_app/Contents/Resources" "$staged_app/Contents/Frameworks"
+cp "$products_directory/Cue" "$staged_app/Contents/MacOS/Cue"
+cp "$repo_root/Resources/Info.plist" "$staged_app/Contents/Info.plist"
+printf 'APPL????' > "$staged_app/Contents/PkgInfo"
+# Both older SwiftPM's flat bundle and Swift Build's Contents/Resources bundle
+# contain the same processed resources. Copy those once into the final app.
+package_resources="$products_directory/Cue_Cue.bundle"
+if [[ -d "$package_resources/Contents/Resources" ]]; then
+    package_resources="$package_resources/Contents/Resources"
+fi
+ditto "$package_resources" "$staged_app/Contents/Resources"
+rm -f "$staged_app/Contents/Resources/Info.plist"
+ditto "$sparkle_framework" "$staged_app/Contents/Frameworks/Sparkle.framework"
+for resource in "${icon_resources[@]}" Sparkle-LICENSE.txt; do
+    cp "$repo_root/Resources/$resource" "$staged_app/Contents/Resources/$resource"
+done
+
+# SwiftPM can embed checkout/toolchain search paths. Keep only system and
+# relative paths so the app remains independent of the checkout and build tools.
+while IFS= read -r runpath; do
+    case "$runpath" in
+        /usr/lib/*|/System/Library/*|@executable_path/*|@loader_path) ;;
+        *) /usr/bin/install_name_tool -delete_rpath "$runpath" "$staged_app/Contents/MacOS/Cue" ;;
+    esac
+done < <(/usr/bin/otool -l "$staged_app/Contents/MacOS/Cue" | awk '/cmd LC_RPATH/ {getline; getline; sub(/^ *path /, ""); sub(/ \(offset [0-9]+\)$/, ""); print}')
+
 "$repo_root/scripts/check-build-network-policy.sh" source "$staged_app"
 "$repo_root/scripts/check-version.sh" "$staged_app"
 [[ "$("$repo_root/scripts/check-version.sh" --display "$staged_app")" == "$display_version" ]] \
@@ -96,14 +121,13 @@ for resource in Cue-LICENSE.txt ChineseConversion.cuecc OpenCC-LICENSE.txt OpenC
         || fail "Missing or changed bundled resource: $resource."
 done
 # Keep Sparkle's signed framework and helpers intact; sign only our outer bundle.
-sparkle_framework="$build_directory/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
 diff --no-dereference -qr "$sparkle_framework" "$staged_app/Contents/Frameworks/Sparkle.framework"
 codesign --verify --deep --strict --all-architectures \
     "$staged_app/Contents/Frameworks/Sparkle.framework"
 codesign --force --sign - --timestamp=none "$staged_app"
 codesign --verify --deep --strict --all-architectures "$staged_app"
 
-# Check again in case the old output was opened while Xcode was building.
+# Check again in case the old output was opened during the build.
 process_paths="$(/bin/ps -axo comm=)" || fail "Cannot check whether the build output is running."
 while IFS= read -r process_path; do
     [[ "$process_path" != "$app_directory/Contents/MacOS/Cue" ]] \

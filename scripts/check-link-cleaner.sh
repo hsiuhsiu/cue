@@ -19,6 +19,7 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/AppIconCache.swift" \
     "$repo_root/Sources/Cue/CommandIcon.swift" \
     "$repo_root/Sources/Cue/Localization.swift" \
+    "$repo_root/Sources/Cue/ViewState.swift" \
     "$repo_root/Sources/Cue/LauncherAppearance.swift" \
     "$repo_root/Sources/Cue/ResultShortcut.swift" \
     "$repo_root/Sources/Cue/CurrencyRatesController.swift" \
@@ -44,6 +45,8 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/GPTSettings.swift" \
     "$repo_root/Sources/Cue/GPTModel.swift" \
     "$repo_root/Sources/Cue/GPTView.swift" \
+    "$repo_root/Sources/Cue/CommandHistoryModel.swift" \
+    "$repo_root/Sources/Cue/CommandHistoryView.swift" \
     "$repo_root/Sources/Cue/LauncherPanelController.swift" \
     "$repo_root/Sources/Cue/NetworkPolicy.swift" \
     "$repo_root/scripts/check-link-cleaner.swift" \

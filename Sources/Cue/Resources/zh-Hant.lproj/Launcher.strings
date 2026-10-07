@@ -89,3 +89,6 @@
 
 "command.windowControls" = "視窗調整";
 "command.windowSettings" = "視窗設定";
+"command.commandHistory" = "指令歷史";
+"history.recall" = "指令歷史 · ↑ ↓ 回看 · Esc 返回 · 修改文字繼續搜尋";
+"history.unavailable" = "原本的動作目前無法使用，請修改輸入或選擇其他結果。";

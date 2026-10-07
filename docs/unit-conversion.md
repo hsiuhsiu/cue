@@ -172,3 +172,9 @@ IP 位址等一般連線資訊。關閉網路會取消等待中的匯率工作�
 不包含金額或換算歷史。換算文字與結果不會存入搜尋學習記錄。單純打字不會修改剪貼簿；若啟用
 剪貼簿記錄，明確拷貝的數值會依一般記錄規則處理。macOS 通用剪貼簿與
 其他剪貼簿管理程式仍有各自的設定。
+
+## Local command history / 本機指令歷史
+
+When Command History recording is on (the default), an explicit launcher action saves its input and action locally, including Google/GPT text, calculations and filename queries. Drafts and GPT responses are excluded. This is separate from search-learning data and is never attached to API requests. Use **history** to delete records, or its **History Settings** to stop recording or clear all. See [Command History](command-history.md).
+
+指令歷史預設開啟：主啟動器明確執行的輸入與動作會存於本機，包含 Google／GPT 文字、計算式與檔名查詢；草稿與 GPT 回答不記錄。這與搜尋排序學習分開，也不會附加到 API 請求中。從 **history** 可刪除記錄，該頁的**指令歷史設定**可關閉記錄或清空，詳見[指令歷史](command-history.md)。

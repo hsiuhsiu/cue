@@ -88,7 +88,7 @@ App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使�
 3. Inspect `.build/releases/<version>/`: `Cue-<version>-universal.dmg`,
    `appcast.xml`, and `SHA256SUMS.txt`. Do not edit the generated signed feed,
    notes, or DMG afterward. SHA-256 is a transfer check, not a publisher identity.
-4. Run the optimized launcher, command-icon, adaptive-search, clipboard, settings,
+4. Run the optimized launcher, command-history, command-icon, adaptive-search, clipboard, settings,
    localization, web-search, file-search, GPT, app-alias, link-cleaner, emoji, calculator, unit-conversion, currency-rate, system-action, selected-text, conversion-lifecycle, network-policy,
    and updater checks. Clipboard checks must use synthetic data and private pasteboards.
    Run `scripts/check-unit-conversion.sh` and `scripts/check-currency-rates.sh`

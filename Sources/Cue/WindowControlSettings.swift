@@ -349,8 +349,8 @@ struct WindowControlSettingsView: View {
     let accessibility: WindowAccessibilityAccess
     let capturedPreset: () -> WindowPreset?
     let close: () -> Void
-    @State private var error: String?
-    @State private var editingSlot: PresetSlot?
+    @ViewState private var error: String?
+    @ViewState private var editingSlot: PresetSlot?
 
     private struct PresetSlot: Identifiable { let id: Int }
 
@@ -523,12 +523,12 @@ struct WindowPresetEditor: View {
     let capturedPreset: () -> WindowPreset?
     let save: (WindowPreset) -> String?
     let close: () -> Void
-    @State private var name: String
-    @State private var x: String
-    @State private var y: String
-    @State private var width: String
-    @State private var height: String
-    @State private var error: String?
+    @ViewState private var name: String
+    @ViewState private var x: String
+    @ViewState private var y: String
+    @ViewState private var width: String
+    @ViewState private var height: String
+    @ViewState private var error: String?
 
     init(slot: Int, existing: WindowPreset?, capturedPreset: @escaping () -> WindowPreset?,
          save: @escaping (WindowPreset) -> String?, close: @escaping () -> Void) {

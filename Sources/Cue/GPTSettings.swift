@@ -238,8 +238,8 @@ struct GPTSettingsView: View {
     @ObservedObject var credentials: GPTCredentialModel
     let openGeneralSettings: () -> Void
     let close: () -> Void
-    @State private var model: String
-    @State private var modelError: String?
+    @ViewState private var model: String
+    @ViewState private var modelError: String?
 
     init(preferences: GPTPreferences, policy: NetworkPolicy, credentials: GPTCredentialModel,
          openGeneralSettings: @escaping () -> Void, close: @escaping () -> Void) {

@@ -34,6 +34,11 @@ or intentional delay. This guide describes the current design and how to measure
   checks use sorted endpoints; expired or invalid records take the repair path.
 - Conversion dictionaries load only when a conversion is executed. GPT, currency
   requests, settings persistence and clipboard writes run away from the typing path.
+- Command History keeps at most 200 entries / 512 KiB of text in memory. Up/Down
+  recall uses a frozen snapshot; JSON loading and saving run on a separate actor.
+  Ordinary launcher edits do not filter this history. Its own page prepares search
+  text once per snapshot and renders up to nine rows. The first edit after recall
+  publishes one snapshot, without briefly restoring the old query or its caret.
 
 ## Ranking behavior
 
@@ -104,6 +109,10 @@ File queries, calculator expressions, clipboard contents, emoji searches, Google
 queries and GPT input/output are excluded from search learning. Explicit app and
 command choices are the only source of ranking preferences.
 
+The separate, enabled-by-default [Command History](command-history.md) saves
+submitted launcher input, including Google/GPT text and filename queries. Its
+recording switch, deletion controls and file are independent of ranking data.
+
 ## Reproduce measurements
 
 Run optimized checks serially, after other compilation and benchmarks finish:
@@ -123,6 +132,8 @@ focus. Adaptive-search fixtures cover 500/1,000 apps, empty/maximum usage state,
 extra names and aliases, cached/uncached queries, and synthetic CPU/I/O contention.
 Clipboard fixtures fill the 500-entry / 4 MiB limit. File fixtures exercise ranking,
 refinement, completion, cancellation and layout with bounded candidate sets.
+The interaction harness also measures recall and native layout from 200 synthetic
+command-history entries, without executing the recalled actions.
 
 `benchmark-adaptive-search.sh --baseline-ref <git-ref>` and
 `benchmark-long-query.sh --baseline-ref <git-ref>` can compare an earlier checkout
@@ -174,11 +185,24 @@ Relevant regression checks are CueCore XCTest and the isolated
 `check-launcher-keyboard.sh`, `check-adaptive-search.sh` and `check-clipboard.sh`
 harnesses. They cover matching equivalence, Unicode/long input, cancellation,
 stable shortcuts, progress, bounded icon work and timestamp boundaries.
+`check-command-history.sh` covers recall, the first edit, IME ownership, original
+action restoration after asynchronous file results, paging, deletion, and pending
+storage operations in both languages.
 
 Global hotkeys, cross-app focus, OS permission dialogs, visual composition and
 perceived typing smoothness need a coordinated check of the optimized installed
 app. Offscreen checks cannot establish those behaviors. Keep real-device and
 simulated results separate when reporting release readiness.
+
+### Command history measurement
+
+On **2026-10-07**, an optimized build using standalone **Command Line Tools /
+Swift 6.4** on the same Mac measured 200 synthetic recalls with native row layout:
+median **0.039 ms**, p95 **0.044 ms**, p99 **0.061 ms**, maximum **3.929 ms**.
+File refinement/layout in that run had a **0.171 ms** median and **0.191 ms** p95;
+each synchronous edit still published one model update. The harness includes the
+first recall but uses an already constructed native view. These are offscreen
+component timings, not input-to-display latency or a full-history-page benchmark.
 
 ## 正體中文
 
@@ -192,6 +216,16 @@ simulated results separate when reporting release readiness.
 關鍵字的選擇，再看帶有 14 天半衰期的使用分數。明確別名及完全符合仍優先。
 背景學習完成不會改動正在選擇的列表，下次輸入或叫出才採用新分數。要重設學習，
 請結束 Cue 後只移除 `Search/usage.json`；設定與剪貼簿使用獨立儲存。
+
+「指令歷史」與排序學習分開，預設記錄明確送出的輸入，包含 Google／GPT 文字與
+檔名查詢；可在該功能中刪除或關閉。最多 200 筆／512 KiB 文字，上下鍵只讀記憶體
+快照，存檔由背景處理，一般搜尋不掃描歷史。回看後的第一個修改只更新一次畫面，
+不會把舊輸入或游標位置蓋回去；歷史頁每頁最多九列。
+
+2026-10-07 使用 Command Line Tools／Swift 6.4 的最佳化建置，在同一台 Mac 測得
+200 次合成歷史回看與原生列排版中位數 0.039 ms、p95 0.044 ms、p99 0.061 ms，
+最大 3.929 ms。包含第一次回看，但原生 View 已建立；這是離屏元件時間，並非
+按鍵到螢幕的延遲，也不是整個歷史管理頁的量測。
 
 上表是指定日期、機器與合成工作負載的元件量測，不能當成未來版本、其他 Mac 或
 按鍵到畫面的延遲保證。依序執行上列命令可重新測量；保留第一次使用與最慢樣本，

@@ -67,6 +67,9 @@ struct LauncherText {
     let linkAccessDenied = L10n.string("link.accessDenied", table: "Launcher", value: "Clipboard access is blocked. Allow Cue in System Settings, then try again.")
     let linkWriteFailed = L10n.string("link.writeFailed", table: "Launcher", value: "Couldn’t update the clipboard. Please try again.")
     let clipboardHistory = L10n.string("command.clipboardHistory", table: "Launcher", value: "Clipboard History")
+    let commandHistory = L10n.string("command.commandHistory", table: "Launcher", value: "Command History")
+    let historyRecall = L10n.string("history.recall", table: "Launcher", value: "History · ↑ ↓ Browse · Esc to return · Edit to search")
+    let historyUnavailable = L10n.string("history.unavailable", table: "Launcher", value: "Previous action is unavailable. Edit the input or choose another result.")
     let sleep = L10n.string("command.sleep", table: "Launcher", value: "Sleep")
     let lockScreen = L10n.string("command.lockScreen", table: "Launcher", value: "Lock Screen")
     let windowControls = L10n.string("command.windowControls", table: "Launcher", value: "Window Controls")
@@ -91,6 +94,12 @@ final class LauncherModel {
     private(set) var isQueryEmpty = true
     private(set) var results: [LauncherResult] = []
     private(set) var selectedID: LauncherResult.ID?
+    private var recalledResultID: String?
+    private(set) var isRecallingHistory = false
+    var historyStatus: String? {
+        if recalledResultID != nil, selectedID == nil, !isSearchingFiles, !isIndexing { return text.historyUnavailable }
+        return isRecallingHistory ? text.historyRecall : nil
+    }
     private(set) var conversionAliases: ChineseConversionAliases
     private(set) var isIndexing = false
     private(set) var indexStatus: String?
@@ -216,6 +225,8 @@ final class LauncherModel {
         defer { finishUpdates() }
         onQueryChange?()
         adoptPendingUsage()
+        recalledResultID = nil
+        isRecallingHistory = false
         query = value
         classifyQuery()
         if isQueryEmpty || isFileSearch {
@@ -351,6 +362,8 @@ final class LauncherModel {
         updateDepth += 1
         defer { finishUpdates() }
         adoptPendingUsage()
+        recalledResultID = nil
+        isRecallingHistory = false
         query = ""
         classifyQuery()
         isShowingSearchActions = false
@@ -365,7 +378,10 @@ final class LauncherModel {
     }
 
     func select(_ id: LauncherResult.ID?) {
-        guard selectedID != id else { return }
+        let hadRecall = recalledResultID != nil || isRecallingHistory
+        recalledResultID = nil
+        isRecallingHistory = false
+        guard selectedID != id || hadRecall else { return }
         updateDepth += 1
         defer { finishUpdates() }
         if isFileSearch, hasPendingFileSearch, results.contains(where: { $0.id == id }) {
@@ -378,7 +394,7 @@ final class LauncherModel {
 
     func moveSelection(by offset: Int) {
         guard !results.isEmpty else { return }
-        let current = results.firstIndex { $0.id == selectedID } ?? 0
+        let current = results.firstIndex { $0.id == selectedID } ?? (offset > 0 ? -1 : results.count)
         select(results[min(max(current + offset, 0), results.count - 1)].id)
     }
 
@@ -421,9 +437,34 @@ final class LauncherModel {
             if cachedQueries.count >= 64 { cachedQueries.removeAll(keepingCapacity: true) }
             if currencyQuery == nil { cachedQueries[query] = results }
         }
-        if !preservingSelection || !results.contains(where: { $0.id == selectedID }) {
+        if let recalledResultID {
+            // A missing app/browser/file must never silently turn into another
+            // command, or a Google/GPT action. Also apply after async file/rate loads.
+            selectedID = results.first { $0.id == recalledResultID }?.id
+        } else if !preservingSelection || !results.contains(where: { $0.id == selectedID }) {
             selectedID = results.first?.id
         }
+    }
+
+    func recall(_ entry: CommandHistoryEntry, browsing: Bool = true) {
+        updateDepth += 1
+        defer { finishUpdates() }
+        setQuery(entry.query)
+        isShowingSearchActions = entry.actionID.hasPrefix("action:google-search")
+            || entry.actionID.hasPrefix("action:gpt-")
+        isShowingBrowserActions = entry.actionID.hasPrefix("action:google-search:")
+        recalledResultID = entry.actionID
+        isRecallingHistory = browsing
+        updateCurrencyActivity()
+        updateResults()
+        notifyChange()
+    }
+
+    func endHistoryRecall() {
+        guard recalledResultID != nil || isRecallingHistory else { return }
+        recalledResultID = nil
+        isRecallingHistory = false
+        notifyChange()
     }
 
     func retryCurrencyRates() { currencyRates?.retry() }

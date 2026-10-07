@@ -130,3 +130,9 @@ Command+K 與無符合結果時，也有**問 GPT**與**GPT 翻譯**。
 只有執行才會將文字傳到 OpenAI，需要自行提供 API 金鑰，並遵守全域網路開關；
 Google 瀏覽器搜尋繼續使用獨立許可。額外瀏覽器超過六個時會收進**其他瀏覽器⋯**，
 每頁仍維持最多九項，所有已加入瀏覽器都可使用。詳見 [GPT 說明](gpt.md)。
+
+## Local command history / 本機指令歷史
+
+When Command History recording is on (the default), an explicit launcher action saves its input and action locally, including Google/GPT text, calculations and filename queries. Drafts and GPT responses are excluded. This is separate from search-learning data and is never attached to API requests. Use **history** to delete records, or its **History Settings** to stop recording or clear all. See [Command History](command-history.md).
+
+指令歷史預設開啟：主啟動器明確執行的輸入與動作會存於本機，包含 Google／GPT 文字、計算式與檔名查詢；草稿與 GPT 回答不記錄。這與搜尋排序學習分開，也不會附加到 API 請求中。從 **history** 可刪除記錄，該頁的**指令歷史設定**可關閉記錄或清空，詳見[指令歷史](command-history.md)。

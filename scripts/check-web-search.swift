@@ -465,7 +465,7 @@ private final class BrowserResolverFixture: @unchecked Sendable {
         await model.prepareForTermination()
         if let data = try? Data(contentsOf: folder.appendingPathComponent("usage.json")), let text = String(data: data, encoding: .utf8) {
             check(!text.contains("private search") && !text.contains("C++") && !text.contains("action:google-search"),
-                  "The actual handoff flow never persists arbitrary Google queries")
+                  "The actual handoff flow never persists arbitrary Google queries in search-learning data")
         }
         // Cold synthetic queries exercise real AppKit field/model/table updates.
         // This reports computation only, without timing-based pass/fail assertions.

@@ -88,7 +88,7 @@ struct CheckLinkCleaner {
         try await checkController(application, board: board, defaults: defaults, folder: folder)
         check(!application.isActive && application.windows.allSatisfy { !$0.isVisible },
               "The harness stays hidden and never activates a window")
-        print("Link cleaner passed: \(checks) checks; private pasteboard transactions, marker preservation, cancellation, controller routing, and no query history. No general clipboard, browser, or network access.")
+        print("Link cleaner passed: \(checks) checks; private pasteboard transactions, marker preservation, cancellation, controller routing, and no query payloads in search-learning history. No general clipboard, browser, or network access.")
     }
 
     @MainActor private static func checkPasteboard(_ board: NSPasteboard) async throws {

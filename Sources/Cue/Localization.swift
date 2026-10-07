@@ -4,7 +4,8 @@ import Foundation
 /// Resolve interface text once in each screen's cached strings, never per keystroke.
 enum L10n {
     private static let bundle: Bundle = {
-        #if SWIFT_PACKAGE
+        // The install script stages the same main-bundle layout as Xcode.
+        #if SWIFT_PACKAGE && !CUE_APP_BUNDLE
         return .module
         #else
         return .main

@@ -124,6 +124,7 @@ xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \
 "$repo_root/scripts/check-backup-ui.sh"
 "$repo_root/scripts/check-login-item.sh"
 "$repo_root/scripts/check-launcher-keyboard.sh"
+"$repo_root/scripts/check-command-history.sh"
 "$repo_root/scripts/check-file-search.sh"
 "$repo_root/scripts/check-file-search-service.sh"
 "$repo_root/scripts/check-command-icons.sh"

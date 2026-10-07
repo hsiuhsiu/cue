@@ -89,3 +89,6 @@
 
 "command.windowControls" = "Window Controls";
 "command.windowSettings" = "Window Settings";
+"command.commandHistory" = "Command History";
+"history.recall" = "History · ↑ ↓ Browse · Esc to return · Edit to search";
+"history.unavailable" = "Previous action is unavailable. Edit the input or choose another result.";

@@ -132,6 +132,22 @@ private struct InteractionBenchmark {
         ]
         model.onQueryChange = nil
         model.reset()
+        // A full history remains outside ordinary search. Measure recall with
+        // native row layout using synthetic inputs and no file/network services.
+        var history = CommandHistory()
+        for index in 0..<200 {
+            history.record(CommandHistoryEntry(query: "synthetic question \(index)",
+                                               actionID: LauncherResult.googleSearch.id, title: "Google"))
+        }
+        var cursor = CommandHistoryCursor()
+        var historyTimings: [Double] = []
+        for _ in 0..<200 {
+            let started = DispatchTime.now().uptimeNanoseconds
+            model.recall(cursor.previous(in: history.entries)!)
+            layout()
+            historyTimings.append(milliseconds(since: started))
+        }
+        model.reset()
         precondition(!application.isActive && application.windows.isEmpty && view.window == nil)
         let output: [String: Any] = [
             "build": "swiftc -O, Swift 6",
@@ -144,6 +160,7 @@ private struct InteractionBenchmark {
             "preferred_height_changes": fileHeightChanges,
             "model_notifications_during_file_phases": fileNotifications,
             "model_notifications_per_query_edit": notificationCounts,
+            "history_recall_and_native_layout": summary(historyTimings),
             "timing_scope": "Warm native view; main-actor query/completion + row configuration/layout. No Spotlight latency, input delivery, pixels, visible windows, or app activation.",
         ]
         let data = try JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys])

@@ -9,6 +9,8 @@ private final class LauncherPanel: NSPanel {
 
     override func sendEvent(_ event: NSEvent) {
         if event.type == .keyDown {
+            if event.isARepeat, event.keyCode == 36 || event.keyCode == 76,
+               contentView is LauncherView || contentView is CommandHistoryView { return }
             // Keep the direct-event fallback on the same route as native key equivalents.
             if (contentView as? LauncherView)?.handleSettingsShortcut(event) == true { return }
             if (contentView as? LauncherView)?.handleAppAliasShortcut(event) == true { return }
@@ -18,6 +20,7 @@ private final class LauncherPanel: NSPanel {
             if (contentView as? ClipboardView)?.handlePreviewShortcut(event) == true { return }
             if (contentView as? EmojiView)?.handleSettingsShortcut(event) == true { return }
             if (contentView as? GPTView)?.handleKeyEquivalent(event) == true { return }
+            if (contentView as? CommandHistoryView)?.handleKeyEquivalent(event) == true { return }
             if (contentView as? LauncherView)?.handleNumberShortcut(event) == true { return }
             if (contentView as? ClipboardView)?.handleNumberShortcut(event) == true { return }
             if (contentView as? EmojiView)?.handleNumberShortcut(event) == true { return }
@@ -39,6 +42,22 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private let clipboard: ClipboardModel
     private let emoji: EmojiModel
     private let gpt: GPTModel?
+    let commandHistory: CommandHistoryModel
+    private var historyCursor = CommandHistoryCursor()
+    private var showingHistory = false
+    private lazy var historyView: CommandHistoryView = {
+        let view = CommandHistoryView(model: commandHistory, onUse: { [weak self] entry in
+            guard let self else { return }
+            self.showLauncher()
+            self.model.recall(entry, browsing: false)
+            self.launcherView.placeInsertionPointAtEnd()
+        }, onBack: { [weak self] in self?.showLauncher() })
+        view.onPreferredHeightChange = { [weak self] height in
+            guard let self, self.showingHistory else { return }
+            self.resizePanel(to: height)
+        }
+        return view
+    }()
     private let performSystemAction: @MainActor (SystemAction) async throws -> Void
     private let openApplication: @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void
     private let openFile: @MainActor (URL, @escaping @MainActor (Error?) -> Void) -> Void
@@ -109,6 +128,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
          model: LauncherModel = LauncherModel(),
          emoji: EmojiModel? = nil,
          gpt: GPTModel? = nil,
+         commandHistory: CommandHistoryModel? = nil,
          performSystemAction: @escaping @MainActor (SystemAction) async throws -> Void = SystemActions.perform,
          openApplication: @escaping @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemApplication,
          openFile: @escaping @MainActor (URL, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemFile,
@@ -130,6 +150,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         self.clipboard = clipboard
         self.emoji = emoji ?? EmojiModel()
         self.gpt = gpt
+        self.commandHistory = commandHistory ?? CommandHistoryModel()
         self.model = model
         self.performSystemAction = performSystemAction
         self.openApplication = openApplication
@@ -173,6 +194,11 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             onSubmit: { [weak self] in self?.runSelected() },
             onCancel: { [weak self] in
                 guard let self else { return }
+                if self.historyCursor.isActive {
+                    self.historyCursor.reset()
+                    self.model.reset()
+                    return
+                }
                 if !self.model.closeSearchActions() { self.dismiss() }
             },
             onSettings: { [weak self] in self?.openContextSettings() },
@@ -180,6 +206,10 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             onSearchActions: { [weak self] in self?.model.toggleSearchActions() },
             onAppAlias: { [weak self] application in self?.onAppAlias?(application) }
         )
+        launcherView.onHistoryPrevious = { [weak self] in self?.recallPreviousCommand() ?? false }
+        launcherView.onHistoryNext = { [weak self] in self?.recallNextCommand() ?? false }
+        launcherView.onHistoryEdit = { [weak self] in self?.endHistoryRecall() }
+        self.commandHistory.onClear = { [weak self] in self?.endHistoryRecall() }
         launcherView.onPreferredHeightChange = { [weak self] height in
             guard let self, !self.showingClipboard, self.panel.contentView === self.launcherView else { return }
             self.resizePanel(to: height)
@@ -256,7 +286,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         guard panel.isVisible, !isDismissing else { return }
         panel.makeKeyAndOrderFront(nil)
         // Feature settings own their focus; never target the hidden history field.
-        if showingGPT {
+        if showingHistory {
+            historyView.focusInput()
+        } else if showingGPT {
             gptView?.focusInput()
         } else if showingEmoji {
             panel.makeFirstResponder(emojiView.searchField)
@@ -283,7 +315,33 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         let frontmost = frontmostProcess()
         sourceProcessID = frontmost == ProcessInfo.processInfo.processIdentifier ? nil : frontmost
         invocation += 1
+        historyCursor.reset()
+        commandHistory.refresh()
         if resetQuery { model.reset() }
+    }
+
+    @discardableResult
+    func recallPreviousCommand() -> Bool {
+        if historyCursor.isActive, !model.isRecallingHistory { historyCursor.reset() }
+        guard historyCursor.isActive || model.query.isEmpty else { return false }
+        guard let entry = historyCursor.previous(in: commandHistory.history.entries) else { return true }
+        model.recall(entry)
+        launcherView.placeInsertionPointAtEnd()
+        return true
+    }
+
+    @discardableResult
+    func recallNextCommand() -> Bool {
+        guard historyCursor.isActive, model.isRecallingHistory else { historyCursor.reset(); return false }
+        if let entry = historyCursor.next() { model.recall(entry); launcherView.placeInsertionPointAtEnd() }
+        else { model.reset() }
+        return true
+    }
+
+    private func endHistoryRecall() {
+        guard historyCursor.isActive || model.isRecallingHistory else { return }
+        historyCursor.reset()
+        model.endHistoryRecall()
     }
 
     private func resizePanel(to preferredHeight: CGFloat) {
@@ -315,6 +373,13 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         if shouldCancel { cancelConversion() }
         invocation += 1
         panel.orderOut(nil)
+        historyCursor.reset()
+        if showingHistory {
+            historyView.close()
+            showingHistory = false
+            panel.contentView = launcherView
+            panel.initialFirstResponder = launcherView.searchField
+        }
         if showingClipboard {
             clipboard.close()
             clipboardView.closeSettings()
@@ -348,7 +413,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         // Ignore late app/browser/system-action failures from a dismissed panel.
         invocation += 1
         if isSuspendedForSettings { return true }
-        guard panel.isVisible || showingGPT || showingClipboard || showingEmoji || !model.query.isEmpty else { return false }
+        guard panel.isVisible || showingGPT || showingClipboard || showingEmoji || showingHistory || !model.query.isEmpty else { return false }
         isSuspendedForSettings = true
         isDismissing = true
         defer { isDismissing = false }
@@ -398,6 +463,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     private func showLauncher() {
         let returningFromGPT = showingGPT
+        historyCursor.reset()
+        if showingHistory { historyView.close(); showingHistory = false }
         if showingGPT {
             gpt?.close()
             showingGPT = false
@@ -431,6 +498,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     private func showGPT(_ mode: GPTMode) {
         guard let gpt else { onGPTSettings?(); return }
+        commandHistory.record(mode == .answer ? .askGPT : .translateGPT, query: model.query)
         if gptView == nil {
             let view = GPTView(model: gpt)
             view.onBack = { [weak self] in self?.showLauncher() }
@@ -475,6 +543,14 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         if !result.isWebSearch { cancelWebSearch() }
         if result != .convertToTraditional && result != .convertToSimplified { cancelConversion() }
         switch result {
+        case .commandHistory:
+            showingHistory = true
+            historyCursor.reset()
+            historyView.open()
+            panel.contentView = historyView
+            panel.initialFirstResponder = historyView.searchField
+            resizePanel(to: historyView.preferredHeight)
+            historyView.focusInput()
         case .calculation, .conversion:
             copyNumericResult(result)
         case .currencyStatus(let state):
@@ -484,6 +560,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         case .googleSearchIn(let browser):
             searchGoogle(in: browser)
         case .webSearchSettings:
+            commandHistory.record(result, query: model.query)
             onWebSearchSettings?()
         case .chooseSearchBrowser:
             model.showSearchBrowsers()
@@ -492,16 +569,19 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         case .translateGPT:
             showGPT(.translate)
         case .gptSettings:
+            commandHistory.record(result, query: model.query)
             onGPTSettings?()
         case .convertToTraditional:
             runConversion(.traditionalTaiwan, resultID: result.id)
         case .convertToSimplified:
             runConversion(.simplifiedChina, resultID: result.id)
         case .chineseConversionSettings:
+            commandHistory.record(result, query: model.query)
             onConversionSettings?()
         case .updateIndex:
             guard !model.isIndexing else { return }
             let query = model.query
+            commandHistory.record(result, query: query)
             Task {
                 if await model.loadApplications() {
                     model.recordSuccessfulAction(resultID: result.id, query: query)
@@ -511,10 +591,12 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             cleanClipboardLink()
         case .emojiSearch:
             let query = model.query
+            commandHistory.record(result, query: query)
             showEmoji()
             model.recordSuccessfulAction(resultID: result.id, query: query)
         case .clipboardHistory:
             let query = model.query
+            commandHistory.record(result, query: query)
             showClipboard()
             model.recordSuccessfulAction(resultID: result.id, query: query)
         case .sleep:
@@ -524,8 +606,10 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         case .screenOff:
             runSystemAction(.screenOff)
         case .windowControls:
+            commandHistory.record(result, query: model.query)
             onWindowControls?(sourceProcessID)
         case .windowSettings:
+            commandHistory.record(result, query: model.query)
             onWindowSettings?()
         case .application(let application):
             launch(application)
@@ -552,6 +636,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private func copyNumericResult(_ result: LauncherResult) {
         guard calculationCopyTask == nil, let value = result.numericCopyValue,
               model.canCopyNumericResult(result) else { return }
+        commandHistory.record(result, query: model.query)
         calculationCopyRequest += 1
         let request = calculationCopyRequest
         let requestInvocation = invocation
@@ -588,6 +673,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     private func cleanClipboardLink() {
         guard linkCleaningTask == nil else { return }
+        commandHistory.record(.cleanLink, query: model.query)
         let requestInvocation = invocation
         linkCleaningRequest += 1
         let request = linkCleaningRequest
@@ -641,17 +727,20 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         let query = model.query
         guard !model.isQueryEmpty, !model.isFileSearch, webSearchTask == nil else { return }
         // Explicit browser handoffs have their own feature switch. Cue makes no
-        // HTTP request, suggestion lookup, DNS lookup, or query-history write.
+        // HTTP request, suggestion lookup or DNS lookup. Explicit input history
+        // is local and separate from usage/ranking learning.
         guard webSearchPreferences.isEnabled else {
             model.launchError = LauncherText.shared.webSearchDisabled
             return
         }
         guard let url = WebSearch.googleURL(for: query) else { return }
         guard let browser else {
+            commandHistory.record(.googleSearch, query: query)
             handOffSearch(url, query: query, applicationURL: nil)
             return
         }
         guard webSearchPreferences.browsers.contains(where: { $0.id == browser.id }) else { return }
+        commandHistory.record(.googleSearchIn(browser), query: query)
         model.launchError = nil
         model.actionStatus = LauncherText.shared.openingBrowser
         webSearchRequest += 1
@@ -737,6 +826,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         }
         let query = model.query
         let requestInvocation = invocation
+        commandHistory.record(target == .traditionalTaiwan ? .convertToTraditional : .convertToSimplified, query: query)
         let previous = conversionTask
         previous?.cancel()
         conversionRequest += 1
@@ -815,6 +905,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             resultID = LauncherResult.screenOff.id
             failureMessage = LauncherText.shared.screenOffError
         }
+        commandHistory.record(action == .sleep ? .sleep : action == .lockScreen ? .lockScreen : .screenOff, query: query)
         // Close immediately; system calls and framework loading stay off typing's
         // event path. Tests inject actions to avoid changing the Mac's state.
         dismiss()
@@ -836,6 +927,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     private func launch(_ application: IndexedApplication) {
         let query = model.query
+        commandHistory.record(.application(application), query: query)
         // Acknowledge Enter immediately, independent of another app's startup time.
         dismiss(returnFocus: false)
         let launchInvocation = invocation
@@ -868,6 +960,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     private func launchFile(_ file: FileSearchResult) {
         let query = model.query
+        commandHistory.record(.file(file), query: query)
         // Finder/default app owns opening. Never read contents, resolve aliases,
         // or fetch cloud placeholders on the search or selection path.
         dismiss(returnFocus: false)

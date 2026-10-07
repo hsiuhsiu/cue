@@ -129,7 +129,7 @@ struct CueSettingsView: View {
     let close: () -> Void
     var exportSettings: () -> Void = {}
     var importSettings: () -> Void = {}
-    @State private var shortcutError: String?
+    @ViewState private var shortcutError: String?
 
     var body: some View {
         VStack(spacing: 14) {

@@ -13,6 +13,7 @@ usage() {
 Usage: ./scripts/install-app.sh [--destination /path/to/Cue.app] [--no-build] [--check]
 
 Build an optimized Release app and install it in ~/Applications/Cue.app.
+Requires Command Line Tools with Swift 6 or later; full Xcode is optional.
   --destination  Use another writable, permanent Cue.app path (no sudo).
   --no-build     Install the existing .build/Cue.app without rebuilding.
   --check        Check prerequisites and the destination without changing files.

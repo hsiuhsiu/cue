@@ -110,6 +110,9 @@ private final class ResultCell: NSTableCellView {
 final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTableViewDelegate {
     let searchField = NSTextField()
     var onPreferredHeightChange: ((CGFloat) -> Void)?
+    var onHistoryPrevious: (() -> Bool)?
+    var onHistoryNext: (() -> Bool)?
+    var onHistoryEdit: (() -> Void)?
     private let model: LauncherModel
     private let text = LauncherText.shared
     private let onSubmit: () -> Void
@@ -267,7 +270,10 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
               event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
               event.keyCode == UInt16(kVK_ANSI_K),
               (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return false }
-        if !event.isARepeat && !model.isQueryEmpty && !model.isFileSearch { onSearchActions() }
+        if !event.isARepeat && !model.isQueryEmpty && !model.isFileSearch {
+            onHistoryEdit?()
+            onSearchActions()
+        }
         return true
     }
 
@@ -381,7 +387,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
             ? (displayedResults.isEmpty || model.isSearchingFiles ? nil : model.fileSearchStatus)
             : ((model.isIndexing ? text.updatingIndex : (isQueryEmpty ? nil : model.indexStatus))
                ?? (model.isShowingSearchActions ? text.searchActions : nil))
-        let message = error ?? model.actionStatus ?? (showsRates ? model.currencyRateDate : nil) ?? modeStatus
+        let message = error ?? model.actionStatus ?? model.historyStatus ?? (showsRates ? model.currencyRateDate : nil) ?? modeStatus
         status.stringValue = message ?? ""
         status.isHidden = message == nil
         status.textColor = error == nil ? .secondaryLabelColor : .systemRed
@@ -396,6 +402,11 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
 
     func scrollToSelection() {
         if table.selectedRow >= 0 { table.scrollRowToVisible(table.selectedRow) }
+    }
+
+    func placeInsertionPointAtEnd() {
+        guard let editor = searchField.currentEditor() as? NSTextView, !editor.hasMarkedText() else { return }
+        editor.setSelectedRange(NSRange(location: (editor.string as NSString).length, length: 0))
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int { displayedResults.count }
@@ -490,6 +501,9 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
             cell.detail.stringValue = text.command
         case .clipboardHistory:
             cell.title.stringValue = text.clipboardHistory
+            cell.detail.stringValue = text.command
+        case .commandHistory:
+            cell.title.stringValue = text.commandHistory
             cell.detail.stringValue = text.command
         case .sleep:
             cell.title.stringValue = text.sleep
@@ -591,26 +605,34 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     @objc private func showActions() {
         guard !model.isQueryEmpty, !model.isFileSearch,
               (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }
+        onHistoryEdit?()
         onSearchActions()
         window?.makeFirstResponder(searchField)
     }
 
     func controlTextDidChange(_ notification: Notification) {
+        // Publish the edit first: setQuery ends recall in the same render. Never
+        // redraw the previous query over an in-progress edit or move its caret.
         model.setQuery(searchField.stringValue)
+        onHistoryEdit?()
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy command: Selector) -> Bool {
         guard !textView.hasMarkedText() else { return false }
         switch command {
         case #selector(NSResponder.moveDown(_:)):
+            if onHistoryNext?() == true { return true }
             model.moveSelection(by: 1)
             scrollToSelection()
         case #selector(NSResponder.moveUp(_:)):
+            if onHistoryPrevious?() == true { return true }
             model.moveSelection(by: -1)
             scrollToSelection()
         case #selector(NSResponder.insertNewline(_:)): onSubmit()
         case #selector(NSResponder.cancelOperation(_:)): onCancel()
-        default: return false
+        default:
+            onHistoryEdit?()
+            return false
         }
         return true
     }

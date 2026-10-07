@@ -222,7 +222,7 @@ private struct WebSearchSettingsView: View {
     @ObservedObject var preferences: WebSearchPreferences
     @ObservedObject var catalog: WebSearchBrowserCatalog
     let close: () -> Void
-    @State private var isAddingBrowser = false
+    @ViewState private var isAddingBrowser = false
 
     private var availableIDs: Set<String> { Set(catalog.candidates.map { $0.id.lowercased() }) }
 
@@ -302,8 +302,8 @@ private struct WebSearchBrowserPicker: View {
     @ObservedObject var preferences: WebSearchPreferences
     @ObservedObject var catalog: WebSearchBrowserCatalog
     let close: () -> Void
-    @State private var selectedID = ""
-    @State private var error: String?
+    @ViewState private var selectedID = ""
+    @ViewState private var error: String?
 
     private var candidates: [WebSearchBrowser] {
         let added = Set(preferences.browsers.map { $0.id.lowercased() })

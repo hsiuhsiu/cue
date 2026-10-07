@@ -27,7 +27,7 @@ Input is limited to 32 KiB of UTF-8. Output is capped at 2,048 tokens for answer
 
 ### Data and cancellation
 
-Keychain reads happen only on explicit GPT use, away from the main thread. Settings checks only whether a saved credential exists and never fills its secure field with the stored key. Replace or remove the key there. Questions and replies stay in memory and are excluded from search learning. Copying a reply exposes it to the normal system clipboard and any enabled clipboard history.
+Keychain reads happen only on explicit GPT use, away from the main thread. Settings checks only whether a saved credential exists and never fills its secure field with the stored key. Replace or remove the key there. Replies stay in memory. Questions and replies are excluded from search learning; the separate, enabled-by-default Command History saves submitted input locally until you delete it or it expires. Copying a reply exposes it to the normal system clipboard and any enabled clipboard history.
 
 Cue sends `store: false`, uses no conversation IDs, and renders no remote images or embedded web pages. OpenAI's own retention policies still apply; disabling response storage is not zero data retention. [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data).
 
@@ -60,7 +60,7 @@ Cue 以**儲存模型**（或在欄位按 Return）套用修改；**使用預設
 
 ### 資料與取消
 
-只有明確執行 GPT 才會在主執行緒之外讀取金鑰。設定頁只檢查是否存在已儲存金鑰，不將其填回欄位；可在該頁更換或刪除。問題與回答只留在記憶體，不加入搜尋學習；拷貝後則適用系統剪貼簿及已啟用的剪貼簿記錄規則。
+只有明確執行 GPT 才會在主執行緒之外讀取金鑰。設定頁只檢查是否存在已儲存金鑰，不將其填回欄位；可在該頁更換或刪除。回答只留在記憶體，問題與回答不加入搜尋學習；獨立且預設開啟的「指令歷史」會將送出的輸入存於本機，直到到期或刪除。拷貝後則適用系統剪貼簿及已啟用的剪貼簿記錄規則。
 
 請求使用 `store: false`，不使用對話 ID，不載入回答中的遠端圖片或嵌入網頁。OpenAI 端仍適用自己的資料保留政策，關閉回答儲存不等於零資料保留。[OpenAI 資料政策](https://developers.openai.com/api/docs/guides/your-data)。
 
@@ -75,3 +75,9 @@ See [performance](performance.md) for the current architecture, measurements and
 執行 `scripts/check-gpt.sh`、`scripts/check-gpt-settings.sh` 與 `scripts/check-gpt-ui.sh`，可隔離驗證 API、設定及原生介面／模型；使用注入的 transport 與憑證，不拿個人 API key 當測試資料。網頁搜尋與啟動器鍵盤檢查也涵蓋文字動作的選擇。真實回答品質、API 延遲、鑰匙圈授權及已安裝 App 的焦點操作，需與模擬結果分開驗證。
 
 目前架構、量測與重現方式請見[效能文件](performance.md)。模型與離屏排版時間不包含 API 延遲、系統按鍵送達及實際畫面合成。
+
+## Local command history / 本機指令歷史
+
+When Command History recording is on (the default), an explicit launcher action saves its input and action locally, including Google/GPT text, calculations and filename queries. Drafts and GPT responses are excluded. This is separate from search-learning data and is never attached to API requests. Use **history** to delete records, or its **History Settings** to stop recording or clear all. See [Command History](command-history.md).
+
+指令歷史預設開啟：主啟動器明確執行的輸入與動作會存於本機，包含 Google／GPT 文字、計算式與檔名查詢；草稿與 GPT 回答不記錄。這與搜尋排序學習分開，也不會附加到 API 請求中。從 **history** 可刪除記錄，該頁的**指令歷史設定**可關閉記錄或清空，詳見[指令歷史](command-history.md)。

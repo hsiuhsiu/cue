@@ -6,12 +6,12 @@ Cue 是選單列中的 macOS 啟動器，提供 App 與檔名搜尋、視窗調�
 
 ## 下載
 
-- [下載 Cue 1.0.0 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v1.0.0/Cue-1.0.0-universal.dmg)
-- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v1.0.0)
+- [下載 Cue 1.1.0 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v1.1.0/Cue-1.1.0-universal.dmg)
+- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.0)
 
 儲存庫與下載現在都已公開，不需要 GitHub 帳號。版本說明同時提供 English／正體中文。
 
-安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。自動化執行檢查使用 **Apple silicon、macOS 27.0、Xcode 27**；Intel 與其他 macOS 版本尚未實機驗證。本輪未完成最終安裝版的桌面操作、真實 Spotlight 正向案例及完整公開更新安裝；詳見[版本驗證限制](https://github.com/hsiuhsiu/cue/releases/tag/v1.0.0)。
+安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。自動化執行檢查使用 **Apple silicon、macOS 27.0、Xcode 27**；Intel 與其他 macOS 版本尚未實機驗證。本輪未完成最終安裝版的桌面操作、真實 Spotlight 正向案例及完整公開更新安裝；詳見[版本驗證限制](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.0)。
 
 ## 安裝與更新
 
@@ -28,7 +28,7 @@ Cue 會出現在選單列，不會顯示 Dock 圖示。按下 **Option+Space**�
 
 ## 從原始碼安裝
 
-如果想自行建置、不下載 DMG，請先安裝完整 Xcode（Swift 6 以上），開啟並完成授權與首次啟動設定；升級至 Xcode 27 後若再次要求，也需先完成。結束正在執行的 Cue 後，在終端機執行：
+如果想自行建置、不下載 DMG，**只需 Command Line Tools（Swift 6 以上），不需要完整 Xcode**。若尚未安裝，在終端機執行 `xcode-select --install`，等待安裝完成。結束正在執行的 Cue 後，再執行：
 
 ```sh
 git clone https://github.com/hsiuhsiu/cue.git
@@ -84,7 +84,7 @@ Cue 會搜尋 App 的顯示名稱、Bundle 名稱及檔名，因此 **Code** 也
 
 先在 Cue 搜尋 `gpt settings`，將自己的 OpenAI API 金鑰存進 macOS 鑰匙圈，再於一般設定允許 Cue 自行連網。API 與 ChatGPT 訂閱分開計費。預設模型為 GPT-6 Luna，可在 GPT 設定更改；翻譯預設為中文→英文，其他語言→正體中文（台灣用詞），也可固定目標語言。
 
-只有執行 GPT 動作才會傳送文字，打字不會呼叫 API。Cue 不保存對話歷史，不將提問與回答加入搜尋學習；拷貝後適用一般剪貼簿記錄規則。此版本沒有即時網頁搜尋，最新資訊可選 Google。實際 API 回答品質、延遲與鑰匙圈授權尚未驗證；完整設定、用量上限與資料政策見 [GPT 說明](gpt.md)。
+只有執行 GPT 動作才會傳送文字，打字不會呼叫 API。Cue 不保存問答對話，也不將提問與回答加入搜尋學習；預設開啟的[指令歷史](command-history.md)會將送出的輸入存於本機，可從 history 頁關閉或清空。拷貝後適用一般剪貼簿記錄規則。此版本沒有即時網頁搜尋，最新資訊可選 Google。實際 API 回答品質、延遲與鑰匙圈授權尚未驗證；完整設定、用量上限與資料政策見 [GPT 說明](gpt.md)。
 
 ### 依使用習慣排序
 

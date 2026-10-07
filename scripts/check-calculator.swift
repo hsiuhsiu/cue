@@ -330,7 +330,7 @@ private actor CalculatorCopyFixture {
         controller.dismiss(returnFocus: false)
         check(!application.isActive && application.windows.allSatisfy { !$0.isVisible },
               "The integration harness finishes without an active or visible application window")
-        print("Calculator passed: \(checks) checks; synchronous local/native results, keyboard and IME, private clipboard copy/cancellation, and no expression history. No general clipboard, browser, network, or synthetic paste.")
+        print("Calculator passed: \(checks) checks; synchronous local/native results, keyboard and IME, private clipboard copy/cancellation, and no expressions in search-learning history. No general clipboard, browser, network, or synthetic paste.")
     }
 
     @MainActor private static func checkCopyService(_ board: NSPasteboard) async throws {

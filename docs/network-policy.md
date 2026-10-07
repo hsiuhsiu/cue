@@ -101,7 +101,7 @@ Only explicitly choosing **Ask GPT**, **Translate with GPT**, or **Retry** sends
 
 The global network permission is checked before reading the key and again before starting a request. Turning it off cancels the active stream; older callbacks cannot restore the answer or start another request. Stop, returning from a reply, closing Cue's panel, and changing credentials cancel pending work. A retry is always explicit, and re-enabling networking never resubmits a question. Cancellation cannot recall text OpenAI already received or guarantee that server-side generation or billing stops immediately.
 
-Cue uses an ephemeral session without cookies or a disk cache, refuses redirects, sends `store: false`, and does not save questions or replies as conversation history or search-learning data. Copying a reply writes it to the system clipboard, where normal Clipboard History rules apply. `store: false` is not a promise of zero retention at OpenAI: its [API data controls](https://developers.openai.com/api/docs/guides/your-data) still apply. See [GPT setup and behavior](gpt.md).
+Cue uses an ephemeral session without cookies or a disk cache, refuses redirects, sends `store: false`, and excludes questions and replies from search learning. The separate [Command History](command-history.md) saves submitted input locally while recording is enabled; it does not save replies or attach history to requests. Copying a reply writes it to the system clipboard, where normal Clipboard History rules apply. `store: false` is not a promise of zero retention at OpenAI: its [API data controls](https://developers.openai.com/api/docs/guides/your-data) still apply. See [GPT setup and behavior](gpt.md).
 
 ### Chinese conversion stays fully offline
 
@@ -166,7 +166,7 @@ Cue 在設定中提供全域網路存取開關，管理 Cue 自己發出的請�
 
 讀取金鑰前與開始請求前都會檢查全域網路許可。關閉網路會取消回答串流，過期回呼不能恢復答案或發出新請求。停止、返回、收起 Cue 視窗及修改金鑰也會取消進行中的工作；重試必須明確操作，重新允許網路不會自動重送。取消無法收回 OpenAI 已收到的文字，也不能保證伺服器端生成或計費立即停止。
 
-連線不使用 Cookie 或磁碟快取，拒絕重新導向，且傳送 `store: false`。Cue 不會將提問或回答存成對話歷史或搜尋學習資料；拷貝答案則會寫入系統剪貼簿，適用一般剪貼簿記錄規則。`store: false` 不代表 OpenAI 端完全零保留，仍適用其 [API 資料政策](https://developers.openai.com/api/docs/guides/your-data)。詳見 [GPT 設定與行為](gpt.md)。
+連線不使用 Cookie 或磁碟快取，拒絕重新導向，且傳送 `store: false`。提問或回答不加入搜尋學習；獨立的[指令歷史](command-history.md)在記錄開啟時，會將送出的輸入存於本機，但不儲存回答或將歷史附加到請求。拷貝答案則會寫入系統剪貼簿，適用一般剪貼簿記錄規則。`store: false` 不代表 OpenAI 端完全零保留，仍適用其 [API 資料政策](https://developers.openai.com/api/docs/guides/your-data)。詳見 [GPT 設定與行為](gpt.md)。
 
 ### 預設值與已儲存的選擇
 
@@ -300,3 +300,9 @@ constitute packet capture or an end-to-end update installation.
 網路政策、更新器及建置預設都有隔離檢查，涵蓋離線啟動、明確偏好、取消與
 過期回呼。GPT 與幣值換算另以注入傳輸層驗證切換行為；這些檢查不等同
 封包擷取或完整更新安裝測試。
+
+## Local command history / 本機指令歷史
+
+When Command History recording is on (the default), an explicit launcher action saves its input and action locally, including Google/GPT text, calculations and filename queries. Drafts and GPT responses are excluded. This is separate from search-learning data and is never attached to API requests. Use **history** to delete records, or its **History Settings** to stop recording or clear all. See [Command History](command-history.md).
+
+指令歷史預設開啟：主啟動器明確執行的輸入與動作會存於本機，包含 Google／GPT 文字、計算式與檔名查詢；草稿與 GPT 回答不記錄。這與搜尋排序學習分開，也不會附加到 API 請求中。從 **history** 可刪除記錄，該頁的**指令歷史設定**可關閉記錄或清空，詳見[指令歷史](command-history.md)。

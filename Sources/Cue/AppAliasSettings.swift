@@ -186,8 +186,8 @@ private struct AppAliasSettingsView: View {
     let preferences: AppAliasPreferences
     let conversionAliases: () -> ChineseConversionAliases
     let close: () -> Void
-    @State private var alias: String
-    @State private var error: String?
+    @ViewState private var alias: String
+    @ViewState private var error: String?
     @FocusState private var isAliasFocused: Bool
 
     init(application: IndexedApplication, preferences: AppAliasPreferences,

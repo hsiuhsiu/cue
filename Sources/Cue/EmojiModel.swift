@@ -183,7 +183,7 @@ final class EmojiModel {
     }
 
     nonisolated private static func loadCatalog() throws -> EmojiCatalog {
-        #if SWIFT_PACKAGE
+        #if SWIFT_PACKAGE && !CUE_APP_BUNDLE
         let bundle = Bundle.module
         #else
         let bundle = Bundle.main

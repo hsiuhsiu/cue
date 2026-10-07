@@ -11,6 +11,7 @@ sparkle_directory=""
 for candidate in \
     "$repo_root/.build/release-xcode/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64" \
     "$repo_root/.build/local-xcode/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64" \
+    "$repo_root/.build/local-swiftpm/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64" \
     "$repo_root/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64"; do
     if [[ -d "$candidate/Sparkle.framework" ]]; then
         sparkle_directory="$candidate"

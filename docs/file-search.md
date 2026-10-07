@@ -31,3 +31,9 @@ Searching works with **Cue network access off**. Neither file queries nor paths 
 ### 驗證方式
 
 `./scripts/check-file-search.sh` 使用模擬索引服務、獨立偏好與私有剪貼簿，檢查非同步結果、取消與過期回覆、檔案模式隱私、九列上限、鍵盤開啟及原生結果文字。測試不搜尋使用者檔案、不開啟文件，也不搶走焦點。CueCore 測試涵蓋查詢解析、排序與候選項目過濾。`./scripts/check-file-search-service.sh` 另驗證 Spotlight 查詢語法、服務取消、本機個人檔案夾範圍政策，並對測試自行建立的空暫存資料夾執行一次真正的索引查詢。這些模擬不能證明個別 Mac 的 Spotlight 索引完整度或預設 App 的實際行為，仍需另行安排手動驗證。
+
+## Local command history / 本機指令歷史
+
+When Command History recording is on (the default), an explicit launcher action saves its input and action locally, including Google/GPT text, calculations and filename queries. Drafts and GPT responses are excluded. This is separate from search-learning data and is never attached to API requests. Use **history** to delete records, or its **History Settings** to stop recording or clear all. See [Command History](command-history.md).
+
+指令歷史預設開啟：主啟動器明確執行的輸入與動作會存於本機，包含 Google／GPT 文字、計算式與檔名查詢；草稿與 GPT 回答不記錄。這與搜尋排序學習分開，也不會附加到 API 請求中。從 **history** 可刪除記錄，該頁的**指令歷史設定**可關閉記錄或清空，詳見[指令歷史](command-history.md)。

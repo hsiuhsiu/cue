@@ -20,13 +20,13 @@ Cue is a small native macOS launcher with quick GPT answers and translation, an 
 
 ## Download and install
 
-[Download Cue 1.0.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.0.0/Cue-1.0.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.0.0) · [正體中文安裝說明](docs/installation.md)
+[Download Cue 1.1.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.1.0/Cue-1.1.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.0) · [正體中文安裝說明](docs/installation.md)
 
 The repository and release downloads are public.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
-The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.0 on Apple silicon**, using Xcode 27; Intel and other macOS versions remain unverified. This release did not complete final installed-app desktop checks, a positive real-Spotlight fixture, or a full public updater installation. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.0.0).
+The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.0 on Apple silicon**, using Xcode 27; Intel and other macOS versions remain unverified. This release did not complete final installed-app desktop checks, a positive real-Spotlight fixture, or a full public updater installation. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.0).
 
 The app has an **ad-hoc signature**, without Developer ID signing or Apple notarization. macOS may block its first launch. If you trust this release, follow the [first-launch instructions](docs/installation.md#首次開啟) using System Settings. Building from source is optional; downloading and installing the app does not require Xcode or Terminal.
 
@@ -114,13 +114,13 @@ Enter text in Cue. If no local result matches, choose **Search Google**, **Ask G
 
 Search **`gpt settings`**, or press **Command+,** on a GPT action or reply, to save your own OpenAI API key in macOS Keychain. Enable Cue's global network access to use GPT; typing alone never sends text. API usage is billed separately from a ChatGPT subscription. The default is **GPT-6 Luna**, with extra reasoning disabled for quick replies; the model ID can be changed in GPT Settings. Translation defaults to **Chinese → English; other languages → Traditional Chinese with Taiwan terminology**, with fixed Chinese or English options.
 
-Replies stream into a compact, selectable text view. **Copy / Command+Return** copies the reply; **Stop** cancels generation; **Retry** explicitly starts a new request. **Esc** returns to the original text so you can choose Google instead. GPT has no live web search in this version; use Google for current information. Questions, translations and responses are not added to search learning or a saved conversation history. See [GPT setup, privacy and limits](docs/gpt.md).
+Replies stream into a compact, selectable text view. **Copy / Command+Return** copies the reply; **Stop** cancels generation; **Retry** explicitly starts a new request. **Esc** returns to the original text so you can choose Google instead. GPT has no live web search in this version; use Google for current information. GPT text is excluded from search learning. The separate, enabled-by-default [Command History](docs/command-history.md) saves submitted input locally; replies are not saved there. See [GPT setup, privacy and limits](docs/gpt.md).
 
 在 Cue 輸入文字；沒有本機符合結果時，可選擇 **Google 搜尋**、**問 GPT** 或 **GPT 翻譯**。有 App 符合時也能按 **Command+K** 選擇，或用顯示的 **Command+數字** 立即執行。Google 保持第一個選項；自行加入的瀏覽器仍可使用，超過六個時會收進**其他瀏覽器⋯**。
 
 輸入 **`gpt settings`**，或在 GPT 動作／回答頁按 **Command+,**，即可將自己的 OpenAI API 金鑰存進 macOS 鑰匙圈。GPT 需要允許 Cue 的全域網路存取；單純打字不會傳送文字。API 與 ChatGPT 訂閱分開計費。預設採用 **GPT-6 Luna**、關閉額外推理，也可在 GPT 設定更改模型。翻譯預設為**中文→英文，其他語言→正體中文（台灣用詞）**，亦可固定翻成正體中文或英文。
 
-回答逐步顯示且可選取；按**拷貝／Command+Return**複製、按**停止**取消生成，或按**重試**重新送出一次。**Esc** 保留原始文字並返回，方便改用 Google。此版本 GPT 沒有即時網頁搜尋，最新資訊請用 Google。提問、翻譯與回答不會加入搜尋學習或對話歷史。詳見 [GPT 設定、隱私與限制](docs/gpt.md)。
+回答逐步顯示且可選取；按**拷貝／Command+Return**複製、按**停止**取消生成，或按**重試**重新送出一次。**Esc** 保留原始文字並返回，方便改用 Google。此版本 GPT 沒有即時網頁搜尋，最新資訊請用 Google。GPT 文字不加入搜尋學習；獨立且預設開啟的[指令歷史](docs/command-history.md)會將送出的輸入存於本機，不儲存回答。詳見 [GPT 設定、隱私與限制](docs/gpt.md)。
 
 ### Chinese conversion
 
@@ -186,9 +186,17 @@ Open **Settings → Backup & Transfer** to export or import portable preferences
 
 在**設定 → 備份與移轉**匯出或匯入偏好、別名、指定瀏覽器與視窗配置。匯入前可預覽並選擇要套用的區塊，保留這台 Mac 的網路、記錄、登入啟動與權限選擇。一般 JSON 不含 API key；選擇密碼保護後，才可另外勾選攜帶金鑰。密碼至少 12 個字元，Cue 不會儲存密碼。詳見[備份說明](docs/settings-portability.md)。
 
+## Command history / 指令歷史
+
+On an empty launcher, press **↑** for previous executed inputs and **↓** for newer ones. Editing ends recall; ordinary search keeps its result-selection arrows. **Return** runs the recalled action. Type **`history`** or **`指令歷史`** for a searchable list with deletion, paging and its own recording settings.
+
+History includes submitted Google/GPT text, calculations, filename queries and local commands. Recording is on by default, saved only on this Mac, bounded to 200 entries / 30 days, and separate from search-learning data. Responses and clipboard contents are excluded. See [history controls, limits and storage](docs/command-history.md).
+
+空白輸入欄按 **↑／↓** 回看已執行的輸入，修改文字就結束回看，**Return** 執行原本動作。輸入 **`history`** 或**「指令歷史」**可搜尋、刪除及翻頁，並在該頁齒輪關閉記錄或清空。預設記錄已送出的 Google／GPT 文字、計算式、檔名查詢與本機指令，只存本機，最多 200 筆／30 天；不記錄回答或剪貼簿內容，也不加入搜尋排序學習。詳見[操作、容量與儲存說明](docs/command-history.md)。
+
 ## Build and install from source
 
-Prefer building your own app? Install full **Xcode with Swift 6 or later**, open it once to complete its license and setup (also after upgrading to Xcode 27), then quit any running Cue and run:
+Prefer building your own app? **Command Line Tools with Swift 6 or later are enough; full Xcode is optional.** If the tools are not installed, run `xcode-select --install` and wait for installation to finish. Then quit any running Cue and run:
 
 ```sh
 git clone https://github.com/hsiuhsiu/cue.git
@@ -197,13 +205,13 @@ cd cue
 open "$HOME/Applications/Cue.app"
 ```
 
-This builds an optimized **Release** app for your Mac and installs it permanently at **`~/Applications/Cue.app`**, without a paid developer account, signing key, or administrator access. Existing settings, clipboard history, and search learning are preserved. Full Xcode is required; Command Line Tools alone are insufficient. The first build downloads the pinned Sparkle 2.10.0 dependency. The workflow has been tested with Xcode 27. Installation keeps Cue on disk after reboot; **Launch at login** also starts it for you.
+This builds an optimized **Release** app for your Mac and installs it permanently at **`~/Applications/Cue.app`**, without a paid developer account, signing key, or administrator access. Existing settings, clipboard history, and search learning are preserved. The script uses Swift Package Manager, bundles all resources and the updater, and signs the app locally. The first build downloads the pinned Sparkle 2.10.0 dependency. Installation keeps Cue on disk after reboot; **Launch at login** also starts it for you.
 
 To update, quit Cue, run `git pull --ff-only` and `./scripts/install-app.sh` in this repository, then open the installed app again. Source builds default to Cue's own network access and automatic update checks **off**. An explicit network choice saved in Settings is preserved across installs. You can enable network access to use the updater, but installing an update offered by Cue replaces your build with the published GitHub app. Explicit browser search has its separate, enabled-by-default setting.
 
-也可以自行編譯，無須下載 DMG。先安裝內含 Swift 6 以上的完整 Xcode 並完成首次啟動與授權設定，再執行上方指令，即可建置 Release 版本並固定安裝至 **`~/Applications/Cue.app`**，不需付費開發者帳號或管理者權限。此流程已在 Xcode 27 測試；現有設定、剪貼簿記錄與搜尋學習資料會保留。首次建置需連線下載固定版本的 Sparkle；自行建置版預設關閉 Cue 自己的網路與自動檢查更新，設定中明確儲存的網路選擇則會保留。之後可用 `git pull --ff-only` 與安裝腳本更新；若自行允許網路並從 Cue 安裝更新，會換成 GitHub 發布的 App。明確操作的瀏覽器搜尋有獨立、預設開啟的設定。
+也可以自行編譯，無須下載 DMG。**只需含 Swift 6 以上的 Command Line Tools，不必安裝完整 Xcode**。若尚未安裝，執行 `xcode-select --install` 並等安裝完成；結束正在執行的 Cue，再執行上方指令，即可建置 Release 版本並固定安裝至 **`~/Applications/Cue.app`**，不需付費開發者帳號或管理者權限。腳本會自動編譯、打包與簽章；現有設定、剪貼簿記錄與搜尋學習資料會保留。首次建置需連線下載固定版本的 Sparkle；自行建置版預設關閉 Cue 自己的網路與自動檢查更新，設定中明確儲存的網路選擇則會保留。之後可用 `git pull --ff-only` 與安裝腳本更新；若自行允許網路並從 Cue 安裝更新，會換成 GitHub 發布的 App。明確操作的瀏覽器搜尋有獨立、預設開啟的設定。
 
-See the [English / 正體中文 source installation guide](docs/building.md) for updating, custom install locations, Xcode setup, build-only and Debug options. `./scripts/build-app.sh --check` checks prerequisites without building. You can also open `Cue.xcodeproj` and run the **Cue** scheme for development.
+See the [English / 正體中文 source installation guide](docs/building.md) for updating, custom install locations, tool setup, build-only and Debug options. `./scripts/build-app.sh --check` checks prerequisites without building. You can also open `Cue.xcodeproj` and run the **Cue** scheme for development.
 
 ## Network access
 
@@ -250,6 +258,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-settings-layout.sh
 ./scripts/check-login-item.sh
 ./scripts/check-launcher-keyboard.sh
+./scripts/check-command-history.sh
 ./scripts/check-web-search.sh
 ./scripts/check-link-cleaner.sh
 ./scripts/check-emoji.sh
@@ -273,11 +282,14 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-conversion-lifecycle.sh
 ./scripts/check-network-policy.sh
 ./scripts/check-build-network-policy.sh
+./scripts/check-source-app.sh
 ./scripts/check-updates.sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift scripts/check-localizations.swift .build/Cue.app
 ```
 
 The settings check exercises the actual `CueSettings` store: bounded change notifications, saving edits, and reloading preferences. It uses an isolated temporary preferences domain and leaves the app’s settings untouched.
+
+The source-app check validates a built `.build/Cue.app`, copies it to a temporary path containing spaces, and checks signatures, portable framework paths, both languages, icons, emoji data and offline Chinese conversion. A separate probe loads the embedded Sparkle without starting its updater. It never launches the production app or changes an installed copy.
 
 Prefer these isolated checks for day-to-day development. They use synthetic inputs, temporary preferences, private pasteboards, injected services, and offscreen native views. Run costly checks sequentially. Do not replace or stop the installed Cue, send desktop keystrokes, or use personal history, credentials, or the system clipboard as test fixtures. Coordinate manual desktop tests separately when verifying global activation, OS permission prompts, cross-app text replacement, or perceived input-to-display latency.
 

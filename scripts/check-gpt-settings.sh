@@ -20,6 +20,7 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     -module-cache-path "$check_directory/module-cache" \
     -Xlinker -rpath -Xlinker "$check_directory" \
     "$repo_root/Sources/Cue/Localization.swift" \
+    "$repo_root/Sources/Cue/ViewState.swift" \
     "$repo_root/Sources/Cue/NetworkPolicy.swift" \
     "$repo_root/Sources/Cue/GPTKeychain.swift" \
     "$repo_root/Sources/Cue/GPTSettings.swift" \

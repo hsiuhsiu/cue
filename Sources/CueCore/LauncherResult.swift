@@ -10,6 +10,7 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
     case file(FileSearchResult)
     case updateIndex
     case clipboardHistory
+    case commandHistory
     case sleep
     case lockScreen
     case screenOff
@@ -50,6 +51,7 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         case .file(let file): file.id
         case .updateIndex: "command:update-index"
         case .clipboardHistory: "command:clipboard-history"
+        case .commandHistory: "command:command-history"
         case .sleep: "command:sleep"
         case .lockScreen: "command:lock-screen"
         case .screenOff: "command:screen-off"
@@ -79,6 +81,7 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         case .file(let file): file.name
         case .updateIndex: "Update App Index"
         case .clipboardHistory: "Clipboard History"
+        case .commandHistory: "Command History"
         case .sleep: "Sleep"
         case .lockScreen: "Lock Screen"
         case .screenOff: "Screen Off"
@@ -102,7 +105,8 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
         }
     }
 
-    /// Query actions must not store the user's arbitrary search text as launch history.
+    /// Query actions stay outside ranking/usage learning; explicit command
+    /// history is a separate, user-visible feature with its own recording switch.
     public var isWebSearch: Bool {
         switch self {
         case .googleSearch, .googleSearchIn: true
@@ -120,6 +124,10 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
     private static let clipboardAliases = [
         "clipboard", "clipboard history", "paste history", "copy history",
         "剪貼簿", "剪貼簿歷史", "剪貼簿記錄", "剪貼簿紀錄", "剪貼板", "複製紀錄", "複製記錄",
+    ].map(SearchEngine.normalize)
+
+    private static let commandHistoryAliases = [
+        "history", "command history", "指令歷史", "指令記錄", "指令紀錄",
     ].map(SearchEngine.normalize)
 
     private static let sleepAliases = [
@@ -232,6 +240,9 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
             return matches.isEmpty && includeGoogleFallback ? [.googleSearch] : matches
         }
         var commands: [LauncherResult] = []
+        if commandHistoryAliases.contains(where: { $0.hasPrefix(query) }) {
+            commands.append(.commandHistory)
+        }
         if clipboardAliases.contains(where: { $0.contains(query) }) { commands.append(.clipboardHistory) }
         if updateIndexAliases.contains(where: { $0.contains(query) }) { commands.append(.updateIndex) }
         if sleepAliases.contains(where: { $0.contains(query) }) { commands.append(.sleep) }

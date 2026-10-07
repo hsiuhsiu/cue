@@ -4,7 +4,7 @@ import CueCore
 
 /// Small, fixed artwork. Rasterize once on a worker; result rows only read cached images.
 enum CommandIcon: CaseIterable, Sendable {
-    case updateIndex, clipboardHistory, sleep, lockScreen, screenOff
+    case updateIndex, clipboardHistory, commandHistory, sleep, lockScreen, screenOff
     case convertToTraditional, convertToSimplified, chineseConversionSettings
     case googleSearch, webSearchSettings, cleanLink, emojiSearch, calculator
     case askGPT, translateGPT, gptSettings
@@ -25,6 +25,7 @@ enum CommandIcon: CaseIterable, Sendable {
         case .webSearchSettings: self = .webSearchSettings
         case .updateIndex: self = .updateIndex
         case .clipboardHistory: self = .clipboardHistory
+        case .commandHistory: self = .commandHistory
         case .sleep: self = .sleep
         case .lockScreen: self = .lockScreen
         case .screenOff: self = .screenOff
@@ -48,6 +49,7 @@ enum CommandIcon: CaseIterable, Sendable {
         case .webSearchSettings: LauncherResult.webSearchSettings.id
         case .updateIndex: LauncherResult.updateIndex.id
         case .clipboardHistory: LauncherResult.clipboardHistory.id
+        case .commandHistory: LauncherResult.commandHistory.id
         case .sleep: LauncherResult.sleep.id
         case .lockScreen: LauncherResult.lockScreen.id
         case .screenOff: LauncherResult.screenOff.id
@@ -144,6 +146,12 @@ enum CommandIcon: CaseIterable, Sendable {
         }
 
         switch self {
+        case .commandHistory:
+            c.addArc(center: CGPoint(x: 15, y: 14), radius: 8,
+                     startAngle: .pi * 0.85, endAngle: .pi * 2.6, clockwise: false)
+            c.strokePath()
+            line([CGPoint(x: 5, y: 20), CGPoint(x: 5, y: 15), CGPoint(x: 10, y: 15)])
+            line([CGPoint(x: 15, y: 19), CGPoint(x: 15, y: 14), CGPoint(x: 19, y: 12)])
         case .askGPT, .gptSettings:
             rounded(CGRect(x: 5.5, y: 10, width: 17, height: 12), radius: 3)
             line([CGPoint(x: 9, y: 10), CGPoint(x: 8, y: 6), CGPoint(x: 13, y: 10)])

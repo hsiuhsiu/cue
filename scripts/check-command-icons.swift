@@ -10,6 +10,7 @@ struct CheckCommandIcons {
     static let commands: [(CommandIcon, LauncherResult, String)] = [
         (.updateIndex, .updateIndex, "Update index"),
         (.clipboardHistory, .clipboardHistory, "Clipboard"),
+        (.commandHistory, .commandHistory, "Command history"),
         (.sleep, .sleep, "Sleep"),
         (.lockScreen, .lockScreen, "Lock"),
         (.screenOff, .screenOff, "Screen off"),

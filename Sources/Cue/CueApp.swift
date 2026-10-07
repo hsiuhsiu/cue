@@ -89,7 +89,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                                   awaitingInitialIndex: true,
                                   currencyRates: CurrencyRatesController(policy: networkPolicy))
         let gpt = GPTModel(client: GPTClient(policy: networkPolicy), preferences: gptPreferences)
+        let historyURL = usageURL.deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("CommandHistory/history.json")
+        let commandHistory = CommandHistoryModel(
+            store: CommandHistoryStore(fileURL: historyURL), defaults: .standard)
         launcher = LauncherPanelController(clipboard: clipboard, model: model, gpt: gpt,
+                                           commandHistory: commandHistory,
                                            webSearchPreferences: webSearchPreferences)
         windowMode = WindowModeController(preferences: windowPreferences)
         windowMode.onSettings = { [weak self] in self?.showWindowSettings() }
@@ -171,6 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         Task { await launcher.model.loadApplications() }
         launcher.model.startUsageTracking()
+        launcher.commandHistory.start()
         launcher.prepareEmojiSearch()
         // Construct the launcher and register its hotkey before starting update work.
         updates = UpdateController(networkPolicy: networkPolicy)
@@ -207,9 +213,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             await backupController?.prepareForTermination()
             async let clipboardFinished: Void = clipboard.prepareForTermination()
             async let usageFinished: Void = launcher.model.prepareForTermination()
+            async let historyFinished: Void = launcher.commandHistory.finish()
             async let conversionFinished: Void = launcher.finishPendingTextConversion()
             async let windowSettingsFinished: Void = windowPreferences.flush()
-            _ = await (clipboardFinished, usageFinished, conversionFinished, windowSettingsFinished)
+            _ = await (clipboardFinished, usageFinished, historyFinished, conversionFinished, windowSettingsFinished)
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
