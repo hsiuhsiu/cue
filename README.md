@@ -20,13 +20,13 @@ Cue is a small native macOS launcher with quick GPT answers and translation, an 
 
 ## Download and install
 
-[Download Cue 1.1.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.1.0/Cue-1.1.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.0) · [正體中文安裝說明](docs/installation.md)
+[Download Cue 1.1.1 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.1.1/Cue-1.1.1-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.1) · [正體中文安裝說明](docs/installation.md)
 
 The repository and release downloads are public.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
-The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.0 on Apple silicon**, using Xcode 27; Intel and other macOS versions remain unverified. This release did not complete final installed-app desktop checks, a positive real-Spotlight fixture, or a full public updater installation. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.0).
+The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.0 on Apple silicon**, using Xcode 27; Intel and other macOS versions remain unverified. This release did not complete final installed-app desktop checks, a positive real-Spotlight fixture, or a full public updater installation. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.1).
 
 The app has an **ad-hoc signature**, without Developer ID signing or Apple notarization. macOS may block its first launch. If you trust this release, follow the [first-launch instructions](docs/installation.md#首次開啟) using System Settings. Building from source is optional; downloading and installing the app does not require Xcode or Terminal.
 
@@ -37,6 +37,10 @@ The interface supports **English and Traditional Chinese (正體中文)**, inclu
 The blue app icon appears in Finder and **About Cue**. The matching menu bar icon supports light and dark appearances and shows a small dot when an update is available. **Command+,** brings Settings to the front with keyboard focus, including when Settings was already open or minimized.
 
 Cue discovers applications under `/Applications`, `/System/Applications`, `~/Applications`, and `/System/Library/CoreServices/Applications`, including nested folders. It also indexes Finder directly from `/System/Library/CoreServices/Finder.app`. Results show application names and icons. Ranking prefers exact, prefix, word-prefix, substring, then subsequence matches. The global shortcut uses the system hot-key API and does not require Accessibility permission.
+
+Localized folders such as `~/Applications/Chrome Apps.localized` and visible links to application folders are included. Cue skips hidden folders and bundle contents, prevents link loops, and deduplicates apps. `~` means the current user's home folder. After installing or moving an app, run **Update App Index** to refresh the index in the background.
+
+也包含 `~/Applications/Chrome Apps.localized` 這類本地化資料夾，以及指向 App 資料夾的可見連結；會跳過隱藏資料夾與套件內部、避免連結循環，並去除重複 App。`~` 是目前使用者的家目錄。安裝或移動 App 後，可執行**更新索引**，在背景重新掃描。
 
 ### App names and search aliases / App 名稱與搜尋別名
 
@@ -140,6 +144,10 @@ Enable **Command+, → General & Interaction → Launch at login** to start your
 
 Cue opens with just an empty input field: no initial results, placeholder, footer, settings button, or Escape hint. Start typing to find apps or commands; **Command+,** still opens Settings. The window grows with the result count and shows at most nine results, with no scrollbars. Refine the query to find another match. The result limit is fixed at nine.
 
+Long input wraps to at most **two visible lines**, expanding the window vertically without changing its width. Longer text stays intact and scrolls with the caret. Shortening or clearing the input restores its compact height. **Return** still executes; **↑/↓** still select results or recall history.
+
+長文字會自動換行，最多顯示**兩行**；視窗只增加高度，寬度維持不變。超過兩行的文字完整保留，並隨游標捲動；縮短或清空文字就恢復原本高度。**Return** 仍執行指令，**↑／↓** 仍用於選取結果或回看歷史。
+
 A blue tint, inspired by Cue's icon, carries through the window and selected rows in both light and dark appearances. Larger input text and app names make results easier to read, with balanced spacing around the input. Built-in commands use white icons with blue line drawings and generous internal spacing. Conversion icons point right toward the target character 繁 / 简. Icons are prepared once in the background and cached; typing only reuses them.
 
 內建指令採白底、藍色線條與充足留白；簡繁互轉的箭頭由左向右指向「繁／简」目標字。圖示只在背景產生一次並快取，打字時直接重用。
@@ -231,14 +239,14 @@ Sparkle verifies signed update archives and the signed HTTPS appcast against the
 
 ## Package a release
 
-Versions distinguish source milestones such as **`1.1.0-beta.1`** from stable
-releases such as **`1.1.0`**, without an internal build number in parentheses.
+Versions distinguish source milestones such as **`1.1.1-beta.1`** from stable
+releases such as **`1.1.1`**, without an internal build number in parentheses.
 Xcode's **Release** configuration means optimization; a beta source build stays
 a beta. Use `scripts/set-version.sh` to advance a milestone and its internal
 update build together. The release script accepts stable metadata only. See
 [versioning](docs/versioning.md); a local beta label does not publish a GitHub preview.
 
-版本區分 **`1.1.0-beta.1`** 等開發里程碑與 **`1.1.0`** 等正式版，不再把內部
+版本區分 **`1.1.1-beta.1`** 等開發里程碑與 **`1.1.1`** 等正式版，不再把內部
 建置編號放在主要版號後的括號。Xcode **Release** 代表最佳化，beta 原始碼仍是
 beta。用 `scripts/set-version.sh` 同步更新版號與內部 build；正式打包只接受
 stable 資料。本機 beta 標記不會建立 GitHub 預覽版，詳見[版本規則](docs/versioning.md)。
@@ -301,7 +309,7 @@ The login-item check uses an injected macOS service to verify enabling, disablin
 
 The settings check also verifies per-app language overrides, relaunch persistence, restoring the system preference, and preserving existing shortcuts. The localization check compares all English/Traditional Chinese keys and format arguments, language fallback, and resources inside a built app. Omit the app path to check only source tables. Verify both languages in a Release build, including Settings layout, menu items, shortcut recording/canceling, Chinese command search, and Command-comma focus; restore **Follow System** after testing.
 
-The optimized launcher keyboard check exercises the real AppKit view without an app-menu fallback, including Command-comma, explicit web search, modifiers, repeat events, and marked-text composition. It verifies shortcut routing, not application activation, and does not show windows or change user preferences.
+The optimized launcher keyboard check exercises the real AppKit view without an app-menu fallback, including Command-comma, explicit web search, modifiers, repeat events, marked-text composition, two-line input sizing and editing beyond that visible limit. Set `CUE_INPUT_PREVIEW_DIRECTORY` to save light/dark multiline previews. It verifies shortcut routing and offscreen editing, not application activation, and does not show windows or change user preferences.
 
 The web-search check uses isolated preferences and injected browser openers to verify fallback, original query encoding, browser choices, feature settings, and the separation between Cue-owned networking and external browser handoffs. It does not send real searches or alter the system default browser.
 
@@ -318,6 +326,8 @@ The unit-conversion check exercises launcher results, numeric copying, rate chan
 The adaptive-search check covers successful and failed launches, command learning, stable visible rows during background updates, cache invalidation, and persistence across restarts using injected actions and isolated synthetic state. It never sleeps or locks the Mac or reads real usage history.
 
 `./scripts/benchmark-long-query.sh` measures optimized model updates for unusually long synthetic input; `--baseline-ref <git-ref>` compares a previous revision without changing the checkout. Text beyond 1,024 UTF-8 bytes skips application/command matching and keeps the original input available for text actions. These are computation measurements, not visible interaction latency.
+
+`./scripts/benchmark-interactions.sh` measures native query/result layout, history recall and actual field-editor insertions in an invisible panel, including long text. Its `--source-root` option uses another source snapshot for comparison. These isolated measurements exclude OS key delivery and display composition.
 
 The system-actions check uses injected actions to verify Sleep, Lock Screen, and Screen Off through the real controller without changing the Mac's power or lock state. Native service details and manual verification limits are documented in [system commands](docs/system-actions.md).
 

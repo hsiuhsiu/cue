@@ -6,12 +6,12 @@ Cue 是選單列中的 macOS 啟動器，提供 App 與檔名搜尋、視窗調�
 
 ## 下載
 
-- [下載 Cue 1.1.0 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v1.1.0/Cue-1.1.0-universal.dmg)
-- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.0)
+- [下載 Cue 1.1.1 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v1.1.1/Cue-1.1.1-universal.dmg)
+- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.1)
 
 儲存庫與下載現在都已公開，不需要 GitHub 帳號。版本說明同時提供 English／正體中文。
 
-安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。自動化執行檢查使用 **Apple silicon、macOS 27.0、Xcode 27**；Intel 與其他 macOS 版本尚未實機驗證。本輪未完成最終安裝版的桌面操作、真實 Spotlight 正向案例及完整公開更新安裝；詳見[版本驗證限制](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.0)。
+安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。自動化執行檢查使用 **Apple silicon、macOS 27.0、Xcode 27**；Intel 與其他 macOS 版本尚未實機驗證。本輪未完成最終安裝版的桌面操作、真實 Spotlight 正向案例及完整公開更新安裝；詳見[版本驗證限制](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.1)。
 
 ## 安裝與更新
 

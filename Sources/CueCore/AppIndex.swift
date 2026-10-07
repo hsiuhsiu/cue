@@ -70,48 +70,42 @@ public enum AppIndex {
     }
 
     private static func applicationURLs(in root: URL, fileManager: FileManager) -> [URL] {
-        let root = root.resolvingSymlinksInPath().standardizedFileURL
         let keys: [URLResourceKey] = [.isDirectoryKey, .isPackageKey, .isHiddenKey, .isSymbolicLinkKey]
-        guard let rootValues = try? root.resourceValues(forKeys: Set(keys)),
-              rootValues.isDirectory == true,
-              rootValues.isHidden != true else { return [] }
-
-        if root.pathExtension.lowercased() == "app" { return [root] }
-
-        guard let enumerator = fileManager.enumerator(
-            at: root,
-            includingPropertiesForKeys: keys,
-            options: [.skipsPackageDescendants],
-            errorHandler: { _, _ in true }
-        ) else { return [] }
-
+        let keySet = Set(keys)
+        var pending = [root]
+        var visitedDirectories = Set<String>()
         var urls: [URL] = []
-        for case let url as URL in enumerator {
-            guard !url.lastPathComponent.hasPrefix("."),
-                  let values = try? url.resourceValues(forKeys: Set(keys)) else {
-                enumerator.skipDescendants()
+        while let candidate = pending.popLast() {
+            let directory = candidate.resolvingSymlinksInPath().standardizedFileURL
+            guard visitedDirectories.insert(directory.path).inserted,
+                  let values = try? directory.resourceValues(forKeys: keySet),
+                  values.isDirectory == true, values.isHidden != true,
+                  !directory.lastPathComponent.hasPrefix(".") else { continue }
+
+            if directory.pathExtension.lowercased() == "app" {
+                urls.append(directory)
                 continue
             }
-
-            if url.pathExtension.lowercased() == "app" {
-                // macOS marks the Safari symlink in /Applications as hidden,
-                // although the application in the Cryptex is visible.
-                guard values.isHidden != true || values.isSymbolicLink == true else {
-                    enumerator.skipDescendants()
-                    continue
+            // Localized application folders (for example Chrome Apps.localized)
+            // are containers even when Finder gives them a package flag. Actual
+            // bundles remain opaque so their helpers never become results.
+            guard values.isPackage != true || directory.pathExtension.lowercased() == "localized",
+                  let children = try? fileManager.contentsOfDirectory(
+                    at: directory, includingPropertiesForKeys: keys
+                  ) else { continue }
+            for child in children {
+                guard !child.lastPathComponent.hasPrefix("."),
+                      let childValues = try? child.resourceValues(forKeys: keySet) else { continue }
+                // macOS marks the Safari symlink as hidden, while its destination
+                // is visible. Keep this exception limited to application links.
+                let isApplicationLink = child.pathExtension.lowercased() == "app"
+                    && childValues.isSymbolicLink == true
+                guard childValues.isHidden != true || isApplicationLink else { continue }
+                if childValues.isDirectory == true || childValues.isSymbolicLink == true {
+                    // Follow visible directory links as well as application links.
+                    // Canonical paths above stop loops and repeated subtrees.
+                    pending.append(child)
                 }
-                let destination = url.resolvingSymlinksInPath()
-                if let destinationValues = try? destination.resourceValues(forKeys: [.isDirectoryKey, .isHiddenKey]),
-                   destinationValues.isDirectory == true,
-                   destinationValues.isHidden != true {
-                    urls.append(url)
-                }
-                enumerator.skipDescendants()
-                continue
-            }
-
-            if values.isHidden == true || values.isPackage == true {
-                enumerator.skipDescendants()
             }
         }
 

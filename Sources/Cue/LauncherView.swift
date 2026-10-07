@@ -135,6 +135,10 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     )
     private var actionsButtonWidth: CGFloat = 100
     private var inputLineHeight: CGFloat = 0
+    private var inputHeight: CGFloat = 0
+    private let inputSizingCell = NSTextFieldCell(textCell: "")
+    private var measuredInput: String?
+    private var measuredInputWidth: CGFloat = -1
     private var displayedResults: [LauncherResult] = []
     private var displayedQuery = ""
     private var displayedIconRevision = -1
@@ -142,15 +146,23 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private var displayedAllowsGPTNetwork = false
     private var isQueryEmpty = true
     private var isUpdating = false
+    private var isEditingQuery = false
     private var lastPreferredHeight: CGFloat = 56
     private var pendingFileHeight: CGFloat?
 
     override var isFlipped: Bool { true }
 
+    private var inputRowHeight: CGFloat { 56 + inputHeight - inputLineHeight }
+
+    private var inputWidth: CGFloat {
+        let actionsWidth = actionsButton.isHidden ? (fileProgress.isHidden ? 0 : 24) : actionsButtonWidth + 12
+        return max(0, bounds.width - 36 - actionsWidth)
+    }
+
     var preferredHeight: CGFloat {
         let statusHeight: CGFloat = status.isHidden && rateProvider.isHidden ? 0 : 26
-        guard !isQueryEmpty else { return 56 + statusHeight }
-        let resultHeight = displayedResults.isEmpty ? 120 : 64 + CGFloat(displayedResults.count) * 42
+        guard !isQueryEmpty else { return inputRowHeight + statusHeight }
+        let resultHeight = inputRowHeight + (displayedResults.isEmpty ? 64 : 8 + CGFloat(displayedResults.count) * 42)
         return max(resultHeight + statusHeight, pendingFileHeight ?? 0)
     }
 
@@ -175,12 +187,21 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         searchField.isBordered = false
         searchField.drawsBackground = false
         searchField.focusRingType = .none
-        searchField.usesSingleLineMode = true
+        searchField.usesSingleLineMode = false
+        searchField.cell?.wraps = true
+        searchField.cell?.isScrollable = false
+        searchField.lineBreakMode = .byWordWrapping
+        searchField.maximumNumberOfLines = 2
         searchField.delegate = self
         searchField.setAccessibilityLabel(text.searchAccessibility)
         // Center the native editor's line, not a taller field with unused space
         // below its caret. Resolve this once, outside the typing/layout path.
         inputLineHeight = ceil(searchField.intrinsicContentSize.height)
+        inputHeight = inputLineHeight
+        inputSizingCell.font = searchField.font
+        inputSizingCell.wraps = true
+        inputSizingCell.isScrollable = false
+        inputSizingCell.lineBreakMode = .byWordWrapping
         separator.boxType = .separator
         fileProgress.style = .spinning
         fileProgress.controlSize = .small
@@ -309,24 +330,59 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
 
     override func layout() {
         super.layout()
+        if updateInputHeight() { notifyPreferredHeight() }
         material.frame = bounds
-        let actionsWidth = actionsButton.isHidden ? (fileProgress.isHidden ? 0 : 24) : actionsButtonWidth + 12
         fileProgress.frame = NSRect(x: bounds.width - 34, y: 20, width: 16, height: 16)
         searchField.frame = NSRect(x: 18, y: (56 - inputLineHeight) / 2,
-                                  width: max(0, bounds.width - 36 - actionsWidth), height: inputLineHeight)
+                                  width: inputWidth, height: inputHeight)
         actionsButton.frame = NSRect(x: bounds.width - actionsButtonWidth - 16, y: 15,
                                      width: actionsButtonWidth, height: 26)
-        separator.frame = NSRect(x: 0, y: 56, width: bounds.width, height: 1)
+        separator.frame = NSRect(x: 0, y: inputRowHeight, width: bounds.width, height: 1)
         let statusHeight: CGFloat = status.isHidden && rateProvider.isHidden ? 0 : 26
-        scroll.frame = NSRect(x: 6, y: 60, width: bounds.width - 12,
-                              height: max(0, bounds.height - 64 - statusHeight))
+        scroll.frame = NSRect(x: 6, y: inputRowHeight + 4, width: bounds.width - 12,
+                              height: max(0, bounds.height - inputRowHeight - 8 - statusHeight))
         scroll.layoutSubtreeIfNeeded()
         table.tableColumns.first?.width = scroll.contentSize.width
-        emptyLabel.frame = NSRect(x: 16, y: 56 + (max(0, bounds.height - 56 - statusHeight) - 24) / 2,
+        emptyLabel.frame = NSRect(x: 16, y: inputRowHeight + (max(0, bounds.height - inputRowHeight - statusHeight) - 24) / 2,
                                   width: bounds.width - 32, height: 24)
         let providerWidth: CGFloat = rateProvider.isHidden ? 0 : 190
         status.frame = NSRect(x: 18, y: bounds.height - 23, width: max(0, bounds.width - 36 - providerWidth), height: 17)
         rateProvider.frame = NSRect(x: bounds.width - 208, y: bounds.height - 25, width: 190, height: 20)
+    }
+
+    /// Only measure a bounded prefix when the input or available width changes.
+    /// The native field editor keeps the full text and scrolls beyond two lines;
+    /// sizing a pasted document must not lay out that entire document again.
+    @discardableResult
+    private func updateInputHeight() -> Bool {
+        let width = inputWidth
+        guard measuredInput != displayedQuery || measuredInputWidth != width else { return false }
+        measuredInput = displayedQuery
+        measuredInputWidth = width
+        let prefix = displayedQuery.utf16.prefix(513)
+        let height: CGFloat
+        if prefix.count > 512 {
+            // Already well beyond two ordinary lines; avoid shaping the prefix
+            // again on each edit of a large paste, including zero-width text.
+            height = inputLineHeight * 2
+        } else if prefix.isEmpty {
+            height = inputLineHeight
+        } else {
+            inputSizingCell.stringValue = String(decoding: prefix, as: UTF16.self)
+            let measuredHeight = ceil(inputSizingCell.cellSize(forBounds:
+                NSRect(x: 0, y: 0, width: max(1, width), height: inputLineHeight * 2)).height)
+            height = min(inputLineHeight * 2, max(inputLineHeight, measuredHeight))
+        }
+        guard height != inputHeight else { return false }
+        inputHeight = height
+        return true
+    }
+
+    private func notifyPreferredHeight() {
+        let height = preferredHeight
+        guard height != lastPreferredHeight else { return }
+        lastPreferredHeight = height
+        onPreferredHeightChange?(height)
     }
 
     private func render() {
@@ -344,7 +400,9 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         // A metadata round trip must not collapse and reopen the panel on every
         // key. Hold its height only while pending; the final result can resize it.
         pendingFileHeight = model.isSearchingFiles ? max(pendingFileHeight ?? 0, lastPreferredHeight) : nil
-        if searchField.stringValue != model.query { searchField.stringValue = model.query }
+        // A synchronous native edit already contains the exact submitted query.
+        // Avoid re-reading/comparing its entire string on the typing path.
+        if !isEditingQuery, searchField.stringValue != model.query { searchField.stringValue = model.query }
         let visibleResults = isQueryEmpty ? [] : model.results
         let resultsChanged = displayedResults != visibleResults
         let availabilityChanged = displayedAllowsWebSearch != model.allowsWebSearch
@@ -392,11 +450,8 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         status.isHidden = message == nil
         status.textColor = error == nil ? .secondaryLabelColor : .systemRed
         status.toolTip = error
-        let height = preferredHeight
-        if height != lastPreferredHeight {
-            lastPreferredHeight = height
-            onPreferredHeightChange?(height)
-        }
+        updateInputHeight()
+        notifyPreferredHeight()
         needsLayout = true
     }
 
@@ -407,6 +462,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     func placeInsertionPointAtEnd() {
         guard let editor = searchField.currentEditor() as? NSTextView, !editor.hasMarkedText() else { return }
         editor.setSelectedRange(NSRange(location: (editor.string as NSString).length, length: 0))
+        editor.scrollRangeToVisible(editor.selectedRange())
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int { displayedResults.count }
@@ -613,6 +669,8 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     func controlTextDidChange(_ notification: Notification) {
         // Publish the edit first: setQuery ends recall in the same render. Never
         // redraw the previous query over an in-progress edit or move its caret.
+        isEditingQuery = true
+        defer { isEditingQuery = false }
         model.setQuery(searchField.stringValue)
         onHistoryEdit?()
     }

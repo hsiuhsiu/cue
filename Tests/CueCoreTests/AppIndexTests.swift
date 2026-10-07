@@ -27,12 +27,58 @@ final class AppIndexTests: XCTestCase {
     }
 
     func testDefaultIndexIncludesSearchableSystemFinderExactlyOnce() {
-        let applications = AppIndex.scan()
+        let finderURL = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app", isDirectory: true)
+        XCTAssertTrue(AppIndex.defaultRoots.contains(finderURL))
+        let applications = AppIndex.scan(roots: [finderURL])
         let finder = applications.filter { $0.bundleIdentifier == "com.apple.finder" }
         XCTAssertEqual(finder.count, 1)
         XCTAssertEqual(finder.first?.url.path, "/System/Library/CoreServices/Finder.app")
         XCTAssertEqual(SearchEngine.search(applications, query: "finder").first?.bundleIdentifier,
                        "com.apple.finder")
+    }
+
+    func testFindsChromeAppsInLocalizedUserApplicationsFolder() throws {
+        let root = temporaryDirectory.appendingPathComponent("Users/Example/Applications")
+        let webApp = try makeApplication("Users/Example/Applications/Chrome Apps.localized/Example Site.app",
+                                         identifier: "com.google.Chrome.app.example", name: "Example Site")
+        _ = try makeApplication("Users/Example/Applications/Chrome Apps.localized/Example Site.app/Contents/Helpers/Helper.app",
+                                identifier: "test.chrome-helper")
+        _ = try makeApplication("Users/Example/Applications/Chrome Apps.localized/.localized/Hidden.app",
+                                identifier: "test.localization-resource")
+        XCTAssertEqual(AppIndex.scan(roots: [root]).map(\.url), [webApp])
+
+        // Finder package flags are independent of the folder's extension. These
+        // must not turn a localized applications container into an opaque bundle.
+        var folder = root.appendingPathComponent("Chrome Apps.localized")
+        var values = URLResourceValues()
+        values.isPackage = true
+        try folder.setResourceValues(values)
+        XCTAssertEqual(try folder.resourceValues(forKeys: [.isPackageKey]).isPackage, true)
+        let applications = AppIndex.scan(roots: [root])
+        XCTAssertEqual(applications.map(\.url), [webApp])
+        XCTAssertEqual(SearchEngine.search(applications, query: "example site").map(\.url), [webApp])
+    }
+
+    func testFollowsApplicationFolderLinksWithoutCyclesDuplicatesOrBundleHelpers() throws {
+        let root = temporaryDirectory.appendingPathComponent("Applications")
+        let webApp = try makeApplication("External/Chrome Apps.localized/Example.app", identifier: "test.webapp")
+        let otherApp = try makeApplication("Applications/Local.app", identifier: "test.local")
+        let external = temporaryDirectory.appendingPathComponent("External/Chrome Apps.localized")
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("Chrome Apps.localized"),
+                                                   withDestinationURL: external)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("Duplicate"),
+                                                   withDestinationURL: external)
+        try FileManager.default.createSymbolicLink(at: external.appendingPathComponent("Loop"),
+                                                   withDestinationURL: root)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("Broken"),
+                                                   withDestinationURL: temporaryDirectory.appendingPathComponent("Missing"))
+        _ = try makeApplication("External/Chrome Apps.localized/Example.app/Contents/Helpers/Helper.app",
+                                identifier: "test.helper")
+        let hidden = try makeApplication("Hidden/Secret.app", identifier: "test.hidden")
+        try markHidden(hidden.deletingLastPathComponent())
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("HiddenTarget"),
+                                                   withDestinationURL: hidden.deletingLastPathComponent())
+        XCTAssertEqual(Set(AppIndex.scan(roots: [root]).map(\.url)), Set([webApp, otherApp]))
     }
 
     func testDirectApplicationRootDoesNotIncludeBundledHelpers() throws {

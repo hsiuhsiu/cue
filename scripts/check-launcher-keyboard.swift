@@ -491,11 +491,109 @@ struct CheckLauncherKeyboard {
         expect(!application.isActive && !window.isVisible,
                "File-search shortcut checks must remain offscreen and inactive")
 
+        // Exercise the actual AppKit field editor, including scrolling beyond
+        // the two-line cap, without showing a window or touching the clipboard.
+        view.onPreferredHeightChange = { height in
+            window.setContentSize(NSSize(width: view.frame.width, height: height))
+        }
+        func input(_ query: String) {
+            model.setQuery(query)
+            view.layoutSubtreeIfNeeded()
+        }
+        input("short question")
+        let singleLineHeight = view.searchField.frame.height
+        let singleLinePanelHeight = view.preferredHeight
+        let inputTop = view.searchField.frame.minY
+        let twoLines = "Explain this briefly: what makes the sky blue?"
+        input(twoLines)
+        expect(view.searchField.frame.height == singleLineHeight * 2,
+               "A wrapped query must expose a second complete input line")
+        expect(view.preferredHeight == singleLinePanelHeight + singleLineHeight,
+               "Wrapping must expand the panel by exactly one line, retaining result space")
+        expect(view.searchField.frame.minY == inputTop && view.frame.width == 640,
+               "Expansion must keep the first line anchored and the panel width unchanged")
+        if let separator = view.subviews.compactMap({ $0 as? NSBox }).first {
+            expect(abs((separator.frame.minY - view.searchField.frame.maxY) - inputTop) < 1,
+                   "The expanded input must retain balanced top and bottom margins")
+        }
+        let twoLinePanelHeight = view.preferredHeight
+        for query in ["第一行\n第二行", "first line\n", String(repeating: "中文測試", count: 100),
+                      String(repeating: "w", count: 2000), String(repeating: "word ", count: 3000)] {
+            input(query)
+            expect(view.searchField.frame.height == singleLineHeight * 2,
+                   "Chinese, explicit newlines, unbroken strings and large pastes must cap at two lines")
+            expect(view.preferredHeight == twoLinePanelHeight,
+                   "An arbitrarily long input must not keep growing the launcher")
+            expect(view.searchField.stringValue == query && model.query == query,
+                   "The visible line cap must never truncate the query")
+        }
+        input(twoLines)
+        window.makeFirstResponder(view.searchField)
+        if let editor = view.searchField.currentEditor() as? NSTextView,
+           let manager = editor.layoutManager, let container = editor.textContainer {
+            manager.ensureLayout(for: container)
+            var fragments: [NSRect] = []
+            manager.enumerateLineFragments(forGlyphRange: NSRange(location: 0, length: manager.numberOfGlyphs)) {
+                rect, _, _, _, _ in fragments.append(rect)
+            }
+            expect(fragments.count == 2 && fragments.allSatisfy { editor.visibleRect.contains($0) },
+                   "Both wrapped lines must fit in the native editor's visible area")
+            let longQuery = String(repeating: "A longer command to edit. ", count: 10)
+            input(longQuery)
+            view.placeInsertionPointAtEnd()
+            expect(editor.visibleRect.minY > 0 && editor.selectedRange().location == (longQuery as NSString).length,
+                   "Long recalled text must scroll to the caret beyond the two-line cap")
+            editor.insertText("edited", replacementRange: editor.selectedRange())
+            view.layoutSubtreeIfNeeded()
+            expect(model.query == longQuery + "edited" && editor.string == model.query,
+                   "Editing beyond the two-line cap must immediately update the complete query")
+            let beforeReturn = otherActions
+            editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+            expect(otherActions == beforeReturn + 1 && model.query == longQuery + "edited",
+                   "Return in a wrapped input still executes rather than inserting a newline")
+            input(twoLines)
+            view.placeInsertionPointAtEnd()
+            editor.setMarkedText("注音", selectedRange: NSRange(location: 2, length: 0),
+                                 replacementRange: editor.selectedRange())
+            view.layoutSubtreeIfNeeded()
+            let beforeIME = otherActions
+            expect(editor.hasMarkedText() && !view.control(view.searchField, textView: editor,
+                    doCommandBy: #selector(NSResponder.insertNewline(_:))) && otherActions == beforeIME,
+                   "Growing the input must preserve IME composition and let Return confirm marked text")
+            editor.unmarkText()
+        } else { expect(false, "Multiline checks require a real, isolated AppKit field editor") }
+        if let destination = ProcessInfo.processInfo.environment["CUE_INPUT_PREVIEW_DIRECTORY"] {
+            let directory = URL(fileURLWithPath: destination)
+            try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            for (name, query) in [("wrapped", twoLines), ("chinese", "請簡單說明，為什麼天空看起來是藍色的？")] {
+                input(query)
+                view.placeInsertionPointAtEnd()
+                for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+                    view.appearance = NSAppearance(named: appearance)
+                    view.layoutSubtreeIfNeeded()
+                    if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                        view.cacheDisplay(in: view.bounds, to: rep)
+                        let data = rep.representation(using: .png, properties: [:])!
+                        try! data.write(to: directory.appendingPathComponent("\(name)-\(appearance.rawValue).png"))
+                    }
+                }
+            }
+            view.appearance = nil
+        }
+        input("short question")
+        expect(view.searchField.frame.height == singleLineHeight && view.preferredHeight == singleLinePanelHeight,
+               "Deleting back to a short query must restore a single line immediately")
+        input("")
+        expect(view.preferredHeight == idleHeight && view.searchField.frame.height == singleLineHeight,
+               "Clearing a wrapped query must restore the original minimal launcher")
+        expect(!application.isActive && !window.isVisible,
+               "Multiline editing checks must remain offscreen and inactive")
+
         if !failures.isEmpty {
             for failure in failures { print("FAIL: \(failure)") }
             print("Launcher keyboard regression failed: \(failures.count) failures / \(checks) checks.")
             exit(1)
         }
-        print("Launcher keyboard regression passed: \(checks) checks; blank opening, numbered execution, explicit web search, curated browser choices, file-search isolation, Escape, Settings, modifiers, repeats, normal Return, editing, and marked text.")
+        print("Launcher keyboard regression passed: \(checks) checks; blank opening, bounded multiline input, numbered execution, explicit web search, curated browser choices, file-search isolation, Escape, Settings, modifiers, repeats, normal Return, editing, and marked text.")
     }
 }

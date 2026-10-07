@@ -1,7 +1,7 @@
 import AppKit
 import CueCore
 
-/// Native views and injected metadata only: no windows, real file index, app
+/// Native views and injected metadata only: no visible windows, real file index, app
 /// inventory, clipboard, preferences, credentials, or network requests.
 @MainActor
 private final class InteractionFileSearch: FileSearching {
@@ -148,7 +148,49 @@ private struct InteractionBenchmark {
             historyTimings.append(milliseconds(since: started))
         }
         model.reset()
-        precondition(!application.isActive && application.windows.isEmpty && view.window == nil)
+        // Measure real field-editor insertions as input grows and wraps. The
+        // panel stays offscreen; only synthetic text enters its editor.
+        let panel = NSPanel(contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel],
+                            backing: .buffered, defer: false)
+        panel.isReleasedWhenClosed = false
+        panel.contentView = view
+        view.onPreferredHeightChange = { [weak panel] height in
+            panel?.setContentSize(NSSize(width: 640, height: height))
+        }
+        panel.makeFirstResponder(view.searchField)
+        let editor = view.searchField.currentEditor() as! NSTextView
+        var editorTimings: [Double] = []
+        for _ in 0..<3 {
+            model.reset()
+            for character in "Explain briefly why the sky is blue. 請用簡單的文字解釋原因，並舉一個例子。" {
+                let started = DispatchTime.now().uptimeNanoseconds
+                editor.insertText(String(character), replacementRange: editor.selectedRange())
+                layout()
+                editorTimings.append(milliseconds(since: started))
+            }
+        }
+        var longInputTimings: [Double] = []
+        var longInputRenderTimings: [Double] = []
+        let nativeRender = model.onChange
+        var lastRenderTime = 0.0
+        model.onChange = {
+            let started = DispatchTime.now().uptimeNanoseconds
+            nativeRender?()
+            lastRenderTime = milliseconds(since: started)
+        }
+        for size in [1_024, 32_768] {
+            model.setQuery(String(repeating: "synthetic text ", count: size / 15))
+            layout()
+            view.placeInsertionPointAtEnd()
+            for _ in 0..<25 {
+                let started = DispatchTime.now().uptimeNanoseconds
+                editor.insertText("x", replacementRange: editor.selectedRange())
+                layout()
+                longInputTimings.append(milliseconds(since: started))
+                longInputRenderTimings.append(lastRenderTime)
+            }
+        }
+        precondition(!application.isActive && !panel.isVisible)
         let output: [String: Any] = [
             "build": "swiftc -O, Swift 6",
             "fixture": "9 synthetic report-#.txt results; alternating f r / f re",
@@ -161,7 +203,10 @@ private struct InteractionBenchmark {
             "model_notifications_during_file_phases": fileNotifications,
             "model_notifications_per_query_edit": notificationCounts,
             "history_recall_and_native_layout": summary(historyTimings),
-            "timing_scope": "Warm native view; main-actor query/completion + row configuration/layout. No Spotlight latency, input delivery, pixels, visible windows, or app activation.",
+            "native_editor_typing_and_layout": summary(editorTimings),
+            "native_editor_typing_at_end_of_1_to_32_KiB_input": summary(longInputTimings),
+            "launcher_render_during_long_input_edits": summary(longInputRenderTimings),
+            "timing_scope": "Warm native view; main-actor query/completion + row configuration/layout and offscreen native field-editor insertions. No Spotlight latency, OS key delivery, display composition, visible windows, or app activation.",
         ]
         let data = try JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys])
         print(String(decoding: data, as: UTF8.self))
