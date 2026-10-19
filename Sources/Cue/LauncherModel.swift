@@ -41,7 +41,10 @@ struct LauncherText {
     let gptNetworkOff = L10n.string("gpt.networkOff", table: "Launcher", value: "Network off")
     let gptHelp = L10n.string("gpt.help", table: "Launcher", value: "Send this text to OpenAI · GPT settings (⌘,)")
     let editAppAlias = L10n.string("app.editAlias", table: "Launcher", value: "Edit Search Alias…")
-    let appAliasHelp = L10n.string("app.aliasHelp", table: "Launcher", value: "Edit search alias (⌘E)")
+    let appActions = L10n.string("app.actions", table: "Launcher", value: "App Actions")
+    let appActionsHelp = L10n.string("app.actionsHelp", table: "Launcher", value: "App actions · Show in Finder (⌘R) · Edit alias (⌘E)")
+    let openApplication = L10n.string("app.open", table: "Launcher", value: "Open")
+    let revealApplication = L10n.string("app.reveal", table: "Launcher", value: "Show in Finder")
     let updateIndex = L10n.string("command.updateIndex", table: "Launcher", value: "Update App Index")
     let cleanLink = L10n.string("command.cleanLink", table: "Launcher", value: "Clean Link")
     let emojiSearch = L10n.string("command.emojiSearch", table: "Launcher", value: "Emoji Search")
@@ -69,6 +72,7 @@ struct LauncherText {
     let clipboardHistory = L10n.string("command.clipboardHistory", table: "Launcher", value: "Clipboard History")
     let commandHistory = L10n.string("command.commandHistory", table: "Launcher", value: "Command History")
     let historyRecall = L10n.string("history.recall", table: "Launcher", value: "History · ↑ ↓ Browse · Esc to return · Edit to search")
+    let historyReveal = L10n.string("history.reveal", table: "Launcher", value: "History · Show in Finder · ↵ Run")
     let historyUnavailable = L10n.string("history.unavailable", table: "Launcher", value: "Previous action is unavailable. Edit the input or choose another result.")
     let sleep = L10n.string("command.sleep", table: "Launcher", value: "Sleep")
     let lockScreen = L10n.string("command.lockScreen", table: "Launcher", value: "Lock Screen")
@@ -85,6 +89,7 @@ struct LauncherText {
     let screenOffError = L10n.string("command.screenOff.error", table: "Launcher", value: "Couldn’t turn off the display. Please try again.")
     let command = L10n.string("command.detail", table: "Launcher", value: "Command")
     let launchError = L10n.string("launch.error", table: "Launcher", value: "Couldn’t open %@: %@")
+    let revealError = L10n.string("app.revealError", table: "Launcher", value: "Couldn’t show %@ in Finder: %@")
 }
 
 /// One synchronous update per input event, with a bounded cache for backspacing/reopening.
@@ -94,10 +99,14 @@ final class LauncherModel {
     private(set) var isQueryEmpty = true
     private(set) var results: [LauncherResult] = []
     private(set) var selectedID: LauncherResult.ID?
-    private var recalledResultID: String?
+    private var recalledAction: (resultID: String, revealsApplication: Bool)?
+    private var recalledResultID: String? { recalledAction?.resultID }
+    var hasRecalledAction: Bool { recalledAction != nil }
+    var isRecalledApplicationReveal: Bool { recalledAction?.revealsApplication == true }
     private(set) var isRecallingHistory = false
     var historyStatus: String? {
         if recalledResultID != nil, selectedID == nil, !isSearchingFiles, !isIndexing { return text.historyUnavailable }
+        if isRecalledApplicationReveal { return text.historyReveal }
         return isRecallingHistory ? text.historyRecall : nil
     }
     private(set) var conversionAliases: ChineseConversionAliases
@@ -225,7 +234,7 @@ final class LauncherModel {
         defer { finishUpdates() }
         onQueryChange?()
         adoptPendingUsage()
-        recalledResultID = nil
+        recalledAction = nil
         isRecallingHistory = false
         query = value
         classifyQuery()
@@ -362,7 +371,7 @@ final class LauncherModel {
         updateDepth += 1
         defer { finishUpdates() }
         adoptPendingUsage()
-        recalledResultID = nil
+        recalledAction = nil
         isRecallingHistory = false
         query = ""
         classifyQuery()
@@ -379,7 +388,7 @@ final class LauncherModel {
 
     func select(_ id: LauncherResult.ID?) {
         let hadRecall = recalledResultID != nil || isRecallingHistory
-        recalledResultID = nil
+        recalledAction = nil
         isRecallingHistory = false
         guard selectedID != id || hadRecall else { return }
         updateDepth += 1
@@ -453,7 +462,8 @@ final class LauncherModel {
         isShowingSearchActions = entry.actionID.hasPrefix("action:google-search")
             || entry.actionID.hasPrefix("action:gpt-")
         isShowingBrowserActions = entry.actionID.hasPrefix("action:google-search:")
-        recalledResultID = entry.actionID
+        recalledAction = (entry.revealedApplicationResultID ?? entry.actionID,
+                          entry.revealedApplicationResultID != nil)
         isRecallingHistory = browsing
         updateCurrencyActivity()
         updateResults()
@@ -462,7 +472,7 @@ final class LauncherModel {
 
     func endHistoryRecall() {
         guard recalledResultID != nil || isRecallingHistory else { return }
-        recalledResultID = nil
+        recalledAction = nil
         isRecallingHistory = false
         notifyChange()
     }

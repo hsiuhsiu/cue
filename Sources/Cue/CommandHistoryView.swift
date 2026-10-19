@@ -47,6 +47,7 @@ enum CommandHistoryText {
     }()
     static func action(_ entry: CommandHistoryEntry) -> String {
         let text = LauncherText.shared
+        if entry.revealedApplicationResultID != nil { return text.revealApplication + " · " + entry.title }
         if entry.actionID.hasPrefix("action:google-search:") { return text.googleSearch + " · " + entry.title }
         return names[entry.actionID] ?? entry.title
     }

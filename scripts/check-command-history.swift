@@ -2,6 +2,19 @@ import AppKit
 import Carbon
 import CueCore
 
+@MainActor
+private final class HistoryRevealFixture {
+    var revealed: [String] = []
+    var shouldWait = false
+    var pending: CheckedContinuation<Void, any Error>?
+
+    func reveal(_ target: IndexedApplication) async throws {
+        if shouldWait { try await withCheckedThrowingContinuation { pending = $0 } }
+        try Task.checkCancellation()
+        revealed.append(target.id)
+    }
+}
+
 @MainActor private final class HistoryFileSearch: FileSearching {
     var completion: (@MainActor (FileSearchResponse) -> Void)?
     func search(_ term: String, limit: Int, completion: @escaping @MainActor (FileSearchResponse) -> Void) {
@@ -188,6 +201,113 @@ import CueCore
         let saved = await store.load()
         check(saved.entries.map(\.query) == ["synthetic after clear"]
               && pending.history == saved, "Pending load/write operations must not resurrect cleared history")
+
+        // Secondary app actions keep their identity during recall, and never
+        // launch Finder, touch user history or request real application launches.
+        let actionHistory = CommandHistoryModel()
+        let actionModel = LauncherModel(applications: apps)
+        let previousWindows = Set(app.windows.map(ObjectIdentifier.init))
+        let revealFixture = HistoryRevealFixture()
+        var opened: [String] = []
+        let actionController = LauncherPanelController(
+            clipboard: clipboard, model: actionModel, commandHistory: actionHistory,
+            openApplication: { target, done in opened.append(target.id); done(nil) },
+            revealApplication: { try await revealFixture.reveal($0) },
+            webSearchPreferences: WebSearchPreferences(defaults: defaults),
+            frontmostProcess: { nil }, restoreSource: { _ in false })
+        let actionPanel = app.windows.first { !previousWindows.contains(ObjectIdentifier($0)) && $0.contentView is LauncherView }!
+        let actionView = actionPanel.contentView as! LauncherView
+        func settle() async { for _ in 0..<32 { await Task.yield() } }
+        func actionSubmit() {
+            _ = actionView.control(actionView.searchField, textView: editor, doCommandBy: #selector(NSResponder.insertNewline(_:)))
+        }
+        actionController.prepareInvocation()
+        actionModel.setQuery("Fixture")
+        actionModel.select(LauncherResult.application(apps[1]).id)
+        actionPanel.sendEvent(key(UInt16(kVK_ANSI_R), characters: "r"))
+        check(actionModel.query.isEmpty && !actionPanel.isVisible, "Finder action dismisses immediately before asynchronous work")
+        await settle()
+        check(revealFixture.revealed == [apps[1].id] && opened.isEmpty, "Panel's direct key route reveals the selected app exactly once")
+        let revealEntry = actionHistory.history.entries.first!
+        check(revealEntry.revealedApplicationResultID == LauncherResult.application(apps[1]).id,
+              "Finder history stores both the app identity and the secondary action")
+        check(CommandHistoryText.action(revealEntry) == LauncherText.shared.revealApplication + " · " + apps[1].name,
+              "History visibly distinguishes Show in Finder from an app launch")
+        let restored = try JSONDecoder().decode(CommandHistoryEntry.self, from: JSONEncoder().encode(revealEntry))
+        check(restored == revealEntry, "Secondary actions round-trip through the existing history format")
+        actionHistory.record(.application(apps[1]), query: revealEntry.query)
+        check(actionHistory.history.entries.count == 2, "Open and Reveal retain separate entries for the same input/app")
+        actionModel.recall(restored, browsing: false)
+        check(actionModel.selectedResult == .application(apps[1]) && actionModel.isRecalledApplicationReveal
+              && actionModel.historyStatus == LauncherText.shared.historyReveal,
+              "Recalling Finder restores its target and explicit action hint without executing")
+        _ = actionView.control(actionView.searchField, textView: editor, doCommandBy: #selector(NSResponder.moveLeft(_:)))
+        _ = actionView.control(actionView.searchField, textView: editor, doCommandBy: #selector(NSResponder.selectAll(_:)))
+        check(actionModel.isRecalledApplicationReveal,
+              "Moving the caret or selecting text does not silently replace a recalled Finder action with Open")
+        actionSubmit()
+        await settle()
+        check(revealFixture.revealed.count == 2 && opened.isEmpty, "Return on recalled Finder history reveals instead of launching")
+        actionModel.recall(restored, browsing: false)
+        check(actionView.handleSearchActionsShortcut(key(UInt16(kVK_ANSI_K), characters: "k"))
+              && actionModel.isShowingSearchActions && !actionModel.hasRecalledAction
+              && actionModel.selectedResult == .googleSearch,
+              "Command-K from a restored history page can explicitly choose text actions")
+        actionModel.recall(restored)
+        actionModel.setQuery("Fixture B")
+        check(!actionModel.isRecalledApplicationReveal, "Editing the recalled input restores ordinary launch behavior")
+        actionSubmit()
+        check(opened == [apps[1].id], "Return after editing remains the normal app-open action")
+        actionModel.recall(restored)
+        actionModel.select(LauncherResult.application(apps[0]).id)
+        check(!actionModel.isRecalledApplicationReveal, "Explicitly changing selection clears the recalled secondary action")
+        actionModel.recall(CommandHistoryEntry(query: "Fixture", actionID: CommandHistoryEntry.applicationRevealPrefix + "app:missing",
+                                              title: "Missing"))
+        actionSubmit()
+        check(actionModel.selectedResult == nil && revealFixture.revealed.count == 2 && opened.count == 1,
+              "A missing recalled App cannot reveal or launch a substitute")
+        actionModel.reset()
+        revealFixture.shouldWait = true
+        actionModel.setQuery("Fixture A")
+        _ = actionView.handleRevealApplicationShortcut(key(UInt16(kVK_ANSI_R), characters: "r"))
+        await settle()
+        check(revealFixture.pending != nil, "The injected Finder service can pause without blocking input")
+        actionController.prepareInvocation()
+        actionModel.setQuery("newer typing")
+        revealFixture.pending?.resume(); revealFixture.pending = nil
+        await settle()
+        check(revealFixture.revealed.count == 2 && actionModel.query == "newer typing" && actionModel.launchError == nil,
+              "Reopening cancels an old Finder handoff and preserves new typing")
+        actionModel.setQuery("Fixture A")
+        _ = actionView.handleRevealApplicationShortcut(key(UInt16(kVK_ANSI_R), characters: "r"))
+        await settle()
+        actionController.prepareInvocation()
+        actionModel.setQuery("preserve newer input")
+        revealFixture.pending?.resume(throwing: CocoaError(.fileNoSuchFile)); revealFixture.pending = nil
+        await settle()
+        check(actionModel.query == "preserve newer input" && actionModel.launchError == nil && !actionPanel.isVisible,
+              "An old Finder failure cannot reopen Cue or overwrite a newer invocation")
+        actionModel.setQuery("Fixture A")
+        _ = actionView.handleRevealApplicationShortcut(key(UInt16(kVK_ANSI_R), characters: "r"))
+        await settle()
+        _ = actionController.suspendForSettings()
+        revealFixture.pending?.resume(); revealFixture.pending = nil
+        await settle()
+        check(revealFixture.revealed.count == 2 && !actionPanel.isVisible,
+              "Opening settings from a dismissed launcher cancels a pending Finder handoff")
+        actionController.dismiss(returnFocus: false)
+        let countBeforeOptOut = actionHistory.history.entries.count
+        actionHistory.setEnabled(false)
+        actionHistory.recordApplicationReveal(apps[0], query: "not recorded")
+        check(actionHistory.history.entries.count == countBeforeOptOut, "Finder actions honor the history recording switch")
+        let missingApp = IndexedApplication(name: "Missing Fixture", url: directory.appendingPathComponent("NeverCreated.app"))
+        do {
+            try await LauncherPanelController.revealSystemApplication(missingApp)
+            check(false, "A missing app must fail before Finder is invoked")
+        } catch {
+            check((error as NSError).code == CocoaError.fileNoSuchFile.rawValue, "Missing app reports a local file error")
+        }
+        await actionHistory.finish()
         check(!app.isActive && app.windows.allSatisfy { !$0.isVisible }, "Checks must never activate/show windows")
         print("Command history passed: \(checks) isolated routing, recall, privacy, IME, search and deletion checks.")
     }

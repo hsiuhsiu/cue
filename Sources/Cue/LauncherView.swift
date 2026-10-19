@@ -27,7 +27,7 @@ private final class ResultCell: NSTableCellView {
     let detail = NSTextField(labelWithString: "")
     let number = NSTextField(labelWithString: "")
     let icon = NSImageView()
-    let aliasButton = NSButton()
+    let appActionsButton = NSButton()
     var hasAppActions = false
     var preferredDetailWidth: CGFloat = 86
     var hasFileDetail = false {
@@ -64,16 +64,16 @@ private final class ResultCell: NSTableCellView {
         detailHeight = ceil(detail.intrinsicContentSize.height)
         numberHeight = ceil(number.intrinsicContentSize.height)
         icon.imageScaling = .scaleProportionallyDown
-        aliasButton.isBordered = false
-        aliasButton.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: nil)
-        aliasButton.contentTintColor = .secondaryLabelColor
-        aliasButton.isHidden = true
-        aliasButton.refusesFirstResponder = true
+        appActionsButton.isBordered = false
+        appActionsButton.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: nil)
+        appActionsButton.contentTintColor = .secondaryLabelColor
+        appActionsButton.isHidden = true
+        appActionsButton.refusesFirstResponder = true
         addSubview(icon)
         addSubview(title)
         addSubview(detail)
         addSubview(number)
-        addSubview(aliasButton)
+        addSubview(appActionsButton)
         textField = title
         imageView = icon
     }
@@ -99,7 +99,7 @@ private final class ResultCell: NSTableCellView {
             detail.frame = NSRect(x: bounds.width - detailWidth - 56 - actionWidth, y: (bounds.height - detailHeight) / 2,
                                   width: detailWidth, height: detailHeight)
         }
-        aliasButton.frame = NSRect(x: bounds.width - 82, y: (bounds.height - 28) / 2, width: 28, height: 28)
+        appActionsButton.frame = NSRect(x: bounds.width - 82, y: (bounds.height - 28) / 2, width: 28, height: 28)
         number.frame = NSRect(x: bounds.width - 48, y: (bounds.height - numberHeight) / 2,
                               width: 38, height: numberHeight)
     }
@@ -121,6 +121,9 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
     private let onWebSearch: () -> Void
     private let onSearchActions: () -> Void
     private let onAppAlias: (IndexedApplication) -> Void
+    private let onOpenApplication: (IndexedApplication) -> Void
+    private let onRevealApplication: (IndexedApplication) -> Void
+    private let presentAppMenu: (NSMenu, NSView) -> Void
     private let material = LauncherBackdrop()
     private let table = ResultsTable()
     private let scroll = NSScrollView()
@@ -170,7 +173,14 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
          onCancel: @escaping () -> Void, onSettings: @escaping () -> Void,
          onWebSearch: @escaping () -> Void = {},
          onSearchActions: @escaping () -> Void = {},
-         onAppAlias: @escaping (IndexedApplication) -> Void = { _ in }) {
+         onAppAlias: @escaping (IndexedApplication) -> Void = { _ in },
+         onOpenApplication: ((IndexedApplication) -> Void)? = nil,
+         onRevealApplication: @escaping (IndexedApplication) -> Void = { _ in },
+         presentAppMenu: @escaping (NSMenu, NSView) -> Void = { menu, anchor in
+             menu.popUp(positioning: nil,
+                        at: NSPoint(x: 0, y: anchor.isFlipped ? anchor.bounds.maxY : anchor.bounds.minY),
+                        in: anchor)
+         }) {
         self.model = model
         self.onSubmit = onSubmit
         self.onCancel = onCancel
@@ -178,6 +188,9 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         self.onWebSearch = onWebSearch
         self.onSearchActions = onSearchActions
         self.onAppAlias = onAppAlias
+        self.onOpenApplication = onOpenApplication ?? { _ in onSubmit() }
+        self.onRevealApplication = onRevealApplication
+        self.presentAppMenu = presentAppMenu
         super.init(frame: NSRect(x: 0, y: 0, width: 640, height: 56))
         wantsLayer = true
         layer?.cornerRadius = 16
@@ -270,6 +283,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         // Command keys take this path before window.sendEvent, including when Cue is inactive.
         if handleSettingsShortcut(event) { return true }
         if handleAppAliasShortcut(event) { return true }
+        if handleRevealApplicationShortcut(event) { return true }
         if handleSearchActionsShortcut(event) { return true }
         if handleWebSearchShortcut(event) { return true }
         if handleNumberShortcut(event) { return true }
@@ -283,6 +297,16 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
               (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true,
               case .application(let application) = model.selectedResult else { return false }
         if !event.isARepeat { onAppAlias(application) }
+        return true
+    }
+
+    func handleRevealApplicationShortcut(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+              event.keyCode == UInt16(kVK_ANSI_R),
+              (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true,
+              case .application(let application) = model.selectedResult else { return false }
+        if !event.isARepeat { onRevealApplication(application) }
         return true
     }
 
@@ -430,7 +454,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         }
         for index in displayedResults.indices {
             guard let cell = table.view(atColumn: 0, row: index, makeIfNecessary: false) as? ResultCell else { continue }
-            cell.aliasButton.isHidden = !cell.hasAppActions || index != row
+            cell.appActionsButton.isHidden = !cell.hasAppActions || index != row
         }
         scroll.isHidden = displayedResults.isEmpty
         emptyLabel.isHidden = isQueryEmpty || !displayedResults.isEmpty
@@ -483,7 +507,7 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         cell.hasAppActions = false
         if case .file = result { cell.hasFileDetail = true }
         else { cell.hasFileDetail = false }
-        cell.aliasButton.isHidden = true
+        cell.appActionsButton.isHidden = true
         cell.preferredDetailWidth = result.isWebSearch ? 140 : 86
         switch result {
         case .file(let file):
@@ -516,12 +540,12 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
             cell.detail.stringValue = application.searchAlias ?? ""
             cell.icon.image = model.icons.image(for: application)
             cell.hasAppActions = true
-            cell.aliasButton.isHidden = result.id != model.selectedID
-            cell.aliasButton.toolTip = text.appAliasHelp
-            cell.aliasButton.setAccessibilityLabel(text.editAppAlias + " " + application.name)
-            cell.aliasButton.target = self
-            cell.aliasButton.action = #selector(editAppAlias(_:))
-            cell.aliasButton.tag = row
+            cell.appActionsButton.isHidden = result.id != model.selectedID
+            cell.appActionsButton.toolTip = text.appActionsHelp
+            cell.appActionsButton.setAccessibilityLabel(text.appActions + " " + application.name)
+            cell.appActionsButton.target = self
+            cell.appActionsButton.action = #selector(showAppActions(_:))
+            cell.appActionsButton.identifier = NSUserInterfaceItemIdentifier(result.id)
         case .googleSearch, .googleSearchIn:
             cell.title.stringValue = text.googleSearch
             let browserName: String
@@ -595,29 +619,53 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         guard displayedResults.indices.contains(row),
               case .application = displayedResults[row],
               (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return nil }
-        model.select(displayedResults[row].id)
+        let id = displayedResults[row].id
+        if model.selectedID != id { model.select(id) }
         let menu = NSMenu()
-        let item = NSMenuItem(title: text.editAppAlias, action: #selector(editAppAlias(_:)), keyEquivalent: "e")
-        item.keyEquivalentModifierMask = .command
-        item.target = self
         // A background reindex can finish while a native menu is open. Bind
         // the action to the app identity rather than a row that may have moved.
-        item.representedObject = displayedResults[row].id
-        menu.addItem(item)
+        for (title, action, key) in [
+            (text.openApplication, #selector(openApp(_:)), "\r"),
+            (text.revealApplication, #selector(revealApp(_:)), "r"),
+            (text.editAppAlias, #selector(editAppAlias(_:)), "e"),
+        ] {
+            if key == "e" { menu.addItem(.separator()) }
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+            item.keyEquivalentModifierMask = key == "\r" ? [] : .command
+            item.target = self
+            item.representedObject = id
+            menu.addItem(item)
+        }
         return menu
     }
 
-    @objc private func editAppAlias(_ sender: AnyObject) {
-        let row: Int
-        if let button = sender as? NSButton { row = button.tag }
-        else if let item = sender as? NSMenuItem,
-                let id = item.representedObject as? String,
-                let index = displayedResults.firstIndex(where: { $0.id == id }) { row = index }
-        else { return }
-        guard displayedResults.indices.contains(row),
+    @objc private func showAppActions(_ button: NSButton) {
+        guard let id = button.identifier?.rawValue,
+              let row = displayedResults.firstIndex(where: { $0.id == id }),
+              let menu = appMenu(for: row) else { return }
+        presentAppMenu(menu, button)
+    }
+
+    private func appTarget(_ item: NSMenuItem) -> IndexedApplication? {
+        guard let id = item.representedObject as? String,
+              let row = displayedResults.firstIndex(where: { $0.id == id }),
               case .application(let application) = displayedResults[row],
-              (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }
-        model.select(displayedResults[row].id)
+              (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return nil }
+        return application
+    }
+
+    @objc private func openApp(_ item: NSMenuItem) {
+        guard let application = appTarget(item) else { return }
+        onOpenApplication(application)
+    }
+
+    @objc private func revealApp(_ item: NSMenuItem) {
+        guard let application = appTarget(item) else { return }
+        onRevealApplication(application)
+    }
+
+    @objc private func editAppAlias(_ item: NSMenuItem) {
+        guard let application = appTarget(item) else { return }
         onAppAlias(application)
     }
 
@@ -689,7 +737,8 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         case #selector(NSResponder.insertNewline(_:)): onSubmit()
         case #selector(NSResponder.cancelOperation(_:)): onCancel()
         default:
-            onHistoryEdit?()
+            // Caret movement and selection are not edits. The actual text-change
+            // callback ends recall, so a restored secondary action stays intact.
             return false
         }
         return true

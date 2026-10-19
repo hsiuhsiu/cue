@@ -32,8 +32,8 @@ public enum CueKeyboardShortcut {
         switch keyCode {
         // A/C/V/X/Z: select, copy, paste, cut, undo; Y: clipboard preview.
         case 0, 8, 9, 7, 6, 16,
-             // E/K/comma: app alias, query actions, settings.
-             14, 40, 43,
+             // E/R/K/comma: app alias, Finder reveal, query actions, settings.
+             14, 15, 40, 43,
              // Return/keypad Enter; backward/forward Delete.
              36, 76, 51, 117,
              // Native text navigation using Command plus an arrow.

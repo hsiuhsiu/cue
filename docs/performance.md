@@ -23,6 +23,9 @@ or intentional delay. This guide describes the current design and how to measure
   next edit, so late completions cannot redirect a selection.
 - Native launcher rows are reused. One synchronous input edit publishes one coherent
   snapshot; background completions publish separately.
+- App action menus are created only when explicitly opened. Finder target checks
+  run on a worker after execution; a canceled or superseded request cannot hand off
+  to Finder after the next invocation. Ordinary search performs no new file access.
 - At most two application-icon decoders run concurrently, including across cache
   invalidation. Up to nine current targets wait, and stale queued work is discarded.
   The cache holds at most 256 prepared 64×64 images, about 4 MiB of its own pixel
@@ -222,8 +225,10 @@ Relevant regression checks are CueCore XCTest and the isolated
 harnesses. They cover matching equivalence, Unicode/long input, cancellation,
 stable shortcuts, progress, bounded icon work and timestamp boundaries.
 `check-command-history.sh` covers recall, the first edit, IME ownership, original
-action restoration after asynchronous file results, paging, deletion, and pending
-storage operations in both languages.
+action restoration after asynchronous file results, paging, deletion, pending
+storage operations, and Finder action recall/cancellation in both languages.
+`check-app-aliases.sh` covers app action menus, stable targets, keyboard equivalents,
+IME ownership and alias editing in both languages without opening Finder.
 
 Global hotkeys, cross-app focus, OS permission dialogs, visual composition and
 perceived typing smoothness need a coordinated check of the optimized installed
@@ -232,22 +237,25 @@ simulated results separate when reporting release readiness.
 
 ### Input and history comparison
 
-The same review ran the interaction fixture against unmodified **1.1.1** and
-the candidate sequentially. The timed model, view, icon, file and history sources
-are byte-identical in this patch; the focus coordinator runs only on invocation.
+On **2026-10-19**, the same interaction fixture ran sequentially against unmodified
+**1.1.2** and the **1.2.0** candidate using optimized builds on the same Mac.
+App actions add no file access or menu construction to ordinary typing; the
+nonactivating panel and focus coordinator are unchanged.
 
-| Offscreen workload | 1.1.1 p95 | Candidate p95 |
+| Offscreen workload | 1.1.2 p95 | 1.2.0 p95 |
 | --- | ---: | ---: |
-| Native editor typing + layout | 4.804 ms | 3.922 ms |
-| Typing at the end of 1–32 KiB input | 18.666 ms | 17.609 ms |
-| 200 history recalls + native layout | 0.075 ms | 0.066 ms |
-| File refinement + native layout | 0.183 ms | 0.182 ms |
+| Native editor typing + layout | 2.513 ms | 2.005 ms |
+| Typing at the end of 1–32 KiB input | 16.927 ms | 16.588 ms |
+| 200 history recalls + native layout | 0.061 ms | 0.060 ms |
+| File refinement + native layout | 0.179 ms | 0.183 ms |
+| File completion + native layout | 0.140 ms | 0.143 ms |
+| Rendering during long-input edits | 3.815 ms | 3.834 ms |
 
-The candidate's initial and repeat native-typing runs had 3.660–3.922 ms p95,
-9.222–14.582 ms p99 and 15.695–29.587 ms maxima. The baseline's maximum was
-35.876 ms. These samples show run-to-run tails; they do not establish that the
-focus fix makes text editing faster. History recall in the repeat had a 0.054 ms
-median, 0.095 ms p99 and 3.551 ms maximum, including its first recall. Each
+Native-typing p99 was 4.990 ms in the baseline and 4.678 ms in the candidate;
+maxima were 15.997 and 14.131 ms. The candidate's history recall had a 0.054 ms
+median, 0.081 ms p99 and 3.312 ms maximum, including its first recall. These
+samples show no material regression; single-run differences do not establish
+that app actions make editing faster. Each
 synchronous edit published one model update, with no cleared matching file rows
 or unnecessary panel-height changes. The native view is already constructed;
 these are not physical input-to-display or full-history-page measurements.
@@ -270,15 +278,15 @@ these are not physical input-to-display or full-history-page measurements.
 快照，存檔由背景處理，一般搜尋不掃描歷史。回看後的第一個修改只更新一次畫面，
 不會把舊輸入或游標位置蓋回去；歷史頁每頁最多九列。
 
-2026-10-18 使用 Xcode 27／Swift 6.4 的最佳化建置，在同一台 Mac 依序對照
-1.1.1 與本次版本；量測所用的 Model、View、圖示、檔案與歷史程式在這次修改中
-逐檔相同，焦點協調只在叫出視窗時執行。原生打字 p95 分別為 4.804／3.922 ms，
-1–32 KiB 文字尾端編輯為 18.666／17.609 ms，歷史回看為 0.075／0.066 ms。
-本次兩輪原生打字最大值為 15.695–29.587 ms，1.1.1 為 35.876 ms；保留這些
-長尾，不把單次量測差異解讀成焦點修正加快了文字編輯。200 次合成歷史回看
-重測中位數 0.054 ms、p99 0.095 ms、最大 3.551 ms，包含第一次回看；原生
-View 已建立。每次同步編輯仍只發布一次畫面更新；這些數字不是按鍵到螢幕的
-延遲，也不是整個歷史管理頁的量測。
+2026-10-19 使用 Xcode 27／Swift 6.4 的最佳化建置，在同一台 Mac 依序對照
+1.1.2 與 1.2.0。App 動作選單只在叫用時建立，路徑檢查只在執行後移到背景，
+原生面板與焦點協調維持原樣。原生打字 p95 分別為 2.513／2.005 ms，
+1–32 KiB 文字尾端編輯為 16.927／16.588 ms，歷史回看為 0.061／0.060 ms；
+檔案更新與長輸入維持原有範圍。原生打字 p99 為 4.990／4.678 ms，最大值
+15.997／14.131 ms；本次歷史回看中位數 0.054 ms、p99 0.081 ms、最大
+3.312 ms，包含第一次回看。沒有看到明顯退步，也不把單次量測差異解讀成新增
+動作加快了編輯。原生 View 已建立，每次同步編輯仍只發布一次畫面更新；這些
+數字不是按鍵到螢幕的延遲，也不是整個歷史管理頁的量測。
 
 上表是指定日期、機器與合成工作負載的元件量測，不能當成未來版本、其他 Mac 或
 按鍵到畫面的延遲保證。依序執行上列命令可重新測量；保留第一次使用與最慢樣本，

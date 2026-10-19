@@ -123,7 +123,7 @@ final class LauncherPreferencesTests: XCTestCase {
     }
 
     func testQueryActionShortcutsAreReservedButExtraModifiersRemainAvailable() {
-        let actionKeys: [(UInt32, String)] = [(36, "Return"), (76, "Enter"), (40, "K"), (14, "E")]
+        let actionKeys: [(UInt32, String)] = [(36, "Return"), (76, "Enter"), (40, "K"), (14, "E"), (15, "R")]
         let additionalModifiers: [LauncherShortcut.Modifiers] = [.shift, .option, .control]
         for (keyCode, key) in actionKeys {
             let reserved = LauncherShortcut(keyCode: keyCode, modifiers: .command, key: key)

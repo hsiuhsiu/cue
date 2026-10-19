@@ -69,7 +69,11 @@
 "currency.daily" = "Daily rates · %@";
 
 "app.editAlias" = "Edit Search Alias…";
-"app.aliasHelp" = "Edit search alias (⌘E)";
+"app.actions" = "App Actions";
+"app.actionsHelp" = "App actions · Show in Finder (⌘R) · Edit alias (⌘E)";
+"app.open" = "Open";
+"app.reveal" = "Show in Finder";
+"app.revealError" = "Couldn’t show %@ in Finder: %@";
 
 "search.chooseBrowser" = "Other Browsers…";
 
@@ -91,4 +95,5 @@
 "command.windowSettings" = "Window Settings";
 "command.commandHistory" = "Command History";
 "history.recall" = "History · ↑ ↓ Browse · Esc to return · Edit to search";
+"history.reveal" = "History · Show in Finder · ↵ Run";
 "history.unavailable" = "Previous action is unavailable. Edit the input or choose another result.";

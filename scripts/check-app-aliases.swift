@@ -202,10 +202,16 @@ struct CheckAppAliases {
 
         // Real AppKit view/event path: editing is explicit and does not launch.
         var edits: [IndexedApplication] = []
+        var opens: [IndexedApplication] = []
+        var reveals: [IndexedApplication] = []
+        var presentedMenu: NSMenu?
         var submissions = 0
         let native = LauncherModel(applications: [code, terminal])
         let view = LauncherView(model: native, onSubmit: { submissions += 1 }, onCancel: {}, onSettings: {},
-                                onAppAlias: { edits.append($0) })
+                                onAppAlias: { edits.append($0) },
+                                onOpenApplication: { opens.append($0) },
+                                onRevealApplication: { reveals.append($0) },
+                                presentAppMenu: { menu, _ in presentedMenu = menu })
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 300),
                               styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -222,13 +228,33 @@ struct CheckAppAliases {
         }
         check(view.performKeyEquivalent(with: key()) && edits.count == 2,
               "The window's key-equivalent route also invokes app alias editing")
+        check(view.handleRevealApplicationShortcut(key(UInt16(kVK_ANSI_R), "r")) && reveals == [code],
+              "Command-R reveals the selected app without submitting or opening it")
+        _ = view.handleRevealApplicationShortcut(key(UInt16(kVK_ANSI_R), "r", repeated: true))
+        check(reveals.count == 1, "Holding Command-R never repeats the Finder handoff")
+        for modifiers: NSEvent.ModifierFlags in [[], .option, [.command, .shift], [.command, .control]] {
+            check(!view.handleRevealApplicationShortcut(key(UInt16(kVK_ANSI_R), "r", modifiers: modifiers)),
+                  "Finder reveal requires exactly Command-R")
+        }
+        check(view.performKeyEquivalent(with: key(UInt16(kVK_ANSI_R), "r")) && reveals.count == 2,
+              "Finder reveal also works through the native key-equivalent route")
+        let keyUp = NSEvent.keyEvent(with: .keyUp, location: .zero, modifierFlags: .command, timestamp: 0,
+                                    windowNumber: 0, context: nil, characters: "r", charactersIgnoringModifiers: "r",
+                                    isARepeat: false, keyCode: UInt16(kVK_ANSI_R))!
+        check(!view.handleRevealApplicationShortcut(keyUp), "Key release cannot reveal an app again")
         native.setQuery("sleep")
         check(!view.handleAppAliasShortcut(key()) && edits.count == 2,
               "Command-E cannot edit an ordinary command as an app")
+        check(!view.handleRevealApplicationShortcut(key(UInt16(kVK_ANSI_R), "r")),
+              "Commands cannot become Finder reveal targets")
         native.setQuery("zzzzunmatched")
         check(!view.handleAppAliasShortcut(key()), "A Google fallback is not treated as an app alias target")
+        check(!view.handleRevealApplicationShortcut(key(UInt16(kVK_ANSI_R), "r")),
+              "Query actions cannot become Finder reveal targets")
         native.reset()
         check(!view.handleAppAliasShortcut(key()), "An empty launcher has no alias target")
+        check(!view.handleRevealApplicationShortcut(key(UInt16(kVK_ANSI_R), "r")),
+              "An empty launcher has no Finder reveal target")
         native.setQuery("vs")
         window.makeFirstResponder(view.searchField)
         guard let editor = view.searchField.currentEditor() as? NSTextView else { fatalError("Missing app alias field editor") }
@@ -238,6 +264,8 @@ struct CheckAppAliases {
         let range = editor.markedRange()
         check(!view.handleAppAliasShortcut(key()) && edits.count == 2,
               "Command-E remains with the input method while text is marked")
+        check(!view.handleRevealApplicationShortcut(key(UInt16(kVK_ANSI_R), "r")) && reveals.count == 2,
+              "Command-R remains with the input method while text is marked")
         check(editor.string == marked && editor.markedRange() == range,
               "Alias keyboard handling preserves in-progress IME composition")
         editor.unmarkText()
@@ -253,27 +281,60 @@ struct CheckAppAliases {
         let contextEvent = NSEvent.mouseEvent(with: .rightMouseDown, location: contextLocation, modifierFlags: [],
                                              timestamp: 0, windowNumber: window.windowNumber, context: nil,
                                              eventNumber: 0, clickCount: 1, pressure: 1)!
-        guard let menu = table.menu(for: contextEvent), let item = menu.items.first, let action = item.action else {
+        guard let menu = table.menu(for: contextEvent), let item = menu.items.last, let action = item.action else {
             fatalError("Missing app alias context menu")
         }
-        check(menu.items.count == 1 && item.keyEquivalent == "e" && item.keyEquivalentModifierMask == .command,
-              "The app context menu exposes the same explicit Command-E alias action")
+        check(menu.items.count == 4 && menu.items[2].isSeparatorItem,
+              "The app context menu contains Open, Show in Finder, a separator and Edit Alias")
+        check(menu.items.map(\.title) == [LauncherText.shared.openApplication, LauncherText.shared.revealApplication,
+                                        "", LauncherText.shared.editAppAlias], "App actions use localized labels")
+        check(menu.items[0].keyEquivalent == "\r" && menu.items[0].keyEquivalentModifierMask.isEmpty
+              && menu.items[1].keyEquivalent == "r" && menu.items[1].keyEquivalentModifierMask == .command
+              && item.keyEquivalent == "e" && item.keyEquivalentModifierMask == .command,
+              "App actions display their actual Return, Command-R and Command-E shortcuts")
+        for (index, title) in [(0, "Open"), (1, "Finder")] {
+            let menuItem = menu.items[index]
+            check(NSApp.sendAction(menuItem.action!, to: menuItem.target, from: menuItem), "Menu dispatches \(title)")
+        }
+        check(opens == [code] && reveals == [code, code, code] && submissions == 0,
+              "App menu actions dispatch their bound target without running the default submission")
         check(NSApp.sendAction(action, to: item.target, from: item) && edits.count == 3 && edits.last?.id == code.id,
               "The app context menu invokes the same selected-app editor callback")
         native.setQuery("iTerm")
         _ = NSApp.sendAction(action, to: item.target, from: item)
+        for item in menu.items where !item.isSeparatorItem {
+            _ = NSApp.sendAction(item.action!, to: item.target, from: item)
+        }
         check(edits.count == 3 && native.selectedResult?.id == LauncherResult.application(terminal).id,
               "A stale context menu cannot edit a different app that has replaced its old row")
+        check(opens.count == 1 && reveals.count == 3, "Stale menu items cannot open or reveal a replacement row")
         native.setQuery("code")
         view.layoutSubtreeIfNeeded()
         guard let cell = table.view(atColumn: 0, row: appRow, makeIfNecessary: true),
               let button = descendants(cell).compactMap({ $0 as? NSButton }).first,
-              let buttonAction = button.action else { fatalError("Missing inline alias action") }
-        check(!button.isHidden && button.toolTip?.contains("⌘E") == true,
-              "The selected app exposes its alias action and keyboard hint")
+              let buttonAction = button.action else { fatalError("Missing inline app actions") }
+        check(!button.isHidden && button.toolTip?.contains("⌘E") == true && button.toolTip?.contains("⌘R") == true,
+              "The selected app exposes its actions and keyboard hints")
         check(NSApp.sendAction(buttonAction, to: button.target, from: button)
-              && edits.count == 4 && edits.last?.id == code.id,
-              "The inline action edits the corresponding app without submitting a result")
+              && presentedMenu?.items.count == 4 && edits.count == 3,
+              "The inline ellipsis presents the same menu instead of opening alias settings")
+        let preservedQuery = native.query
+        let preservedSelection = native.selectedID
+        presentedMenu = nil // Simulate dismissing the native menu without selecting an action.
+        check(native.query == preservedQuery && native.selectedID == preservedSelection,
+              "Canceling the actions menu preserves the query and selection")
+        native.recall(CommandHistoryEntry(query: "code",
+                                         actionID: CommandHistoryEntry.applicationRevealPrefix + LauncherResult.application(code).id,
+                                         title: code.name))
+        let recalledMenu = table.menu(for: contextEvent)!
+        check(native.isRecalledApplicationReveal && native.selectedResult == .application(code),
+              "Opening and canceling a menu keeps the recalled Finder action intact")
+        let explicitOpen = recalledMenu.items[0]
+        _ = NSApp.sendAction(explicitOpen.action!, to: explicitOpen.target, from: explicitOpen)
+        check(opens.count == 2 && reveals.count == 3,
+              "Explicit Open in the menu opens even when history's default action is Show in Finder")
+        check(CueKeyboardShortcut.isReserved(keyCode: UInt32(kVK_ANSI_R), modifiers: .command),
+              "Finder reveal cannot be shadowed by a user-selected global hotkey")
         native.setQuery("sleep")
         view.layoutSubtreeIfNeeded()
         let commandLocation = table.convert(NSPoint(x: 20, y: table.rect(ofRow: 0).midY), to: nil)

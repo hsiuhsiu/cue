@@ -69,7 +69,11 @@
 "currency.daily" = "每日參考匯率 · %@";
 
 "app.editAlias" = "編輯搜尋別名…";
-"app.aliasHelp" = "編輯搜尋別名（⌘E）";
+"app.actions" = "App 動作";
+"app.actionsHelp" = "App 動作 · 在 Finder 中顯示（⌘R）· 編輯別名（⌘E）";
+"app.open" = "開啟";
+"app.reveal" = "在 Finder 中顯示";
+"app.revealError" = "無法在 Finder 中顯示 %@：%@";
 
 "search.chooseBrowser" = "其他瀏覽器⋯";
 
@@ -91,4 +95,5 @@
 "command.windowSettings" = "視窗設定";
 "command.commandHistory" = "指令歷史";
 "history.recall" = "指令歷史 · ↑ ↓ 回看 · Esc 返回 · 修改文字繼續搜尋";
+"history.reveal" = "指令歷史 · 在 Finder 中顯示 · ↵ 執行";
 "history.unavailable" = "原本的動作目前無法使用，請修改輸入或選擇其他結果。";

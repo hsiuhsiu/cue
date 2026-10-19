@@ -1,11 +1,20 @@
 import Foundation
 
 public struct CommandHistoryEntry: Codable, Equatable, Identifiable, Sendable {
+    public static let applicationRevealPrefix = "action:reveal-application:"
     public let id: UUID
     public let query: String
     public let actionID: String
     public let title: String
     public let date: Date
+
+    /// Keep the original app and secondary action together. Ordinary app entries
+    /// and older files retain their existing IDs and require no migration.
+    public var revealedApplicationResultID: String? {
+        guard actionID.hasPrefix(Self.applicationRevealPrefix) else { return nil }
+        let target = String(actionID.dropFirst(Self.applicationRevealPrefix.count))
+        return target.hasPrefix("app:") && target.count > 4 ? target : nil
+    }
 
     public init(id: UUID = UUID(), query: String, actionID: String, title: String, date: Date = Date()) {
         self.id = id

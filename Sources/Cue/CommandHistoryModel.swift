@@ -44,7 +44,18 @@ final class CommandHistoryModel {
         let title: String
         if case .googleSearchIn(let browser) = result { title = browser.name }
         else { title = result.name }
-        let entry = CommandHistoryEntry(query: query, actionID: result.id, title: title, date: date)
+        record(query: query, actionID: result.id, title: title, at: date)
+    }
+
+    func recordApplicationReveal(_ application: IndexedApplication, query: String, at date: Date = Date()) {
+        record(query: query,
+               actionID: CommandHistoryEntry.applicationRevealPrefix + LauncherResult.application(application).id,
+               title: application.name, at: date)
+    }
+
+    private func record(query: String, actionID: String, title: String, at date: Date) {
+        guard isEnabled, !stopped else { return }
+        let entry = CommandHistoryEntry(query: query, actionID: actionID, title: title, date: date)
         guard entry.isValid else { return }
         history.record(entry, now: date)
         enqueue { await $0.record(entry, now: date) }

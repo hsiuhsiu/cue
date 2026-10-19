@@ -15,6 +15,19 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     -module-cache-path "$check_directory/module-cache" \
     -emit-module-path "$check_directory/CueCore.swiftmodule" \
     -o "$check_directory/libCueCore.dylib"
+app_directory="$check_directory/AppActionChecks.app"
+mkdir -p "$app_directory/Contents/MacOS" "$app_directory/Contents/Resources"
+cp -R "$repo_root/Sources/Cue/Resources/en.lproj" "$repo_root/Sources/Cue/Resources/zh-Hant.lproj" "$app_directory/Contents/Resources/"
+cat > "$app_directory/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>com.yyhsiu.cue.tests.app-actions</string>
+<key>CFBundleExecutable</key><string>AppActionChecks</string>
+<key>CFBundleDevelopmentRegion</key><string>en</string>
+<key>LSBackgroundOnly</key><true/>
+</dict></plist>
+PLIST
 xcrun swiftc -swift-version 6 -O -parse-as-library \
     -I "$check_directory" -L "$check_directory" -lCueCore \
     -module-cache-path "$check_directory/module-cache" \
@@ -54,6 +67,8 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/LauncherPanelController.swift" \
     "$repo_root/Sources/Cue/NetworkPolicy.swift" \
     "$repo_root/scripts/check-app-aliases.swift" \
-    -o "$check_directory/check-app-aliases"
+    -o "$app_directory/Contents/MacOS/AppActionChecks"
 
-"$check_directory/check-app-aliases"
+for language in en zh-Hant; do
+    "$app_directory/Contents/MacOS/AppActionChecks" -AppleLanguages "($language)"
+done

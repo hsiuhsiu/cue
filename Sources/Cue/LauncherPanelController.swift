@@ -91,6 +91,7 @@ private final class LauncherPanel: NSPanel {
             // Keep the direct-event fallback on the same route as native key equivalents.
             if (contentView as? LauncherView)?.handleSettingsShortcut(event) == true { return }
             if (contentView as? LauncherView)?.handleAppAliasShortcut(event) == true { return }
+            if (contentView as? LauncherView)?.handleRevealApplicationShortcut(event) == true { return }
             if (contentView as? LauncherView)?.handleSearchActionsShortcut(event) == true { return }
             if (contentView as? LauncherView)?.handleWebSearchShortcut(event) == true { return }
             if (contentView as? ClipboardView)?.handleSettingsShortcut(event) == true { return }
@@ -137,6 +138,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     }()
     private let performSystemAction: @MainActor (SystemAction) async throws -> Void
     private let openApplication: @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void
+    private let revealApplication: @MainActor (IndexedApplication) async throws -> Void
+    private var applicationRevealTask: Task<Void, Never>?
+    private var applicationRevealRequest = 0
     private let openFile: @MainActor (URL, @escaping @MainActor (Error?) -> Void) -> Void
     private let openWebURL: @MainActor (URL, URL?, @escaping @MainActor (Error?) -> Void) -> Void
     private let webSearchPreferences: WebSearchPreferences
@@ -225,6 +229,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
          commandHistory: CommandHistoryModel? = nil,
          performSystemAction: @escaping @MainActor (SystemAction) async throws -> Void = SystemActions.perform,
          openApplication: @escaping @MainActor (IndexedApplication, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemApplication,
+         revealApplication: @escaping @MainActor (IndexedApplication) async throws -> Void = LauncherPanelController.revealSystemApplication,
          openFile: @escaping @MainActor (URL, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemFile,
          webSearchPreferences: WebSearchPreferences? = nil,
          openWebURL: @escaping @MainActor (URL, URL?, @escaping @MainActor (Error?) -> Void) -> Void = LauncherPanelController.openSystemWebURL,
@@ -248,6 +253,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         self.model = model
         self.performSystemAction = performSystemAction
         self.openApplication = openApplication
+        self.revealApplication = revealApplication
         self.openFile = openFile
         self.openWebURL = openWebURL
         self.webSearchPreferences = webSearchPreferences ?? WebSearchPreferences()
@@ -300,7 +306,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             onSettings: { [weak self] in self?.openContextSettings() },
             onWebSearch: { [weak self] in self?.searchGoogle() },
             onSearchActions: { [weak self] in self?.model.toggleSearchActions() },
-            onAppAlias: { [weak self] application in self?.onAppAlias?(application) }
+            onAppAlias: { [weak self] application in self?.onAppAlias?(application) },
+            onOpenApplication: { [weak self] application in self?.launch(application) },
+            onRevealApplication: { [weak self] application in self?.showApplicationInFinder(application) }
         )
         launcherView.onHistoryPrevious = { [weak self] in self?.recallPreviousCommand() ?? false }
         launcherView.onHistoryNext = { [weak self] in self?.recallNextCommand() ?? false }
@@ -318,6 +326,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             self?.cancelWebSearch()
             self?.cancelLinkCleaning()
             self?.cancelCalculationCopy()
+            self?.cancelApplicationReveal()
         }
         model.onSelectionChange = { [weak self] in self?.cancelCalculationCopy() }
         refreshWebSearchPreferences()
@@ -413,6 +422,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     /// samples the source PID; accessibility and conversion stay deferred.
     func prepareInvocation(resetQuery: Bool = true) {
         focusRequest.cancel()
+        cancelApplicationReveal()
         if isSuspendedForSettings { dismiss(returnFocus: false) }
         cancelCalculationCopy()
         emoji.cancelPendingCopy()
@@ -447,7 +457,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     }
 
     private func endHistoryRecall() {
-        guard historyCursor.isActive || model.isRecallingHistory else { return }
+        guard historyCursor.isActive || model.hasRecalledAction else { return }
         historyCursor.reset()
         model.endHistoryRecall()
     }
@@ -469,6 +479,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     func dismiss(cancelConversion shouldCancel: Bool = true, returnFocus: Bool = true) {
         guard !isDismissing else { return }
         focusRequest.cancel()
+        cancelApplicationReveal()
         isDismissing = true
         isSuspendedForSettings = false
         defer { isDismissing = false }
@@ -519,6 +530,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     @discardableResult
     func suspendForSettings() -> Bool {
         focusRequest.cancel()
+        cancelApplicationReveal()
         // Settings is a new interaction even when there is no launcher to retain.
         // Ignore late app/browser/system-action failures from a dismissed panel.
         invocation += 1
@@ -721,7 +733,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             commandHistory.record(result, query: model.query)
             onWindowSettings?()
         case .application(let application):
-            launch(application)
+            if model.isRecalledApplicationReveal { showApplicationInFinder(application) }
+            else { launch(application) }
         case .file(let file):
             launchFile(file)
         }
@@ -1055,6 +1068,48 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
                 self.model.recordSuccessfulAction(resultID: resultID, query: query)
             }
         }
+    }
+
+    private func cancelApplicationReveal() {
+        applicationRevealRequest &+= 1
+        applicationRevealTask?.cancel()
+        applicationRevealTask = nil
+    }
+
+    private func showApplicationInFinder(_ application: IndexedApplication) {
+        let query = model.query
+        commandHistory.recordApplicationReveal(application, query: query)
+        // Hide immediately. Target validation and Finder handoff only happen
+        // after an explicit action, never while searching or selecting rows.
+        dismiss(returnFocus: false)
+        let request = applicationRevealRequest
+        let actionInvocation = invocation
+        applicationRevealTask = Task { [weak self, revealApplication] in
+            do {
+                try Task.checkCancellation()
+                try await revealApplication(application)
+            } catch {
+                guard !Task.isCancelled, let self, self.applicationRevealRequest == request,
+                      self.invocation == actionInvocation else { return }
+                self.model.setQuery(query)
+                self.show(resetQuery: false)
+                self.model.launchError = L10n.format(
+                    LauncherText.shared.revealError, application.name, error.localizedDescription
+                )
+            }
+            guard let self, self.applicationRevealRequest == request else { return }
+            self.applicationRevealTask = nil
+        }
+    }
+
+    static func revealSystemApplication(_ application: IndexedApplication) async throws {
+        try Task.checkCancellation()
+        let exists = await Task.detached(priority: .userInitiated) {
+            FileManager.default.fileExists(atPath: application.url.path)
+        }.value
+        try Task.checkCancellation()
+        guard exists else { throw CocoaError(.fileNoSuchFile) }
+        NSWorkspace.shared.activateFileViewerSelecting([application.url])
     }
 
     private static func openSystemApplication(

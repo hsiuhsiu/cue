@@ -37,6 +37,24 @@ final class CommandHistoryTests: XCTestCase {
         XCTAssertLessThan(history.entries.count, 40)
     }
 
+    func testFinderActionIdentityAndMalformedTargets() throws {
+        let prefix = CommandHistoryEntry.applicationRevealPrefix
+        let open = entry("editor", action: "app:/Synthetic/Editor.app")
+        let reveal = entry("editor", action: prefix + open.actionID)
+        XCTAssertNil(open.revealedApplicationResultID)
+        XCTAssertEqual(reveal.revealedApplicationResultID, open.actionID)
+        let decoded = try JSONDecoder().decode(CommandHistoryEntry.self, from: JSONEncoder().encode(reveal))
+        XCTAssertEqual(decoded, reveal)
+        for target in ["", "app:", "command:sleep", "action:google-search"] {
+            XCTAssertNil(entry("editor", action: prefix + target).revealedApplicationResultID)
+        }
+        var history = CommandHistory()
+        history.record(open, now: now)
+        history.record(reveal, now: now)
+        history.record(reveal, now: now)
+        XCTAssertEqual(history.entries.map(\.actionID), [reveal.actionID, open.actionID])
+    }
+
     func testRecallSnapshotAndBoundaries() {
         let entries = [entry("newest"), entry("older")]
         var cursor = CommandHistoryCursor()

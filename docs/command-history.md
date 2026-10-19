@@ -2,6 +2,8 @@
 
 ## English
 
+App **Show in Finder** actions are stored separately from **Open**, even for the same query and app. Recall restores the original app and shows **History · Show in Finder · ↵ Run**; Return reveals it without launching. Editing the text or explicitly changing selection returns to ordinary launcher behavior. A missing target never falls back to another app.
+
 Open Cue with **Option+Space**, leave the input empty, and press **↑** to recall the last executed input. Continue ↑ for older entries and **↓** for newer ones. Down past the newest, or **Esc**, returns to blank. **Return** runs the recalled action. Editing ends recall; ordinary search and IME composition retain their usual arrow-key behavior.
 
 Type **`history`**, **`command history`**, or **`指令歷史`** for a searchable history page. Each page has up to nine numbered rows; the page buttons or moving beyond the last row show more. **Use ↩** / **Command+1–9** restores the input and original action without executing it; press Return in the launcher when ready. Missing apps, files or browsers leave the selection empty, rather than substituting another action. Executing still checks the current network and feature permissions.
@@ -15,6 +17,8 @@ Repeated input for the same action moves to the top; using the same text with Go
 Recall uses a memory snapshot. Loading and writes run in the background; launcher typing does not scan the history file.
 
 ## 正體中文
+
+App 的**在 Finder 中顯示**與**開啟**會分開記錄，即使輸入和 App 相同也保留各自的動作。回看時會還原原 App 並顯示**指令歷史 · 在 Finder 中顯示 · ↵ 執行**；按 Return 只會在 Finder 顯示。修改輸入或明確切換選取項目後，恢復一般啟動行為；目標不存在時不會改用其他 App。
 
 用 **Option+Space** 叫出 Cue，在空白輸入欄按 **↑** 回看最近執行的輸入，繼續 ↑ 看較舊記錄，**↓** 看較新記錄。往下超過最新一筆，或按 **Esc**，會回到空白。**Return** 執行回看的動作；修改文字就結束回看。一般搜尋仍用上下鍵選結果，中文組字也保留原本的上下鍵操作。
 

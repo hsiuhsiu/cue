@@ -20,13 +20,13 @@ Cue is a small native macOS launcher with quick GPT answers and translation, an 
 
 ## Download and install
 
-[Download Cue 1.1.2 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.1.2/Cue-1.1.2-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.2) · [正體中文安裝說明](docs/installation.md)
+[Download Cue 1.2.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.2.0/Cue-1.2.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.2.0) · [正體中文安裝說明](docs/installation.md)
 
 The repository and release downloads are public.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
-The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.0 on Apple silicon**, using Xcode 27. Launcher focus from a Safari secure login field was checked with the physical hotkey on this Mac. Intel and other macOS versions, a positive real-Spotlight fixture, and a full public updater installation remain unverified. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.2).
+The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.0 on Apple silicon**, using Xcode 27. Launcher focus from a Safari secure login field was checked with the physical hotkey on this Mac. Intel and other macOS versions, a positive real-Spotlight fixture, and a full public updater installation remain unverified. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.2.0).
 
 The app has an **ad-hoc signature**, without Developer ID signing or Apple notarization. macOS may block its first launch. If you trust this release, follow the [first-launch instructions](docs/installation.md#首次開啟) using System Settings. Building from source is optional; downloading and installing the app does not require Xcode or Terminal.
 
@@ -46,11 +46,17 @@ Localized folders such as `~/Applications/Chrome Apps.localized` and visible lin
 
 Cue searches an app’s display name, local bundle names, and `.app` filename while showing one result. For example, **Code** can also be found with **`visual`**, **`vs`**, or **`vsc`** through its `Visual Studio Code.app` filename. **Finder** is included in the app index.
 
-For a personal shortcut, select an app and press **Command+E**, click its **…** button, or right-click it and choose **Edit Search Alias…**. Save one alias such as `vs` or `term`; entering it exactly puts that app before ordinary app and command matches. Clear the field and save to remove it. Aliases start with a letter and allow up to 32 letters, numbers, `-`, or `_`, without spaces. Duplicate app aliases and conflicts with Chinese conversion aliases are rejected. Aliases stay on this Mac, survive reindexing, and follow an app moved to another indexed folder when it has the same bundle identifier. Name preparation happens during background indexing; typing does not read app files or settings.
+For a personal shortcut, select an app and press **Command+E**, or choose **Edit Search Alias…** from its **…** / right-click menu. Save one alias such as `vs` or `term`; entering it exactly puts that app before ordinary app and command matches. Clear the field and save to remove it. Aliases start with a letter and allow up to 32 letters, numbers, `-`, or `_`, without spaces. Duplicate app aliases and conflicts with Chinese conversion aliases are rejected. Aliases stay on this Mac, survive reindexing, and follow an app moved to another indexed folder when it has the same bundle identifier. Name preparation happens during background indexing; typing does not read app files or settings.
 
 Cue 同時搜尋 App 的顯示名稱、本機 Bundle 名稱及 `.app` 檔名，同一個 App 只顯示一次。例如 **Code** 的檔名是 `Visual Studio Code.app`，因此也能用 **`visual`**、**`vs`** 或 **`vsc`** 找到。**Finder** 也會加入 App 索引。
 
-要設定個人習慣的縮寫，選取 App 後按 **Command+E**、點該列的 **…**，或按右鍵選擇**編輯搜尋別名…**。每個 App 可儲存一個別名，例如 `vs` 或 `term`；完整輸入時，會優先於一般 App 與指令符合結果。清空欄位後儲存即可移除。別名以字母開頭，最多 32 個字母、數字、`-` 或 `_`，不含空白；不能與其他 App 或簡繁轉換別名重複。別名只存本機，更新索引後仍保留；App 移至另一個索引資料夾時，只要 Bundle 識別碼相同就會沿用。名稱整理在背景建立索引時完成，打字時不讀取 App 檔案或設定。
+要設定個人習慣的縮寫，選取 App 後按 **Command+E**，或從該列的 **…**／右鍵選單選擇**編輯搜尋別名…**。每個 App 可儲存一個別名，例如 `vs` 或 `term`；完整輸入時，會優先於一般 App 與指令符合結果。清空欄位後儲存即可移除。別名以字母開頭，最多 32 個字母、數字、`-` 或 `_`，不含空白；不能與其他 App 或簡繁轉換別名重複。別名只存本機，更新索引後仍保留；App 移至另一個索引資料夾時，只要 Bundle 識別碼相同就會沿用。名稱整理在背景建立索引時完成，打字時不讀取 App 檔案或設定。
+
+### App actions / App 動作
+
+Select an app and press **Return** to open it, or **Command+R** to show and select it in Finder. The selected row’s **…** button and right-click menu offer **Open ↩**, **Show in Finder ⌘R**, and **Edit Search Alias… ⌘E**. Dismiss the menu with **Esc** to keep the query and selection. Finder actions close Cue immediately, need no additional Accessibility permission, and do not count as app launches for ranking. Command History remembers them as **Show in Finder**; recalling one and pressing Return repeats that action. **Command+K** continues to offer Google/GPT actions for the input text.
+
+選取 App 後，按 **Return** 開啟，或按 **Command+R** 在 Finder 中顯示並選取它。該列的 **…** 按鈕與右鍵選單提供**開啟 ↩**、**在 Finder 中顯示 ⌘R**及**編輯搜尋別名… ⌘E**。按 **Esc** 關閉選單會保留查詢與選取。Finder 動作會立即收起 Cue，不需額外的輔助使用權限，也不計入 App 啟動頻率。指令歷史會記為**在 Finder 中顯示**；回看後按 Return 會重複這個動作。**Command+K** 仍提供針對輸入文字的 Google／GPT 動作。
 
 ### File search / 檔案搜尋
 
