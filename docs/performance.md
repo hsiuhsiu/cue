@@ -151,24 +151,25 @@ are deliberately not correctness assertions.
 
 ## Measurement reference
 
-Measured **2026-10-04** on the development **Apple silicon Mac, macOS 27.0
-(26A428), Xcode 27 / Swift 6.4**, using optimized native builds, serial synthetic
+Measured **2026-10-18** on the development **Apple silicon Mac, macOS 27.0,
+Xcode 27 / Swift 6.4**, using optimized native builds, serial synthetic
 workloads and offscreen native views. These numbers are a measured reference for
 that source and machine, not a latency guarantee for future builds or other Macs.
 
 | Workload | Median | p95 |
 | --- | ---: | ---: |
-| App search: 1,000 apps, extra names, 256 aliases, maximum usage; uncached model | 0.332 ms | 1.571 ms |
-| File ranking: 384 `report` candidates → nine rows | 1.489 ms | 2.016 ms |
-| File refinement + native layout | 0.172 ms | 0.185 ms |
-| File completion + native layout, unchanged matching results | 0.133 ms | 0.144 ms |
-| Unchanged clipboard expiration: 500 entries / 4 MiB | 0.0058 ms | 0.0114 ms |
+| App search: 1,000 apps, extra names, 256 aliases, maximum usage; uncached model | 0.338 ms | 1.580 ms |
+| File ranking: 384 `report` candidates → nine rows | 1.557 ms | 2.006 ms |
+| File refinement + native layout | 0.171 ms | 0.182 ms |
+| File completion + native layout, unchanged matching results | 0.133 ms | 0.148 ms |
+| Unchanged clipboard expiration: 500 entries / 4 MiB | 0.0055 ms | 0.0102 ms |
 
-App-search p99 was 1.607 ms; Unicode queries dominated the tail. The first file
-ranking call took 6.034 ms; file-ranking p99 was 2.435 ms. Long-input model checks (268 KiB prose and 1 MiB
-prose/whitespace/combining marks) observed a maximum 0.051 ms main-thread update,
-excluding rendering the full pasted text. Clipboard search p95 was approximately
-3 ms for the full fixture. These are component/model/layout measurements, **not
+App-search p99 was 1.667 ms and maximum 2.005 ms; synthetic background CPU/I/O
+work measured 1.625 ms p95. The first file-ranking call took 2.358 ms;
+file-ranking p99 was 3.016 ms. Long-input model checks (268 KB prose and 1 MiB
+prose/whitespace/combining marks) observed a maximum 0.047 ms main-thread update,
+excluding rendering the full pasted text. Clipboard search p95 was 3.018 ms for
+the full fixture. These are component/model/layout measurements, **not
 keyboard-to-display latency**, a Spotlight indexing benchmark or a comparison
 with another launcher.
 
@@ -179,6 +180,41 @@ searchability. Injected positive-result and cancellation tests passed, but they
 cannot replace a positive real-index check on a target machine.
 
 ## Validation boundaries
+
+The launcher is an `NSPanel` created with `.nonactivatingPanel`. It takes key
+focus and prepares its native editor without requesting app activation or moving
+the source app out of the foreground. Do not combine this presentation with a
+process activation request: secure fields in Safari can reject that foreground switch.
+The panel's key-window state determines keyboard ownership; visibility or the
+foreground-app PID alone does not. The style is fixed at panel construction.
+
+One check after the current callback can reassert an incomplete key-window
+handoff. There are no waits, timers, event taps, Accessibility calls or Cue calls
+that enable or disable Secure Event Input; macOS manages it during the handoff.
+Dismissal, settings, a new invocation, key-window loss or a different foreground
+app invalidates pending recovery. Normal typing does not
+run this handshake. A visible launcher without key focus is reclaimed by its
+shortcut without erasing its query. Existing field editors are not reassigned,
+preserving the caret and IME composition. Settings use their own regular windows;
+text conversion retains the original source regardless of Cue's active state.
+
+Cue 主視窗使用建立時就設好 `.nonactivatingPanel` 的原生面板，直接取得鍵盤
+焦點與輸入框，不切換前景 App，避免 Safari 安全輸入欄拒絕 App 切換的情況。
+視窗可見或前景程序 ID 都不能單獨代表鍵盤焦點；以面板是否為 key window
+判斷，不在顯示後動態更換視窗模式，也不混用 App 啟動要求。
+
+當前回呼結束後只確認一次焦點，必要時補取一次，不加入固定等待、計時器、
+鍵盤攔截、輔助使用要求，也不自行啟用或停用安全輸入；焦點交接時由 macOS
+管理安全輸入狀態。關閉、設定、新的叫出操作、失去鍵盤焦點或切換 App
+都會取消過期的補救；一般打字不執行這套流程。
+可見但沒有焦點時，再按快速鍵會取回焦點並保留查詢；既有輸入編輯器不重設，
+避免改動游標或中文組字。設定使用自己的正常視窗，文字轉換則保留來源 App。
+
+`check-conversion-lifecycle.sh` includes injected key-focus timing, refusal,
+cancellation and recovery alongside source-app preservation. These checks never
+activate an app. Safari form fields (including password and autofill), immediate
+typing/IME composition, repeated invocation, and deliberate
+app switching still require a coordinated real-desktop check of the built app.
 
 Relevant regression checks are CueCore XCTest and the isolated
 `check-file-search.sh`, `check-file-search-service.sh`, `check-command-icons.sh`,
@@ -194,15 +230,27 @@ perceived typing smoothness need a coordinated check of the optimized installed
 app. Offscreen checks cannot establish those behaviors. Keep real-device and
 simulated results separate when reporting release readiness.
 
-### Command history measurement
+### Input and history comparison
 
-On **2026-10-07**, an optimized build using standalone **Command Line Tools /
-Swift 6.4** on the same Mac measured 200 synthetic recalls with native row layout:
-median **0.039 ms**, p95 **0.044 ms**, p99 **0.061 ms**, maximum **3.929 ms**.
-File refinement/layout in that run had a **0.171 ms** median and **0.191 ms** p95;
-each synchronous edit still published one model update. The harness includes the
-first recall but uses an already constructed native view. These are offscreen
-component timings, not input-to-display latency or a full-history-page benchmark.
+The same review ran the interaction fixture against unmodified **1.1.1** and
+the candidate sequentially. The timed model, view, icon, file and history sources
+are byte-identical in this patch; the focus coordinator runs only on invocation.
+
+| Offscreen workload | 1.1.1 p95 | Candidate p95 |
+| --- | ---: | ---: |
+| Native editor typing + layout | 4.804 ms | 3.922 ms |
+| Typing at the end of 1–32 KiB input | 18.666 ms | 17.609 ms |
+| 200 history recalls + native layout | 0.075 ms | 0.066 ms |
+| File refinement + native layout | 0.183 ms | 0.182 ms |
+
+The candidate's initial and repeat native-typing runs had 3.660–3.922 ms p95,
+9.222–14.582 ms p99 and 15.695–29.587 ms maxima. The baseline's maximum was
+35.876 ms. These samples show run-to-run tails; they do not establish that the
+focus fix makes text editing faster. History recall in the repeat had a 0.054 ms
+median, 0.095 ms p99 and 3.551 ms maximum, including its first recall. Each
+synchronous edit published one model update, with no cleared matching file rows
+or unnecessary panel-height changes. The native view is already constructed;
+these are not physical input-to-display or full-history-page measurements.
 
 ## 正體中文
 
@@ -222,10 +270,15 @@ component timings, not input-to-display latency or a full-history-page benchmark
 快照，存檔由背景處理，一般搜尋不掃描歷史。回看後的第一個修改只更新一次畫面，
 不會把舊輸入或游標位置蓋回去；歷史頁每頁最多九列。
 
-2026-10-07 使用 Command Line Tools／Swift 6.4 的最佳化建置，在同一台 Mac 測得
-200 次合成歷史回看與原生列排版中位數 0.039 ms、p95 0.044 ms、p99 0.061 ms，
-最大 3.929 ms。包含第一次回看，但原生 View 已建立；這是離屏元件時間，並非
-按鍵到螢幕的延遲，也不是整個歷史管理頁的量測。
+2026-10-18 使用 Xcode 27／Swift 6.4 的最佳化建置，在同一台 Mac 依序對照
+1.1.1 與本次版本；量測所用的 Model、View、圖示、檔案與歷史程式在這次修改中
+逐檔相同，焦點協調只在叫出視窗時執行。原生打字 p95 分別為 4.804／3.922 ms，
+1–32 KiB 文字尾端編輯為 18.666／17.609 ms，歷史回看為 0.075／0.066 ms。
+本次兩輪原生打字最大值為 15.695–29.587 ms，1.1.1 為 35.876 ms；保留這些
+長尾，不把單次量測差異解讀成焦點修正加快了文字編輯。200 次合成歷史回看
+重測中位數 0.054 ms、p99 0.095 ms、最大 3.551 ms，包含第一次回看；原生
+View 已建立。每次同步編輯仍只發布一次畫面更新；這些數字不是按鍵到螢幕的
+延遲，也不是整個歷史管理頁的量測。
 
 上表是指定日期、機器與合成工作負載的元件量測，不能當成未來版本、其他 Mac 或
 按鍵到畫面的延遲保證。依序執行上列命令可重新測量；保留第一次使用與最慢樣本，

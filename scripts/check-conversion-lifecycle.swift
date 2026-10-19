@@ -70,6 +70,26 @@ private actor ConverterFixture {
     func restore(_ processID: Int32) -> Bool { restorations += 1; return self.processID == processID }
 }
 
+/// Simulates key focus independently of foreground-app ownership. No windows
+/// are ordered and no real application is activated.
+@MainActor private final class FocusFixture {
+    let cue: Int32 = 100
+    let browser: Int32 = 200
+    var snapshot = LauncherFocusRequest.State(isVisible: false, isKeyWindow: false, frontmostProcess: 200)
+    var events: [String] = []
+    var queued: [@MainActor @Sendable () -> Void] = []
+    var focusSucceeds = true
+    lazy var request = LauncherFocusRequest(
+        processID: cue, state: { [unowned self] in snapshot },
+        orderAndFocus: { [unowned self] in
+            events.append("focus"); snapshot.isVisible = true
+            if focusSucceeds { snapshot.isKeyWindow = true }
+        },
+        nextEvent: { [unowned self] work in queued.append(work) }
+    )
+    func nextEvent() { if !queued.isEmpty { queued.removeFirst()() } }
+}
+
 /// Hidden windows and injected sessions only. Never reads accessibility, touches
 /// the real clipboard, activates another application, or posts keyboard events.
 @main struct CheckConversionLifecycle {
@@ -89,9 +109,102 @@ private actor ConverterFixture {
         _ = view.control(view.searchField, textView: NSTextView(), doCommandBy: #selector(NSResponder.insertNewline(_:)))
     }
 
+    @MainActor private static func checkFocusHandoff() {
+        let immediate = FocusFixture()
+        immediate.request.present()
+        check(immediate.events == ["focus"] && immediate.snapshot.frontmostProcess == immediate.browser,
+              "Panel focus does not require changing the foreground app")
+        check(immediate.request.hasKeyboardFocus, "A nonactivating key panel accepts input while the source remains active")
+        immediate.nextEvent()
+        check(immediate.events == ["focus"] && immediate.queued.isEmpty,
+              "Successful focus does not reassign an existing editor at the next event")
+        immediate.snapshot.frontmostProcess = immediate.cue
+        check(immediate.request.hasKeyboardFocus, "The same key panel also works when Cue itself is active")
+
+        let delayed = FocusFixture()
+        delayed.focusSucceeds = false
+        delayed.request.present()
+        check(delayed.snapshot.isVisible && !delayed.request.hasKeyboardFocus,
+              "Visibility without key ownership does not count as keyboard focus")
+        delayed.focusSucceeds = true
+        delayed.nextEvent()
+        check(delayed.events == ["focus", "focus"] && delayed.request.hasKeyboardFocus,
+              "A single next-event check can finish an incomplete key-window handoff")
+        delayed.request.foregroundApplicationChanged(to: delayed.cue)
+        check(delayed.events.count == 2 && delayed.queued.isEmpty,
+              "Later application activation cannot disturb a completed input session")
+
+        for foreground in [Int32(100), Int32(200)] {
+            let changed = FocusFixture()
+            changed.focusSucceeds = false
+            changed.request.present()
+            changed.snapshot.frontmostProcess = foreground
+            changed.request.foregroundApplicationChanged(to: foreground)
+            changed.focusSucceeds = true
+            changed.nextEvent()
+            check(changed.request.hasKeyboardFocus && changed.events.count == 2,
+                  "Cue or the original source becoming active preserves the pending key-focus check")
+        }
+
+        let denied = FocusFixture()
+        denied.focusSucceeds = false
+        denied.request.present(); denied.nextEvent()
+        for _ in 0..<10 { denied.request.foregroundApplicationChanged(to: denied.cue) }
+        check(denied.events == ["focus", "focus"] && denied.queued.isEmpty && !denied.request.hasKeyboardFocus,
+              "Denied key focus has one retry only; unrelated activation cannot restart it")
+
+        let switched = FocusFixture()
+        switched.focusSucceeds = false
+        switched.request.present()
+        switched.snapshot.frontmostProcess = 300
+        switched.nextEvent()
+        switched.request.foregroundApplicationChanged(to: switched.cue)
+        check(switched.events == ["focus"], "A different foreground app cancels queued and late recovery")
+
+        let switchedBack = FocusFixture()
+        switchedBack.focusSucceeds = false
+        switchedBack.request.present(); switchedBack.request.foregroundApplicationChanged(to: 300)
+        switchedBack.snapshot.frontmostProcess = switchedBack.browser
+        switchedBack.nextEvent(); switchedBack.request.foregroundApplicationChanged(to: switchedBack.cue)
+        check(switchedBack.events == ["focus"], "Switching away and back still invalidates the earlier request")
+
+        let unknown = FocusFixture()
+        unknown.focusSucceeds = false
+        unknown.request.present(); unknown.snapshot.frontmostProcess = nil; unknown.nextEvent()
+        check(unknown.events == ["focus"], "Unknown foreground ownership never triggers delayed focus changes")
+
+        for hidden in [false, true] {
+            let dismissed = FocusFixture()
+            dismissed.focusSucceeds = false
+            dismissed.request.present()
+            if hidden { dismissed.snapshot.isVisible = false }
+            else { dismissed.request.cancel() } // Escape, Settings or key-window loss.
+            dismissed.nextEvent(); dismissed.request.foregroundApplicationChanged(to: dismissed.cue)
+            check(dismissed.events == ["focus"], "Canceled or hidden launchers cannot reopen from old callbacks")
+        }
+
+        let newer = FocusFixture()
+        newer.focusSucceeds = false
+        newer.request.present(); newer.request.cancel(); newer.request.present()
+        newer.nextEvent()
+        check(newer.events == ["focus", "focus"], "An old callback cannot repair a newer invocation")
+        newer.focusSucceeds = true
+        newer.nextEvent()
+        check(newer.events.count == 3 && newer.request.hasKeyboardFocus,
+              "The current invocation retains its own single recovery attempt")
+
+        let keyLost = FocusFixture()
+        keyLost.request.present(); keyLost.snapshot.isKeyWindow = false
+        keyLost.request.cancel() // windowDidResignKey: the user chose another window.
+        keyLost.nextEvent()
+        check(keyLost.events == ["focus"] && !keyLost.request.hasKeyboardFocus,
+              "A genuine key-window loss cancels recovery even when the source app stays active")
+    }
+
     @MainActor static func main() async throws {
         NSApplication.shared.setActivationPolicy(.prohibited)
         NSApplication.shared.mainMenu = nil
+        checkFocusHandoff()
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("cue-conversion-lifecycle-\(UUID())")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -117,7 +230,9 @@ private actor ConverterFixture {
               let view = window.contentView as? LauncherView else { fatalError("Missing hidden launcher") }
         defer { window.contentView = nil; window.close() }
 
-        check(!window.styleMask.contains(.nonactivatingPanel), "Launcher uses normal application activation for real keyboard input")
+        check(window.styleMask.contains(.nonactivatingPanel), "Launcher uses a native nonactivating key panel")
+        check(window.canBecomeKey && !window.canBecomeMain && !(window as! NSPanel).becomesKeyOnlyIfNeeded,
+              "The panel accepts immediate keyboard focus without becoming the source app's main window")
         let cuePID = ProcessInfo.processInfo.processIdentifier
         check(LauncherPanelController.acceptsConversionContext(source: 42_424, frontmost: cuePID, launcherHasFocus: true),
               "Cue can own keyboard focus while conversion retains the original source")
@@ -140,7 +255,7 @@ private actor ConverterFixture {
         try await waitUntil { await selections.counts().discards == 1 && model.actionStatus == nil }
         let successful = await selections.counts()
         check(successful.replacements == ["軟體"] && source.restorations == 1, "Successful conversion returns to captured source and replaces once")
-        check(successful.processIDs == [42_424], "Selected text is read from the PID captured before Cue activation")
+        check(successful.processIDs == [42_424], "Selected text is read from the PID captured before Cue presentation")
         check(model.query.isEmpty && !window.isVisible, "Success dismisses the launcher")
 
         // Repeated keyboard activation must not duplicate an in-flight request.
@@ -218,12 +333,12 @@ private actor ConverterFixture {
         let final = await selections.counts()
         check(final.replacements == ["軟體", "軟體", "軟體", "软件"], "Serialized requests use their own original conversion targets")
 
-        // A late didBecomeActive notification must never reopen a closed panel,
+        // A late foreground notification must never reopen a closed panel,
         // erase new typing, resample a source, or request another activation.
         model.setQuery("preserve this query")
         let observationsBeforeFocus = source.observations
         let restorationsBeforeFocus = source.restorations
-        controller.focusIfPresented()
+        controller.foregroundApplicationChanged(to: cuePID)
         check(model.query == "preserve this query" && source.observations == observationsBeforeFocus
               && source.restorations == restorationsBeforeFocus && !window.isVisible,
               "Late activation notification leaves a hidden launcher and its state alone")
@@ -303,6 +418,19 @@ private actor ConverterFixture {
               && afterPermissionRetry.replacements.last == "軟體",
               "Only an explicit later Return retries conversion against the preserved invocation source")
         controller.onConversionSettings = nil
+        controller.dismiss(returnFocus: false)
+
+        // Reclaiming a retained launcher from another app keeps its text but
+        // prepares a new selection context, rather than modifying the old form.
+        model.setQuery("st")
+        source.processID = 55_555
+        controller.prepareInvocation(resetQuery: false)
+        check(model.query == "st" && model.selectedResult == .convertToTraditional,
+              "A new source context can preserve the existing launcher query and action")
+        submit(view)
+        try await waitUntil { await selections.counts().discards == afterPermissionRetry.discards + 1 && model.actionStatus == nil }
+        check(await selections.counts().processIDs.last == 55_555,
+              "Reclaimed launcher conversion targets the newly captured app, not the previous form")
         controller.dismiss(returnFocus: false)
 
         // Exercise the actual production actor, with bundled data, while a main

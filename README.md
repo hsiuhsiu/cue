@@ -20,13 +20,13 @@ Cue is a small native macOS launcher with quick GPT answers and translation, an 
 
 ## Download and install
 
-[Download Cue 1.1.1 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.1.1/Cue-1.1.1-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.1) · [正體中文安裝說明](docs/installation.md)
+[Download Cue 1.1.2 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.1.2/Cue-1.1.2-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.2) · [正體中文安裝說明](docs/installation.md)
 
 The repository and release downloads are public.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
-The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.0 on Apple silicon**, using Xcode 27; Intel and other macOS versions remain unverified. This release did not complete final installed-app desktop checks, a positive real-Spotlight fixture, or a full public updater installation. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.1).
+The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.0 on Apple silicon**, using Xcode 27. Launcher focus from a Safari secure login field was checked with the physical hotkey on this Mac. Intel and other macOS versions, a positive real-Spotlight fixture, and a full public updater installation remain unverified. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.1.2).
 
 The app has an **ad-hoc signature**, without Developer ID signing or Apple notarization. macOS may block its first launch. If you trust this release, follow the [first-launch instructions](docs/installation.md#首次開啟) using System Settings. Building from source is optional; downloading and installing the app does not require Xcode or Terminal.
 

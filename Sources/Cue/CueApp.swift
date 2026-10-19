@@ -169,6 +169,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 self?.windowHotKey.resetPressedState()
             }
         })
+        workspaceObservers.append(NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] notification in
+            guard let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+            let processID = application.processIdentifier
+            MainActor.assumeIsolated { self?.launcher.foregroundApplicationChanged(to: processID) }
+        })
         Task { await windowPreferences.load() }
         preferencesSubscription = settings.$preferences.sink { [weak self] preferences in
             self?.launcher.apply(preferences)
@@ -231,7 +238,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        launcher?.focusIfPresented()
         windowMode?.focusIfPresented()
         // Reflect changes made in macOS Login Items when returning to Settings.
         // No service lookup is performed for ordinary launcher invocation.

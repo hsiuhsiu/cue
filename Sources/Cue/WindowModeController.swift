@@ -142,7 +142,7 @@ private enum WindowModeText {
     }
 }
 
-/// Normal key panel, like the launcher: focus is acquired immediately, without an event tap.
+/// Window controls use an activating key panel, without an event tap.
 private final class WindowModePanel: NSPanel {
     var onKey: ((NSEvent) -> Bool)?
     override var canBecomeKey: Bool { true }

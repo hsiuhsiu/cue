@@ -1,6 +1,83 @@
 import AppKit
 import CueCore
 
+/// A nonactivating panel takes key focus without moving the foreground app.
+/// Keep its one next-event check outside query rendering. Never retry after a
+/// dismissal, a different foreground app, or a genuine key-window loss.
+@MainActor
+final class LauncherFocusRequest {
+    struct State {
+        var isVisible: Bool
+        var isKeyWindow: Bool
+        var frontmostProcess: Int32?
+    }
+
+    private let processID: Int32
+    private let state: () -> State
+    private let orderAndFocus: () -> Void
+    private let nextEvent: (@escaping @MainActor @Sendable () -> Void) -> Void
+    private var generation = 0
+    private struct Pending {
+        let generation: Int
+        let origin: Int32?
+    }
+    private var pending: Pending?
+
+    init(processID: Int32, state: @escaping () -> State,
+         orderAndFocus: @escaping () -> Void,
+         nextEvent: @escaping (@escaping @MainActor @Sendable () -> Void) -> Void) {
+        self.processID = processID
+        self.state = state
+        self.orderAndFocus = orderAndFocus
+        self.nextEvent = nextEvent
+    }
+
+    var hasKeyboardFocus: Bool { ownsKeyboard(state()) }
+
+    func present() {
+        generation &+= 1
+        let request = generation
+        pending = Pending(generation: request, origin: state().frontmostProcess)
+        // Use AppKit's panel focus mechanism without requesting the foreground
+        // switch that a source app's Secure Input can reject.
+        orderAndFocus()
+        // A key-window notification may arrive after this callback. This is an
+        // event-loop check, not a wait before accepting input.
+        nextEvent { [weak self] in self?.checkAfterEvent(request) }
+    }
+
+    func foregroundApplicationChanged(to process: Int32) {
+        guard let pending, process != processID, process != pending.origin else { return }
+        cancel()
+    }
+
+    func cancel() {
+        generation &+= 1
+        pending = nil
+    }
+
+    private func checkAfterEvent(_ request: Int) {
+        guard let pending, pending.generation == request else { return }
+        let current = state()
+        guard current.isVisible,
+              let foreground = current.frontmostProcess,
+              foreground == processID || foreground == pending.origin else {
+            cancel()
+            return
+        }
+        self.pending = nil
+        if !ownsKeyboard(current) {
+            orderAndFocus()
+        }
+    }
+
+    private func ownsKeyboard(_ current: State) -> Bool {
+        // The source intentionally remains frontmost. App activation is neither
+        // necessary nor evidence of key focus for a nonactivating NSPanel.
+        current.isVisible && current.isKeyWindow
+    }
+}
+
 private final class LauncherPanel: NSPanel {
     var onToggle: (() -> Void)?
     var shortcut = LauncherShortcut.default
@@ -87,6 +164,23 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private var gptView: GPTView?
     private var isDismissing = false
     private(set) var isSuspendedForSettings = false
+    private lazy var focusRequest = LauncherFocusRequest(
+        processID: ProcessInfo.processInfo.processIdentifier,
+        state: { [weak self] in
+            guard let self else {
+                return .init(isVisible: false, isKeyWindow: false, frontmostProcess: nil)
+            }
+            return .init(isVisible: self.panel.isVisible && !self.isDismissing && !self.isSuspendedForSettings,
+                         isKeyWindow: self.panel.isKeyWindow,
+                         frontmostProcess: self.frontmostProcess())
+        },
+        orderAndFocus: { [weak self] in
+            guard let self, !self.isDismissing, !self.isSuspendedForSettings else { return }
+            self.panel.makeKeyAndOrderFront(nil)
+            self.focusCurrentInput()
+        },
+        nextEvent: { work in DispatchQueue.main.async(execute: work) }
+    )
     private lazy var emojiView: EmojiView = {
         let view = EmojiView(model: emoji, onCopy: { [weak self] index in
             guard let self else { return }
@@ -173,7 +267,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         self.restoreSource = restoreSource
         panel = LauncherPanel(
             contentRect: NSRect(x: 0, y: 0, width: 640, height: 56),
-            styleMask: [.borderless], backing: .buffered, defer: false
+            // Set at construction; changing this mask on an existing panel can
+            // leave AppKit and WindowServer with different activation behavior.
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
         )
         super.init()
         panel.title = "Cue"
@@ -229,6 +325,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             self?.cancelWebSearch()
             self?.refreshWebSearchPreferences()
         }
+        _ = focusRequest // Prepare the tiny coordinator before the first hotkey.
     }
 
     func apply(_ preferences: LauncherPreferences) {
@@ -239,7 +336,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     }
 
     func toggle() {
-        if panel.isVisible { dismiss() } else { show() }
+        // Recover a visible-but-unfocused launcher without erasing its query.
+        if focusRequest.hasKeyboardFocus { dismiss() } else { show() }
     }
 
     func show(resetQuery: Bool = true, sourceProcessIdentifier: Int32? = nil) {
@@ -248,8 +346,14 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             return
         }
         if panel.isVisible {
-            NSApp.activate(ignoringOtherApps: true)
-            focusIfPresented()
+            if let foreground = frontmostProcess(),
+               foreground != ProcessInfo.processInfo.processIdentifier,
+               foreground != sourceProcessID {
+                // Reclaiming a pinned launcher from a different app is a new
+                // selection context, while its query and visible page stay intact.
+                prepareInvocation(resetQuery: false)
+            }
+            focusRequest.present()
             return
         }
         prepareInvocation(resetQuery: resetQuery)
@@ -272,31 +376,34 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
             let targetFrame = NSRect(origin: origin, size: size)
             if panel.frame != targetFrame { panel.setFrame(targetFrame, display: false) }
         }
-        // Capture the source before activation. A regular key panel routes real
-        // keyboard input to Cue without relying on nonactivating focus stealing.
-        // The native field already exists; no delayed handoff enters typing.
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-        panel.makeFirstResponder(launcherView.searchField)
+        // Source capture and view preparation finish before requesting key focus.
+        focusRequest.present()
     }
 
-    /// Activation can complete after the show call. Reassert only a presented
-    /// launcher, without activating, reopening, or resetting a newer invocation.
-    func focusIfPresented() {
-        guard panel.isVisible, !isDismissing else { return }
-        panel.makeKeyAndOrderFront(nil)
+    func foregroundApplicationChanged(to processID: Int32) {
+        focusRequest.foregroundApplicationChanged(to: processID)
+    }
+
+    private func focusCurrentInput() {
         // Feature settings own their focus; never target the hidden history field.
         if showingHistory {
             historyView.focusInput()
         } else if showingGPT {
             gptView?.focusInput()
         } else if showingEmoji {
-            panel.makeFirstResponder(emojiView.searchField)
+            focusTextField(emojiView.searchField)
         } else if showingClipboard {
             clipboardView.focusInput()
         } else {
-            panel.makeFirstResponder(launcherView.searchField)
+            focusTextField(launcherView.searchField)
         }
+    }
+
+    private func focusTextField(_ field: NSTextField) {
+        // Reclaiming key focus must not select all text or interrupt an
+        // existing IME composition in its already prepared native field editor.
+        if let editor = field.currentEditor(), panel.firstResponder === editor { return }
+        panel.makeFirstResponder(field)
     }
 
     /// Warm the local catalog after the launcher and global hotkey are ready.
@@ -305,6 +412,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     /// Establish an invocation independently of window presentation. This only
     /// samples the source PID; accessibility and conversion stay deferred.
     func prepareInvocation(resetQuery: Bool = true) {
+        focusRequest.cancel()
         if isSuspendedForSettings { dismiss(returnFocus: false) }
         cancelCalculationCopy()
         emoji.cancelPendingCopy()
@@ -360,6 +468,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     func dismiss(cancelConversion shouldCancel: Bool = true, returnFocus: Bool = true) {
         guard !isDismissing else { return }
+        focusRequest.cancel()
         isDismissing = true
         isSuspendedForSettings = false
         defer { isDismissing = false }
@@ -409,6 +518,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     /// earlier action while the user is editing settings in another window.
     @discardableResult
     func suspendForSettings() -> Bool {
+        focusRequest.cancel()
         // Settings is a new interaction even when there is no launcher to retain.
         // Ignore late app/browser/system-action failures from a dismissed panel.
         invocation += 1
@@ -447,9 +557,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     func resumeAfterSettings() {
         guard restoreSettingsContext() else { return }
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-        focusIfPresented()
+        focusRequest.present()
     }
 
     private func showClipboard() {
@@ -525,6 +633,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
 
     func windowDidResignKey(_ notification: Notification) {
         guard !isDismissing, panel.isVisible else { return }
+        focusRequest.cancel()
         cancelCalculationCopy()
         clipboard.cancelPendingCopy()
         cancelLinkCleaning()
