@@ -20,13 +20,13 @@ Cue is a small native macOS launcher with quick GPT answers and translation, an 
 
 ## Download and install
 
-[Download Cue 1.2.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.2.0/Cue-1.2.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.2.0) · [正體中文安裝說明](docs/installation.md)
+[Download Cue 1.3.0 for Mac](https://github.com/hsiuhsiu/cue/releases/download/v1.3.0/Cue-1.3.0-universal.dmg) · [Release notes and checksums](https://github.com/hsiuhsiu/cue/releases/tag/v1.3.0) · [正體中文安裝說明](docs/installation.md)
 
 The repository and release downloads are public.
 
 Open the DMG, drag **Cue.app** into **Applications**, then open Cue from Applications. Cue appears in the menu bar and has no Dock icon. If replacing an existing copy, first choose **Quit Cue** from its menu; replacing the app preserves your settings.
 
-The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.0 on Apple silicon**, using Xcode 27. Launcher focus from a Safari secure login field was checked with the physical hotkey on this Mac. Intel and other macOS versions, a positive real-Spotlight fixture, and a full public updater installation remain unverified. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.2.0).
+The universal app contains Apple silicon (`arm64`) and Intel (`x86_64`) builds targeting **macOS 14 or later**. Automated execution checks ran on **macOS 27.2 on Apple silicon**, using Xcode 27. Launcher focus from a Safari secure login field was checked with the physical hotkey on this Mac. Intel and other macOS versions, a positive real-Spotlight fixture, and a full public updater installation remain unverified. See the [release validation limits](https://github.com/hsiuhsiu/cue/releases/tag/v1.3.0).
 
 The app has an **ad-hoc signature**, without Developer ID signing or Apple notarization. macOS may block its first launch. If you trust this release, follow the [first-launch instructions](docs/installation.md#首次開啟) using System Settings. Building from source is optional; downloading and installing the app does not require Xcode or Terminal.
 
@@ -66,11 +66,11 @@ Type **`f` + space + part of a filename**, such as **`f report`** or **`f 發票
 
 ### Personalized search
 
-Cue learns from applications and commands you successfully open through the launcher. Within the same app matching category, it prefers the item you usually choose for that query, followed by usage frequency weighted toward recent use; exact app matches stay ahead of weaker app matches. A successful choice for the same query can also promote an app above a matching built-in command—for example, choosing iTerm2 for `it` can move it ahead of the incidental Traditional Chinese conversion match on the next invocation. Overall popularity alone does not change the order between apps and commands, and explicitly configured exact command aliases still come first. Merely typing, moving the selection, canceling, or a failed launch does not teach it anything. Clipboard contents, searches inside Clipboard History, Google queries, and GPT questions, translations and replies are excluded.
+Cue learns from applications and commands you successfully open through the launcher. Exact names and custom aliases stay first. Among partial app matches, a successful choice for that exact input takes priority over matching category—for example, choosing Home Assistant for `HA` can put it above incidental prefix or substring matches. General usage frequency, weighted toward recent use, still works within each category. A successful choice for the same query can also promote an app above a matching built-in command—for example, choosing iTerm2 for `it` can move it ahead of the incidental Traditional Chinese conversion match on the next invocation. Overall popularity alone does not change the order between apps and commands, and explicitly configured exact command aliases still come first. Merely typing, moving the selection, canceling, or a failed launch does not teach it anything. Clipboard contents, searches inside Clipboard History, Google queries, and GPT questions, translations and replies are excluded.
 
 Learning stays on this Mac. Only successful queries, selected result identifiers, scores, and timestamps are saved in a small local file. Search uses a prepared in-memory snapshot; loading, score calculation, and saving happen in the background. An arriving update never moves the current rows while you are choosing a result. See [adaptive search behavior and performance](docs/performance.md).
 
-Cue 會記住你在啟動器中成功開啟的 App 與指令。同一 App 符合程度內，優先考慮「這個關鍵字通常選哪個項目」，再參考使用頻率與近期使用情況；完全符合的 App 仍排在較弱的 App 符合結果前面。相同關鍵字的成功選擇也能讓 App 超過內建指令，例如用 `it` 成功開啟 iTerm2 後，下次叫出時就能超過碰巧符合的正體轉換指令；一般使用頻率本身不會改變 App 與指令之間的順序，明確設定的完整指令別名仍優先。單純打字、移動選取、取消或開啟失敗不會留下學習記錄，也不記錄剪貼簿內容、剪貼簿頁面的搜尋、Google 搜尋字詞，或 GPT 提問、翻譯與回答。資料只存本機，搜尋使用記憶體中的分數，背景更新不會讓正在選擇的列表突然跳動。
+Cue 會記住你在啟動器中成功開啟的 App 與指令。完整名稱與自訂別名仍優先；其他部分符合的 App，會先考慮這個關鍵字成功選過的項目，再比較符合程度。因此用 `HA` 開啟 Home Assistant 一次，就能超過碰巧符合的前綴或子字串。一般使用頻率與近期使用情況仍只影響同一符合程度內的排序。相同關鍵字的成功選擇也能讓 App 超過內建指令，例如用 `it` 成功開啟 iTerm2 後，下次叫出時就能超過碰巧符合的正體轉換指令；一般使用頻率本身不會改變 App 與指令之間的順序，明確設定的完整指令別名仍優先。單純打字、移動選取、取消或開啟失敗不會留下學習記錄，也不記錄剪貼簿內容、剪貼簿頁面的搜尋、Google 搜尋字詞，或 GPT 提問、翻譯與回答。資料只存本機，搜尋使用記憶體中的分數，背景更新不會讓正在選擇的列表突然跳動。
 
 ### Instant calculator / 即時計算
 
@@ -158,7 +158,7 @@ A blue tint, inspired by Cue's icon, carries through the window and selected row
 
 內建指令採白底、藍色線條與充足留白；簡繁互轉的箭頭由左向右指向「繁／简」目標字。圖示只在背景產生一次並快取，打字時直接重用。
 
-Every result has a number. **Command+1–9 executes the corresponding result immediately**: it opens an app, runs a command, or copies a clipboard item. These shortcuts act on the current result list and do not require a second Return press.
+Every result has a number. **Command+1–9 executes the corresponding result immediately**: it opens an app, runs a command, or pastes a clipboard item into the original app. These shortcuts act on the current result list and do not require a second Return press.
 
 ### Sleep, Lock Screen, and Screen Off
 
@@ -184,11 +184,11 @@ All adjustments are local and require macOS Accessibility permission. On first u
 
 Type `clipboard` or `剪貼簿` in Cue, select **Clipboard History**, and press Enter. Recording is off initially; choose **Enable Clipboard History** to start saving new text and link copies on this Mac.
 
-Saved history remains visible when its search field is empty. Each record shows its number and copied date and time, and the window adapts to the number of results. It shows the nine most recent matching records with no scrollbars; searching still covers all saved history, and this display limit does not delete older records. Search the history, select an item, and press **Return** to copy it, or use **Command+1–9** to copy a numbered result immediately. Then use **Command+V** in the destination app. Press **Delete/Backspace** to remove the selected item when the search field is empty; otherwise these keys edit the search text. The **Delete** button or **Command+Backspace** also removes a selected item from filtered results.
+Saved history remains visible when its search field is empty. Each record shows its number and copied date and time, and the window adapts to the number of results. It shows the nine most recent matching records with no scrollbars; searching still covers all saved history, and this display limit does not delete older records. Search the history, select an item, and press **Return** to paste it into the original app, or use **Command+1–9** to paste a numbered result immediately. **Copy / Command+Return** copies without pasting. Pasting requires Accessibility permission; Cue offers an **Allow Pasting…** button when it is missing. Press **Delete/Backspace** to remove the selected item when the search field is empty; otherwise these keys edit the search text. The **Delete** button or **Command+Backspace** also removes a selected item from filtered results.
 
 Use **Preview** or **Command+Y** to read the selected record in full without copying it; **Esc** returns to the list.
 
-按**預覽**或 **Command+Y** 可閱讀所選記錄的完整內容，不會拷貝到剪貼簿；按 **Esc** 回到列表。
+按 **Return** 或 **Command+1–9** 會將記錄直接貼回原 App；**拷貝／Command+Return** 則只拷貝。貼上需要「輔助使用」權限，缺少時可按**允許貼上⋯**前往系統設定。按**預覽**或 **Command+Y** 可閱讀完整內容；按 **Esc** 回到列表。
 
 The page's gear or **Command+,** opens its own recording and retention settings. Retention defaults to **7 days**, with choices from **1 hour** to **No time limit**. History is stored as readable text on this Mac, up to **500 items or 4 MiB**. **Esc** returns from these settings to history, then from history to the launcher.
 
@@ -223,7 +223,11 @@ This builds an optimized **Release** app for your Mac and installs it permanentl
 
 To update, quit Cue, run `git pull --ff-only` and `./scripts/install-app.sh` in this repository, then open the installed app again. Source builds default to Cue's own network access and automatic update checks **off**. An explicit network choice saved in Settings is preserved across installs. You can enable network access to use the updater, but installing an update offered by Cue replaces your build with the published GitHub app. Explicit browser search has its separate, enabled-by-default setting.
 
+For stable Accessibility permissions across your own builds, run **`./scripts/setup-local-signing.sh` once** before installation. It creates a free local signing identity in Keychain, reused automatically by future builds and clones on this Mac. The first switch still needs one new permission grant. Missing configured keys stop the build instead of silently changing identity; downloaded updates and Xcode builds use a different signing path. See [local signing and recovery](docs/building.md#keep-accessibility-permission-across-source-updates).
+
 也可以自行編譯，無須下載 DMG。**只需含 Swift 6 以上的 Command Line Tools，不必安裝完整 Xcode**。若尚未安裝，執行 `xcode-select --install` 並等安裝完成；結束正在執行的 Cue，再執行上方指令，即可建置 Release 版本並固定安裝至 **`~/Applications/Cue.app`**，不需付費開發者帳號或管理者權限。腳本會自動編譯、打包與簽章；現有設定、剪貼簿記錄與搜尋學習資料會保留。首次建置需連線下載固定版本的 Sparkle；自行建置版預設關閉 Cue 自己的網路與自動檢查更新，設定中明確儲存的網路選擇則會保留。之後可用 `git pull --ff-only` 與安裝腳本更新；若自行允許網路並從 Cue 安裝更新，會換成 GitHub 發布的 App。明確操作的瀏覽器搜尋有獨立、預設開啟的設定。
+
+若希望自行更新後保留輔助使用授權，安裝前先**執行一次 `./scripts/setup-local-signing.sh`**。它會在鑰匙圈建立免費的固定本機簽署身分，之後建置或重新 clone 都自動沿用。首次切換仍需重新授權一次；已設定的金鑰遺失時會停止建置，避免默默換身分。下載版與 Xcode 不會使用這個簽署流程，詳見[本機簽署與排解](docs/building.md#讓自行建置版更新後保留輔助使用授權)。
 
 See the [English / 正體中文 source installation guide](docs/building.md) for updating, custom install locations, tool setup, build-only and Debug options. `./scripts/build-app.sh --check` checks prerequisites without building. You can also open `Cue.xcodeproj` and run the **Cue** scheme for development.
 
@@ -297,6 +301,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./scripts/check-network-policy.sh
 ./scripts/check-build-network-policy.sh
 ./scripts/check-source-app.sh
+# Synthetic apps and a disposable keychain; no real app launch or TCC changes.
+./scripts/check-local-signing.sh
 ./scripts/check-updates.sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift scripts/check-localizations.swift .build/Cue.app
 ```

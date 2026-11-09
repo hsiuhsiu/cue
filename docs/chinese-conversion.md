@@ -58,10 +58,12 @@ See [dictionary provenance, tests, and performance](chinese-conversion-data.md).
 
 ### Permission still unavailable after rebuilding or updating
 
-Cue's current builds use ad-hoc signing. Rebuilding or installing a different
+Downloaded builds and source builds without local-signing setup use ad-hoc signing. Rebuilding or installing a different
 build can change its code identity, leaving macOS with permission for the previous
 copy. The switch can appear enabled while the running Cue still has no access;
 turning the old entry off and on may not refresh that saved identity.
+
+For source installations, [set up a fixed local signing identity once](building.md#keep-accessibility-permission-across-source-updates) to keep the same app identity across future builds. The initial switch still needs a new grant. These recovery steps also apply when deliberately changing signing identities.
 
 1. Quit Cue from its menu bar menu.
 2. Open **System Settings → Privacy & Security → Accessibility** (called
@@ -122,9 +124,11 @@ Cue 會先記住來源 App，再取得搜尋欄的鍵盤焦點。按 Esc 會回�
 
 ### 重新建置或更新後，仍顯示未取得權限
 
-Cue 目前使用 ad-hoc 簽章。重新建置或安裝不同版本時，程式識別可能改變，macOS
+下載版及未設定固定本機簽署的原始碼建置版使用 ad-hoc 簽章。重新建置或安裝不同版本時，程式識別可能改變，macOS
 卻仍保留給舊版本的授權。因此，即使開關顯示已開啟，正在執行的 Cue 仍可能沒有
 權限；只將舊項目關閉再開啟，也不一定會更新已儲存的識別。
+
+自行建置時，可[一次設定固定的本機簽署身分](building.md#讓自行建置版更新後保留輔助使用授權)，讓後續建置維持同一個 App 身分。首次切換仍需重新授權；下方步驟也適用於刻意切換簽署身分的情況。
 
 1. 從選單列選單結束 Cue。
 2. 開啟「**系統設定 → 隱私權與安全性 → 輔助使用**」。macOS 27 英文介面中的

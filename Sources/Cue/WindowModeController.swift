@@ -5,7 +5,7 @@ import CueCore
 @MainActor
 final class WindowModeModel {
     private let service: any WindowControlling
-    private let screens: () -> [WindowScreen]
+    private let screens: @MainActor () -> [WindowScreen]
     private var work: Task<Void, Never>?
     private var queue: [WindowAction] = []
     private(set) var sessionID: UUID?
@@ -26,7 +26,7 @@ final class WindowModeModel {
     var onChange: (() -> Void)?
     var onFinished: ((WindowAction) -> Void)?
 
-    init(service: any WindowControlling, screens: @escaping () -> [WindowScreen]) {
+    init(service: any WindowControlling, screens: @escaping @MainActor () -> [WindowScreen]) {
         self.service = service; self.screens = screens
     }
 
@@ -142,7 +142,7 @@ private enum WindowModeText {
     }
 }
 
-/// Window controls use an activating key panel, without an event tap.
+/// Keep the source foreground while this panel owns keyboard focus.
 private final class WindowModePanel: NSPanel {
     var onKey: ((NSEvent) -> Bool)?
     override var canBecomeKey: Bool { true }
@@ -159,25 +159,49 @@ final class WindowModeController: NSObject, NSWindowDelegate {
     private let preferences: WindowControlPreferences
     private let panel: WindowModePanel
     private let content = WindowModeView()
-    private var source: NSRunningApplication?
+    private var source: Int32?
+    private let frontmostProcess: () -> Int32?
+    private let sourceIsRunning: (Int32) -> Bool
+    private let restoreSource: (Int32) -> Void
     private var hiding = false
     private var observers: [NSObjectProtocol] = []
     private(set) var suspendedForSettings = false
     private var savedPreset: WindowPreset?
     var onSettings: (() -> Void)?
     var isVisible: Bool { panel.isVisible }
-    var targetProcessIdentifier: Int32? { source?.processIdentifier }
+    var targetProcessIdentifier: Int32? { source }
 
-    init(preferences: WindowControlPreferences) {
+    private lazy var focusRequest = PanelFocusRequest(
+        processID: ProcessInfo.processInfo.processIdentifier,
+        state: { [weak self] in
+            .init(isVisible: self?.isVisible == true && self?.hiding == false,
+                  isKeyWindow: self?.panel.isKeyWindow == true,
+                  frontmostProcess: self?.frontmostProcess())
+        }, orderAndFocus: { [weak self] in
+            guard let self, !self.hiding, !self.suspendedForSettings else { return }
+            self.panel.makeKeyAndOrderFront(nil)
+            self.panel.makeFirstResponder(self.content)
+        }, nextEvent: { work in DispatchQueue.main.async(execute: work) })
+
+    init(preferences: WindowControlPreferences,
+         service: any WindowControlling = WindowControlService(),
+         screens: @escaping @MainActor () -> [WindowScreen] = WindowModeController.screenSnapshot,
+         frontmostProcess: @escaping () -> Int32? = { NSWorkspace.shared.frontmostApplication?.processIdentifier },
+         sourceIsRunning: @escaping (Int32) -> Bool = { NSRunningApplication(processIdentifier: $0)?.isTerminated == false },
+         restoreSource: @escaping (Int32) -> Void = { NSRunningApplication(processIdentifier: $0)?.activate(options: []) }) {
         self.preferences = preferences
-        model = WindowModeModel(service: WindowControlService(), screens: Self.screenSnapshot)
+        self.frontmostProcess = frontmostProcess
+        self.sourceIsRunning = sourceIsRunning
+        self.restoreSource = restoreSource
+        model = WindowModeModel(service: service, screens: screens)
         panel = WindowModePanel(contentRect: NSRect(x: 0, y: 0, width: 500, height: 330),
-                                styleMask: [.borderless], backing: .buffered, defer: false)
+                                styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         super.init()
         panel.isReleasedWhenClosed = false; panel.isOpaque = false
         panel.backgroundColor = .clear; panel.hasShadow = true; panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.animationBehavior = .none; panel.hidesOnDeactivate = false
+        panel.becomesKeyOnlyIfNeeded = false
         panel.delegate = self; panel.contentView = content
         panel.onKey = { [weak self] in self?.handle($0) ?? false }
         content.onAction = { [weak self] in self?.model.perform($0) }
@@ -198,12 +222,17 @@ final class WindowModeController: NSObject, NSWindowDelegate {
                                                                            object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.dismiss(returnFocus: false) }
         })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
+                                                                           object: nil, queue: .main) { [weak self] notification in
+            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+            MainActor.assumeIsolated { self?.foregroundApplicationChanged(to: app.processIdentifier) }
+        })
         observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
                                                                  object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, self.isVisible, let source = self.source, !source.isTerminated else { return }
+                guard let self, self.isVisible, let source = self.source, self.sourceIsRunning(source) else { return }
                 // Discard queued geometry from the old topology. No automatic replay.
-                self.model.start(processIdentifier: source.processIdentifier)
+                self.model.start(processIdentifier: source)
             }
         })
     }
@@ -215,40 +244,53 @@ final class WindowModeController: NSObject, NSWindowDelegate {
 
     func show(sourceProcessIdentifier: Int32? = nil) {
         guard preferences.snapshot.enabled else { onSettings?(); return }
-        let candidate = sourceProcessIdentifier.map { NSRunningApplication(processIdentifier: $0) }
-            ?? NSWorkspace.shared.frontmostApplication
-        source = candidate?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : candidate
-        suspendedForSettings = false; savedPreset = nil
-        content.target.stringValue = source?.localizedName ?? WindowModeText.title
-        content.setPresets(preferences.snapshot.presets)
+        prepareInvocation(sourceProcessIdentifier: sourceProcessIdentifier)
         if let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }) ?? NSScreen.main {
             let area = screen.visibleFrame
             panel.setFrameOrigin(NSPoint(x: area.midX - panel.frame.width / 2, y: area.midY - panel.frame.height / 2))
         }
-        if let source, !source.isTerminated { model.start(processIdentifier: source.processIdentifier) }
+        // No foreground switch to race when the user immediately invokes again.
+        focusRequest.present()
+    }
+
+    func prepareInvocation(sourceProcessIdentifier: Int32? = nil) {
+        focusRequest.cancel()
+        let candidate = sourceProcessIdentifier ?? frontmostProcess()
+        source = candidate == ProcessInfo.processInfo.processIdentifier ? nil : candidate
+        suspendedForSettings = false; savedPreset = nil
+        content.target.stringValue = source.flatMap { NSRunningApplication(processIdentifier: $0)?.localizedName } ?? WindowModeText.title
+        content.setPresets(preferences.snapshot.presets)
+        if let source, sourceIsRunning(source) { model.start(processIdentifier: source) }
         else { model.cancel(); content.status.stringValue = WindowModeText.noTarget }
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil); panel.makeFirstResponder(content)
+    }
+
+    func foregroundApplicationChanged(to processID: Int32) {
+        focusRequest.foregroundApplicationChanged(to: processID)
+        if isVisible, processID != source, processID != ProcessInfo.processInfo.processIdentifier {
+            dismiss(returnFocus: false)
+        }
     }
 
     func focusIfPresented() {
         guard isVisible, !hiding else { return }
-        panel.makeKeyAndOrderFront(nil); panel.makeFirstResponder(content)
+        focusRequest.present()
     }
 
     func dismiss(returnFocus: Bool) {
         guard !hiding else { return }
         hiding = true
-        let shouldReturn = returnFocus && isVisible && NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier
+        focusRequest.cancel()
+        let shouldReturn = returnFocus && isVisible && frontmostProcess() == ProcessInfo.processInfo.processIdentifier
         suspendedForSettings = false; savedPreset = nil
         model.cancel(); panel.orderOut(nil)
         hiding = false
-        if shouldReturn, let source, !source.isTerminated { source.activate(options: []) }
+        if shouldReturn, let source, sourceIsRunning(source) { restoreSource(source) }
     }
 
     func suspendForSettings() {
         guard isVisible else { return }
         savedPreset = presetForCurrentWindow()
+        focusRequest.cancel()
         suspendedForSettings = true; hiding = true
         model.cancel(); panel.orderOut(nil); hiding = false
     }
@@ -256,8 +298,8 @@ final class WindowModeController: NSObject, NSWindowDelegate {
     func resumeAfterSettings() {
         guard suspendedForSettings else { return }
         suspendedForSettings = false
-        guard preferences.snapshot.enabled, let source, !source.isTerminated else { return }
-        show(sourceProcessIdentifier: source.processIdentifier)
+        guard preferences.snapshot.enabled, let source, sourceIsRunning(source) else { return }
+        show(sourceProcessIdentifier: source)
     }
 
     func presetForCurrentWindow() -> WindowPreset? {

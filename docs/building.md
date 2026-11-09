@@ -17,13 +17,31 @@ cd cue
 open "$HOME/Applications/Cue.app"
 ```
 
-The installer uses Swift Package Manager to make an optimized **Release** build for your Mac's architecture, checks the complete app signature, and installs it at **`~/Applications/Cue.app`**. It packages the icons, translations, offline dictionaries, emoji catalog, and updater into the app. It uses local ad-hoc signing and preserves Sparkle's own signed helpers. It does not ask for a signing key or change macOS security settings. The default location requires no administrator access.
+The installer uses Swift Package Manager to make an optimized **Release** build for your Mac's architecture, checks the complete app signature, and installs it at **`~/Applications/Cue.app`**. It packages the icons, translations, offline dictionaries, emoji catalog, and updater into the app. It uses your fixed local signing identity when configured, otherwise ad-hoc signing; Sparkle's own signed helpers remain intact. The default location requires no administrator access.
 
 The CLT-only build and relocated-bundle checks have been verified with Command Line Tools 27 / Swift 6.4 on Apple silicon running macOS 27. Intel and older toolchains have not been revalidated for this installer change.
 
 Cue lives in the menu bar, with no Dock icon. Press **Option+Space** to open it. The installed app remains available after reboot and is independent of the repository and `.build` folder; you can open it from your home folder's Applications directory. To start it automatically, turn on **Settings → General & Interaction → Launch at login**. If macOS requires approval, use **Open Login Items…** and allow Cue in System Settings. You can turn this off in Cue or macOS at any time.
 
 The installer refuses to replace a running Cue; quit normally so pending clipboard saves finish. It verifies a staged copy before replacing the app and keeps the previous app until installation succeeds, restoring it if verification fails. Existing settings and clipboard history are outside the app bundle and are not modified by installation.
+
+### Keep Accessibility permission across source updates
+
+Recommended if you use window controls, clipboard paste or Chinese conversion: run this **once**, before installing your first build or your next update:
+
+```sh
+./scripts/setup-local-signing.sh
+```
+
+This creates a free, self-signed **Cue Local Signing** certificate in your default user keychain, valid for ten years. Its private key is non-extractable after import and stays in Keychain; temporary key files are removed. macOS may ask you to allow `codesign` to use it. Choose **Always Allow** if you want subsequent builds to reuse this key without asking each time; enter any requested password only in the macOS dialog. The script does not install a trusted root, disable security checks, or grant Accessibility permission.
+
+Then quit Cue and use `./scripts/install-app.sh` as usual. **Switching from an ad-hoc build requires one new Accessibility grant** for the installed copy. If an enabled old entry is stale, [remove that Cue entry and add the installed copy](chinese-conversion.md#permission-still-unavailable-after-rebuilding-or-updating). Subsequent source builds retain the same certificate-bound app identity, so changing executable contents no longer changes that identity on every update. macOS still controls permissions; this does not guarantee retention after system resets or security-policy changes.
+
+Only the public certificate fingerprint and keychain path are stored in `~/Library/Application Support/Cue/Build/local-signing.plist`, outside the repository. Another clone under the same macOS account automatically reuses it. Keep the certificate and private key in Keychain; do not recreate them per build. Rerunning setup preserves the existing identity. If configuration exists but the key is missing or unusable, the scripts stop instead of reverting to ad-hoc signing. An install also refuses to replace an existing certificate-signed Cue with a different identity, including when configuration was lost. Restore the original keychain/configuration to continue.
+
+If the first setup was interrupted, check Keychain Access before retrying. Setup deliberately records its chosen identity before import; if import never completed and that identity has **never** signed an installed Cue, removing that incomplete configuration permits a fresh setup. Otherwise preserve and restore the original identity. The scripts never rotate keys automatically.
+
+This identity is local to this Mac and is excluded from Cue's settings export. On another Mac, run setup there and grant permissions there once. Xcode builds and downloaded GitHub/Sparkle updates do **not** use this local identity; switching to those builds can require a new grant. Continue using the source-update commands below to preserve it. Local signing is not Developer ID signing or Apple notarization.
 
 ### Network defaults
 
@@ -45,7 +63,7 @@ Use the same install path on each update so the login item continues to refer to
 
 Source builds include the GitHub updater but leave networking off by default. Use the commands above to keep running your own builds. If you explicitly allow network access, you can check manually and choose whether to enable automatic checks. An update offered by Cue installs the published GitHub binary, which replaces local code changes; it does not pull or compile your repository. Cue never installs an update without your action.
 
-Rebuilding or updating an ad-hoc signed app can invalidate its previous Accessibility permission. If Chinese conversion still requests permission while Cue's switch is enabled, [remove its old permission entry and add the currently installed copy](chinese-conversion.md#permission-still-unavailable-after-rebuilding-or-updating).
+Without the one-time local-signing setup above, rebuilding or updating an ad-hoc signed app can still invalidate its previous Accessibility permission.
 
 ### Other build options
 
@@ -89,13 +107,31 @@ cd cue
 open "$HOME/Applications/Cue.app"
 ```
 
-安裝程式會使用 Swift Package Manager，依這台 Mac 的架構產生最佳化的 **Release** 版本，檢查完整 App 簽章，並安裝至 **`~/Applications/Cue.app`**。圖示、翻譯、離線詞庫、emoji 資料與更新元件都會包進 App。它使用本機 ad-hoc 簽章，保留 Sparkle 自己的簽章，不會要求簽章金鑰，也不會變更 macOS 安全設定。預設安裝位置不需要管理者權限。
+安裝程式會使用 Swift Package Manager，依這台 Mac 的架構產生最佳化的 **Release** 版本，檢查完整 App 簽章，並安裝至 **`~/Applications/Cue.app`**。圖示、翻譯、離線詞庫、emoji 資料與更新元件都會包進 App。若已設定固定的本機簽署身分，就會自動沿用；否則使用 ad-hoc 簽章。Sparkle 自己的簽章會保留，預設安裝位置不需要管理者權限。
 
 只使用 Command Line Tools 的建置與搬移後的 App 檢查，已在 macOS 27、Apple silicon、Command Line Tools 27／Swift 6.4 通過；本次安裝流程修改尚未重新驗證 Intel 與較舊工具鏈。
 
 Cue 會出現在選單列，不會有 Dock 圖示；按 **Option+Space** 即可叫出。安裝後的 App 獨立於儲存庫與 `.build` 目錄，重開機後仍會留在使用者個人資料夾內的「Applications／應用程式」。若希望登入 Mac 後自動執行，開啟 **設定 → 一般與操作 → 登入時啟動**。macOS 若要求授權，按**開啟登入項目⋯**，再到系統設定允許 Cue；之後可隨時從 Cue 或 macOS 關閉。
 
 安裝程式不會取代仍在執行的 Cue；請正常結束，讓尚未完成的剪貼簿儲存作業結束。它會先驗證暫存的新 App，再取代原版本；完成前保留舊 App，若驗證失敗會還原。設定與剪貼簿記錄位於 App 外，安裝過程不會修改這些資料。
+
+### 讓自行建置版更新後保留輔助使用授權
+
+若會使用視窗調整、剪貼簿貼上或簡繁轉換，建議在第一次安裝或下一次更新前，**執行一次**：
+
+```sh
+./scripts/setup-local-signing.sh
+```
+
+腳本會在使用者的預設鑰匙圈建立免費、自簽、有效十年的 **Cue Local Signing** 憑證。私密金鑰匯入後不可匯出，留在鑰匙圈內；暫存金鑰檔會刪除。macOS 可能要求允許 `codesign` 使用它；若希望後續建置不再重複詢問，可選**永遠允許**。若要求密碼，只在系統對話框輸入。腳本不會新增受信任的根憑證、停用安全檢查或代替你開啟輔助使用權限。
+
+接著結束 Cue，照常執行 `./scripts/install-app.sh`。**從 ad-hoc 版本切換過來，仍需要為已安裝的 Cue 重新授權一次**。若舊開關已開卻失效，請[移除該 Cue 項目，再加入目前安裝的那份](chinese-conversion.md#重新建置或更新後仍顯示未取得權限)。後續自行建置會維持相同的憑證身分，不再因每次執行檔改變而更換身分；權限仍由 macOS 管理，不能保證在系統重設或安全政策改變後仍保留。
+
+儲存庫外的 `~/Library/Application Support/Cue/Build/local-signing.plist` 只記錄公開憑證指紋與鑰匙圈路徑。同一個 macOS 帳號下重新 clone，也會自動沿用。請保留鑰匙圈裡的憑證與私密金鑰，不要每次建置都重新產生；重跑設定腳本會沿用原身分。若已有設定、但金鑰不見或無法使用，腳本會停止，不會悄悄改回 ad-hoc。安裝時也會阻止以不同身分取代已使用憑證簽署的 Cue，包括設定檔遺失的情況；還原原本的鑰匙圈身分及設定後再繼續。
+
+若首次設定中斷，先在「鑰匙圈存取」確認匯入結果再重試。腳本會在匯入前記錄選定身分；只有匯入未完成、且該身分**從未簽署已安裝的 Cue** 時，才可移除未完成的設定檔後重新設定。其他情況應保留並還原原身分，腳本不會自動換金鑰。
+
+這個身分屬於本機，不包含在 Cue 的設定匯出。換另一台 Mac 時，在該機重新設定並授權一次即可。Xcode 與 GitHub／Sparkle 下載的更新**不會**使用本機身分，切換過去仍可能需要重新授權；希望保留身分時，請繼續使用下方的原始碼更新方式。本機簽署不等於 Developer ID 簽署或 Apple 公證。
 
 ### 網路預設值
 
@@ -117,7 +153,7 @@ open "$HOME/Applications/Cue.app"
 
 自行建置的版本包含 GitHub 更新功能，但預設關閉網路；若只想使用自己的版本，請用上方指令更新。若明確允許網路，可手動檢查，也可自行選擇開啟自動檢查。從 Cue 內安裝更新會換成 GitHub 上已發布的 App，取代本機程式碼修改；它不會替你的儲存庫執行更新或編譯。Cue 不會在未經你操作時自動安裝更新。
 
-重新建置或更新使用 ad-hoc 簽章的 App，可能讓原先的輔助使用授權失效。若 Cue 的權限開關已開啟，簡繁轉換仍要求授權，請[移除舊權限項目，再加入目前已安裝的那份 App](chinese-conversion.md#重新建置或更新後仍顯示未取得權限)。
+若未進行上方的一次性本機簽署設定，重新建置或更新 ad-hoc 簽章的 App，仍可能讓原先的輔助使用授權失效。
 
 ### 其他選項
 

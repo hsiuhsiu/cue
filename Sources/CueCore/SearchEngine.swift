@@ -50,6 +50,14 @@ public enum SearchEngine {
                 signal: hasUsage ? scorer.signal(for: application.searchUsageID) : .zero))
         }
         candidates.sort { left, right in
+            // Explicit aliases and complete names remain deterministic. For
+            // partial matches, a choice for this exact query outranks match
+            // categories: learned initials such as HA must beat incidental
+            // prefixes/substrings. General popularity still stays in-category.
+            let leftPriority = min(left.rank.category, 1)
+            let rightPriority = min(right.rank.category, 1)
+            if leftPriority != rightPriority { return leftPriority < rightPriority }
+            if left.signal.query != right.signal.query { return left.signal.query > right.signal.query }
             if left.rank.category != right.rank.category { return left.rank.category < right.rank.category }
             if left.signal != right.signal { return left.signal > right.signal }
             if left.rank != right.rank { return left.rank < right.rank }

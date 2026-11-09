@@ -1,83 +1,6 @@
 import AppKit
 import CueCore
 
-/// A nonactivating panel takes key focus without moving the foreground app.
-/// Keep its one next-event check outside query rendering. Never retry after a
-/// dismissal, a different foreground app, or a genuine key-window loss.
-@MainActor
-final class LauncherFocusRequest {
-    struct State {
-        var isVisible: Bool
-        var isKeyWindow: Bool
-        var frontmostProcess: Int32?
-    }
-
-    private let processID: Int32
-    private let state: () -> State
-    private let orderAndFocus: () -> Void
-    private let nextEvent: (@escaping @MainActor @Sendable () -> Void) -> Void
-    private var generation = 0
-    private struct Pending {
-        let generation: Int
-        let origin: Int32?
-    }
-    private var pending: Pending?
-
-    init(processID: Int32, state: @escaping () -> State,
-         orderAndFocus: @escaping () -> Void,
-         nextEvent: @escaping (@escaping @MainActor @Sendable () -> Void) -> Void) {
-        self.processID = processID
-        self.state = state
-        self.orderAndFocus = orderAndFocus
-        self.nextEvent = nextEvent
-    }
-
-    var hasKeyboardFocus: Bool { ownsKeyboard(state()) }
-
-    func present() {
-        generation &+= 1
-        let request = generation
-        pending = Pending(generation: request, origin: state().frontmostProcess)
-        // Use AppKit's panel focus mechanism without requesting the foreground
-        // switch that a source app's Secure Input can reject.
-        orderAndFocus()
-        // A key-window notification may arrive after this callback. This is an
-        // event-loop check, not a wait before accepting input.
-        nextEvent { [weak self] in self?.checkAfterEvent(request) }
-    }
-
-    func foregroundApplicationChanged(to process: Int32) {
-        guard let pending, process != processID, process != pending.origin else { return }
-        cancel()
-    }
-
-    func cancel() {
-        generation &+= 1
-        pending = nil
-    }
-
-    private func checkAfterEvent(_ request: Int) {
-        guard let pending, pending.generation == request else { return }
-        let current = state()
-        guard current.isVisible,
-              let foreground = current.frontmostProcess,
-              foreground == processID || foreground == pending.origin else {
-            cancel()
-            return
-        }
-        self.pending = nil
-        if !ownsKeyboard(current) {
-            orderAndFocus()
-        }
-    }
-
-    private func ownsKeyboard(_ current: State) -> Bool {
-        // The source intentionally remains frontmost. App activation is neither
-        // necessary nor evidence of key focus for a nonactivating NSPanel.
-        current.isVisible && current.isKeyWindow
-    }
-}
-
 private final class LauncherPanel: NSPanel {
     var onToggle: (() -> Void)?
     var shortcut = LauncherShortcut.default
@@ -95,6 +18,7 @@ private final class LauncherPanel: NSPanel {
             if (contentView as? LauncherView)?.handleSearchActionsShortcut(event) == true { return }
             if (contentView as? LauncherView)?.handleWebSearchShortcut(event) == true { return }
             if (contentView as? ClipboardView)?.handleSettingsShortcut(event) == true { return }
+            if (contentView as? ClipboardView)?.handleCopyOnlyShortcut(event) == true { return }
             if (contentView as? ClipboardView)?.handlePreviewShortcut(event) == true { return }
             if (contentView as? EmojiView)?.handleSettingsShortcut(event) == true { return }
             if (contentView as? GPTView)?.handleKeyEquivalent(event) == true { return }
@@ -118,6 +42,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private let panel: LauncherPanel
     private var launcherView: LauncherView!
     private let clipboard: ClipboardModel
+    private let clipboardPaster: any ClipboardPasting
+    private var clipboardPasteTask: Task<Void, Never>?
+    private var clipboardPasteTarget: ClipboardPasteTarget?
     private let emoji: EmojiModel
     private let gpt: GPTModel?
     let commandHistory: CommandHistoryModel
@@ -168,7 +95,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private var gptView: GPTView?
     private var isDismissing = false
     private(set) var isSuspendedForSettings = false
-    private lazy var focusRequest = LauncherFocusRequest(
+    private lazy var focusRequest = PanelFocusRequest(
         processID: ProcessInfo.processInfo.processIdentifier,
         state: { [weak self] in
             guard let self else {
@@ -200,12 +127,14 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     private lazy var clipboardView: ClipboardView = {
         let view = ClipboardView(
             model: clipboard,
-            onCopy: { [weak self] index in
-                guard let self else { return }
-                self.clipboard.copySelected(at: index) { [weak self] in self?.dismiss() }
-            },
+            onPaste: { [weak self] index in self?.pasteClipboardItem(at: index) },
             onBack: { [weak self] in self?.showLauncher() }
         )
+        view.onCopyOnly = { [weak self] in
+            guard let self else { return }
+            self.cancelClipboardPaste()
+            self.clipboard.copySelected { [weak self] in self?.dismiss() }
+        }
         view.onPreferredHeightChange = { [weak self] height in
             guard let self, self.showingClipboard, self.panel.contentView === self.clipboardView else { return }
             self.resizePanel(to: height)
@@ -223,6 +152,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     var onAppAlias: ((IndexedApplication) -> Void)?
 
     init(clipboard: ClipboardModel,
+         clipboardPaster: any ClipboardPasting = ClipboardPasteService(),
          model: LauncherModel = LauncherModel(),
          emoji: EmojiModel? = nil,
          gpt: GPTModel? = nil,
@@ -247,6 +177,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
          },
          restoreSource: @escaping @MainActor (Int32) -> Bool = LauncherPanelController.activateSource) {
         self.clipboard = clipboard
+        self.clipboardPaster = clipboardPaster
         self.emoji = emoji ?? EmojiModel()
         self.gpt = gpt
         self.commandHistory = commandHistory ?? CommandHistoryModel()
@@ -421,6 +352,8 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     /// Establish an invocation independently of window presentation. This only
     /// samples the source PID; accessibility and conversion stay deferred.
     func prepareInvocation(resetQuery: Bool = true) {
+        cancelClipboardPaste()
+        clipboard.cancelPendingCopy()
         focusRequest.cancel()
         cancelApplicationReveal()
         if isSuspendedForSettings { dismiss(returnFocus: false) }
@@ -476,9 +409,10 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         panel.contentView?.layoutSubtreeIfNeeded()
     }
 
-    func dismiss(cancelConversion shouldCancel: Bool = true, returnFocus: Bool = true) {
+    func dismiss(cancelConversion shouldCancel: Bool = true, returnFocus: Bool = true, cancelClipboardPaste shouldCancelPaste: Bool = true) {
         guard !isDismissing else { return }
         focusRequest.cancel()
+        if shouldCancelPaste { cancelClipboardPaste() }
         cancelApplicationReveal()
         isDismissing = true
         isSuspendedForSettings = false
@@ -529,6 +463,7 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     /// earlier action while the user is editing settings in another window.
     @discardableResult
     func suspendForSettings() -> Bool {
+        cancelClipboardPaste()
         focusRequest.cancel()
         cancelApplicationReveal()
         // Settings is a new interaction even when there is no launcher to retain.
@@ -922,6 +857,70 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
         if model.actionStatus == ChineseConversionText.converting { model.actionStatus = nil }
     }
 
+    private func cancelClipboardPaste() {
+        clipboardPasteTask?.cancel()
+        clipboardPasteTask = nil
+        if let target = clipboardPasteTarget {
+            clipboardPasteTarget = nil
+            Task { [clipboardPaster] in await clipboardPaster.discard(target) }
+        }
+    }
+
+    func pasteClipboardItem(at index: Int? = nil) {
+        cancelClipboardPaste()
+        guard let source = sourceProcessID, ownsConversionContext(source) else {
+            clipboard.reportPasteError(ClipboardText.shared.pasteNoTarget)
+            return
+        }
+        let request = invocation
+        clipboard.copySelected(at: index, beforeCopy: { [weak self, clipboardPaster] in
+            guard let self, self.invocation == request, self.ownsConversionContext(source) else {
+                throw ClipboardPasteError.targetChanged
+            }
+            let target = try await clipboardPaster.capture(processID: source)
+            guard !Task.isCancelled, self.invocation == request, self.ownsConversionContext(source) else {
+                await clipboardPaster.discard(target)
+                throw CancellationError()
+            }
+            self.clipboardPasteTarget = target
+        }, onFailure: { [weak self] error in
+            self?.cancelClipboardPaste()
+            self?.clipboard.reportPasteError(ClipboardText.shared.pasteMessage(for: error),
+                                            needsPermission: error as? ClipboardPasteError == .permissionRequired)
+        }, onCopiedText: { [weak self] text in
+            guard let self, let target = self.clipboardPasteTarget, self.invocation == request,
+                  self.ownsConversionContext(source) else { return }
+            let query = self.clipboard.query
+            self.dismiss(returnFocus: false, cancelClipboardPaste: false)
+            let completion = self.invocation
+            self.clipboardPasteTask = Task { [weak self, clipboardPaster] in
+                guard let self else { await clipboardPaster.discard(target); return }
+                do {
+                    try Task.checkCancellation()
+                    guard self.invocation == completion,
+                          self.frontmostProcess() == source || self.frontmostProcess() == ProcessInfo.processInfo.processIdentifier else {
+                        throw ClipboardPasteError.targetChanged
+                    }
+                    guard self.restoreSource(source) else { throw ClipboardPasteError.noTarget }
+                    try await clipboardPaster.paste(target, text: text)
+                } catch {
+                    if !Task.isCancelled, self.invocation == completion, self.frontmostProcess() == source {
+                        self.show(resetQuery: false)
+                        self.showClipboard()
+                        self.clipboard.setQuery(query)
+                        self.clipboard.reportPasteError(ClipboardText.shared.pasteMessage(for: error),
+                                                        needsPermission: error as? ClipboardPasteError == .permissionRequired)
+                    }
+                }
+                await clipboardPaster.discard(target)
+                if self.clipboardPasteTarget == target {
+                    self.clipboardPasteTarget = nil
+                    self.clipboardPasteTask = nil
+                }
+            }
+        }, onCopied: {})
+    }
+
     /// Conversion keeps the original invocation target while Cue owns keyboard
     /// input. Any other foreground app invalidates the pending action.
     static func acceptsConversionContext(source: Int32, frontmost: Int32?, launcherHasFocus: Bool) -> Bool {
@@ -936,6 +935,9 @@ final class LauncherPanelController: NSObject, NSWindowDelegate {
     /// Drain bounded paste acknowledgement/clipboard restoration before quitting.
     func finishPendingTextConversion() async {
         cancelConversion()
+        let paste = clipboardPasteTask
+        cancelClipboardPaste()
+        await paste?.value
         await conversionTask?.value
     }
 

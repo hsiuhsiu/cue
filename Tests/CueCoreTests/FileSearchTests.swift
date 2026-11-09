@@ -46,6 +46,19 @@ final class FileSearchTests: XCTestCase {
         XCTAssertEqual(FileSearchRanking.results(from: [file("a*b?.txt"), file("anything.txt")], term: "*b?", limit: 9).map(\.name), ["a*b?.txt"])
     }
 
+    func testSingleChineseCharacterMatchesExactPrefixAndSubstringFilenames() {
+        let exact = file("身")
+        let prefix = file("身分資料.txt")
+        let substring = file("測試身分資料.txt")
+        let mixed = file("scan-身分資料.pdf")
+        let candidates = [substring, mixed, file("報告.txt"), prefix, exact]
+        let ranked = FileSearchRanking.results(from: candidates, term: "身", limit: 9)
+        XCTAssertEqual(ranked, [exact, prefix, mixed, substring])
+        XCTAssertEqual(ranked, FileSearchRanking.results(from: Array(candidates.reversed()), term: "身", limit: 9))
+        XCTAssertEqual(FileSearchQuery.parse("f 身")?.term, "身")
+        XCTAssertEqual(FileSearchRanking.results(from: candidates, term: "身分", limit: 9), [prefix, mixed, substring])
+    }
+
     func testLimitAndPathIdentity() {
         let candidates = (0..<100).map { file("report-\($0).txt") }
         XCTAssertEqual(FileSearchRanking.results(from: candidates, term: "report", limit: 100).count, 9)

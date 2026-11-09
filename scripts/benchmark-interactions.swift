@@ -169,6 +169,29 @@ private struct InteractionBenchmark {
                 editorTimings.append(milliseconds(since: started))
             }
         }
+        model.setQuery("f ")
+        view.placeInsertionPointAtEnd()
+        let chineseFiles = (1...9).map { index in
+            FileSearchResult(url: URL(fileURLWithPath: "/Synthetic/Documents/身分資料-\(index).txt"),
+                             name: "身分資料-\(index).txt", parentPath: "/Synthetic/Documents")
+        }
+        var compositionTimings: [Double] = []
+        var compositionCompletionTimings: [Double] = []
+        for index in 0..<100 {
+            let term = index.isMultiple(of: 2) ? "身" : "身分"
+            let started = DispatchTime.now().uptimeNanoseconds
+            editor.setMarkedText(term, selectedRange: NSRange(location: term.utf16.count, length: 0),
+                                 replacementRange: NSRange(location: NSNotFound, length: 0))
+            layout()
+            compositionTimings.append(milliseconds(since: started))
+            precondition(model.query == "f " + term && editor.hasMarkedText())
+            let completionStart = DispatchTime.now().uptimeNanoseconds
+            fixture.finish(chineseFiles)
+            layout()
+            compositionCompletionTimings.append(milliseconds(since: completionStart))
+            precondition(model.results.count == 9 && editor.hasMarkedText())
+        }
+        editor.unmarkText()
         var longInputTimings: [Double] = []
         var longInputRenderTimings: [Double] = []
         let nativeRender = model.onChange
@@ -204,6 +227,9 @@ private struct InteractionBenchmark {
             "model_notifications_per_query_edit": notificationCounts,
             "history_recall_and_native_layout": summary(historyTimings),
             "native_editor_typing_and_layout": summary(editorTimings),
+            "first_native_ime_file_query_and_layout_ms": compositionTimings.first!,
+            "native_ime_file_query_and_layout": summary(compositionTimings),
+            "native_ime_file_completion_and_layout": summary(compositionCompletionTimings),
             "native_editor_typing_at_end_of_1_to_32_KiB_input": summary(longInputTimings),
             "launcher_render_during_long_input_edits": summary(longInputRenderTimings),
             "timing_scope": "Warm native view; main-actor query/completion + row configuration/layout and offscreen native field-editor insertions. No Spotlight latency, OS key delivery, display composition, visible windows, or app activation.",

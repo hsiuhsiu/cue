@@ -145,6 +145,7 @@ xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \
 "$repo_root/scripts/check-conversion-lifecycle.sh"
 "$repo_root/scripts/check-network-policy.sh"
 "$repo_root/scripts/check-updates.sh"
+"$repo_root/scripts/check-local-signing.sh"
 
 step "Building the universal Release application..."
 xcodebuild -quiet -project Cue.xcodeproj -scheme Cue -configuration Release \

@@ -170,26 +170,35 @@ actor WindowControlService: WindowControlling {
         }
 
         var setterFailed = false
-        do {
-            if changesSize { try driver.setSize(target.size, for: before, request: request) }
-            try request.check()
-            try driver.setPosition(target.origin, for: before, request: request)
-        } catch is CancellationError { throw CancellationError() }
-        catch WindowControlError.permissionRequired { clearAll(); throw WindowControlError.permissionRequired }
-        catch { setterFailed = true }
-        // A failing setter can still have changed the window. Always read back;
-        // never claim success or create a restore record from an assumed frame.
-        let after: WindowControlState
-        do {
-            try request.check()
-            after = try driver.read(before, request: request)
-            try request.check()
-            guard after.elementID == before.elementID, after.processIdentifier == before.processIdentifier,
-                  WindowGeometry.isUsable(after.frame) else { throw WindowControlError.unverified }
-        } catch is CancellationError { throw CancellationError() }
-        catch {
-            forget(before.elementID); pending = nil
-            throw WindowControlError.unverified
+        var after = before
+        // A resize can be clipped by the OLD position (right half -> fill), and
+        // moving between displays can impose the old display's size limits.
+        // Reapply only mismatched geometry once at the new position. Ordinary
+        // actions finish on the first pass; no delays or unbounded retry loop.
+        for _ in 0..<2 {
+            do {
+                if abs(after.frame.width - target.width) > 1 || abs(after.frame.height - target.height) > 1 {
+                    try driver.setSize(target.size, for: after, request: request)
+                }
+                try request.check()
+                try driver.setPosition(target.origin, for: after, request: request)
+            } catch is CancellationError { throw CancellationError() }
+            catch WindowControlError.permissionRequired { clearAll(); throw WindowControlError.permissionRequired }
+            catch { setterFailed = true }
+            // Even a failing setter can have changed the window. Confirm the
+            // actual frame before saving restore history or closing the panel.
+            do {
+                try request.check()
+                after = try driver.read(before, request: request)
+                try request.check()
+                guard after.elementID == before.elementID, after.processIdentifier == before.processIdentifier,
+                      WindowGeometry.isUsable(after.frame) else { throw WindowControlError.unverified }
+            } catch is CancellationError { throw CancellationError() }
+            catch {
+                forget(before.elementID); pending = nil
+                throw WindowControlError.unverified
+            }
+            if setterFailed || WindowGeometry.approximatelyEqual(after.frame, target) { break }
         }
         pending = (sessionID, after)
         let changed = !WindowGeometry.approximatelyEqual(before.frame, after.frame, tolerance: 0.5)

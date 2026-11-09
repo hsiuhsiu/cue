@@ -26,7 +26,24 @@ struct ClipboardText {
     let previewAccessibility = L10n.string("preview.accessibility", table: "Clipboard", value: "Full clipboard text")
     let copying = L10n.string("copying", table: "Clipboard", value: "Copying…")
     let copy = L10n.string("copy", table: "Clipboard", value: "Copy")
-    let copyHelp = L10n.string("copy.help", table: "Clipboard", value: "Copy selected item (Return)")
+    let copyHelp = L10n.string("copy.help", table: "Clipboard", value: "Copy without pasting (Command–Return)")
+    let paste = L10n.string("paste", table: "Clipboard", value: "Paste")
+    let pasteHelp = L10n.string("paste.help", table: "Clipboard", value: "Paste into the original app (Return)")
+    let allowPasting = L10n.string("paste.allow", table: "Clipboard", value: "Allow Pasting…")
+    let pastePermission = L10n.string("paste.permission", table: "Clipboard", value: "Allow Cue in System Settings → Privacy & Security → Accessibility to paste. You can still use Copy.")
+    let pasteNoTarget = L10n.string("paste.noTarget", table: "Clipboard", value: "Open Cue from the app you want to paste into, or use Copy.")
+    let pasteChanged = L10n.string("paste.changed", table: "Clipboard", value: "The destination changed. Nothing was pasted. Invoke Cue from the desired field and try again.")
+    let pasteFailed = L10n.string("paste.failed", table: "Clipboard", value: "Couldn’t paste into this field. Use Copy, then paste manually.")
+    let pasteClipboardChanged = L10n.string("paste.clipboardChanged", table: "Clipboard", value: "The clipboard changed before pasting. Please choose the item again.")
+    func pasteMessage(for error: Error) -> String {
+        switch error as? ClipboardPasteError {
+        case .permissionRequired: pastePermission
+        case .noTarget: pasteNoTarget
+        case .targetChanged: pasteChanged
+        case .clipboardChanged: pasteClipboardChanged
+        default: pasteFailed
+        }
+    }
     let copiedAt = L10n.string("copied_at", table: "Clipboard", value: "Copied %@")
     let delete = L10n.string("delete", table: "Clipboard", value: "Delete")
     let deleteHelp = L10n.string("delete.help", table: "Clipboard", value: "Delete selected item (Delete when search is empty, or ⌘⌫)")
@@ -109,7 +126,7 @@ private final class ClipboardPreviewTextView: NSTextView {
 final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTableViewDelegate {
     let searchField = NSTextField()
     private let model: ClipboardModel
-    private let onCopy: (Int?) -> Void
+    private let onPaste: (Int?) -> Void
     private let onBack: () -> Void
     private let text = ClipboardText.shared
     private let deleteTitle = ClipboardText.shared.delete + "  ⌫"
@@ -125,7 +142,10 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
     private let enableButton = NSButton()
     private let footerSeparator = NSBox()
     private let footer = NSTextField(labelWithString: "")
-    private let copyButton = NSButton()
+    private let pasteButton = NSButton()
+    private let copyOnlyButton = NSButton()
+    private let permissionButton = NSButton()
+    var onCopyOnly: (() -> Void)?
     private let previewButton = NSButton()
     private let previewScroll = NSScrollView()
     private let previewText = ClipboardPreviewTextView()
@@ -155,9 +175,9 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
     private(set) var isShowingSettings = false
     var isShowingPreview: Bool { previewEntry != nil }
 
-    init(model: ClipboardModel, onCopy: @escaping (Int?) -> Void, onBack: @escaping () -> Void) {
+    init(model: ClipboardModel, onPaste: @escaping (Int?) -> Void, onBack: @escaping () -> Void) {
         self.model = model
-        self.onCopy = onCopy
+        self.onPaste = onPaste
         self.onBack = onBack
         super.init(frame: NSRect(x: 0, y: 0, width: 640, height: 220))
         wantsLayer = true
@@ -260,12 +280,22 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         previewScroll.borderType = .noBorder
         previewScroll.horizontalScrollElasticity = .none
         previewScroll.automaticallyAdjustsContentInsets = false
-        copyButton.title = text.copy + "  ↵"
-        copyButton.bezelStyle = .rounded
-        copyButton.target = self
-        copyButton.action = #selector(copySelected)
-        copyButton.toolTip = text.copyHelp
-        copyButton.setAccessibilityLabel(text.copyHelp)
+        pasteButton.title = text.paste + "  ↵"
+        copyOnlyButton.title = text.copy + "  ⌘↵"
+        copyOnlyButton.bezelStyle = .rounded
+        copyOnlyButton.target = self
+        copyOnlyButton.action = #selector(copyOnly)
+        copyOnlyButton.toolTip = text.copyHelp
+        permissionButton.title = text.allowPasting
+        permissionButton.bezelStyle = .rounded
+        permissionButton.target = self
+        permissionButton.action = #selector(allowPasting)
+        permissionButton.toolTip = text.pastePermission
+        pasteButton.bezelStyle = .rounded
+        pasteButton.target = self
+        pasteButton.action = #selector(pasteSelected)
+        pasteButton.toolTip = text.pasteHelp
+        pasteButton.setAccessibilityLabel(text.pasteHelp)
         deleteButton.title = deleteTitle
         deleteButton.bezelStyle = .rounded
         deleteButton.target = self
@@ -279,7 +309,7 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         settingsButton.toolTip = text.settings
         settingsButton.setAccessibilityLabel(text.settings)
         for view in [backButton, heading, searchIcon, searchField, separator, scroll,
-                     emptyLabel, enableButton, footerSeparator, footer, copyButton,
+                     emptyLabel, enableButton, footerSeparator, footer, pasteButton, copyOnlyButton, permissionButton,
                      deleteButton, settingsButton, previewButton, previewScroll] { addSubview(view) }
         model.onChange = { [weak self] in self?.render() }
         render()
@@ -303,11 +333,13 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         emptyLabel.frame = NSRect(x: 20, y: bodyMidY - (enableButton.isHidden ? 18 : 48), width: max(0, bounds.width - 40), height: 36)
         enableButton.frame = NSRect(x: bounds.midX - 120, y: bodyMidY + 2, width: 240, height: 30)
         footerSeparator.frame = NSRect(x: 0, y: bounds.height - 34, width: bounds.width, height: 1)
-        footer.frame = NSRect(x: 12, y: bounds.height - 25, width: max(0, bounds.width - (isShowingSettings ? 62 : (isShowingPreview ? 164 : 382))), height: 18)
-        previewButton.frame = NSRect(x: bounds.width - 352, y: bounds.height - 30, width: 96, height: 26)
+        footer.frame = NSRect(x: 12, y: bounds.height - 25, width: max(0, bounds.width - (isShowingSettings ? 62 : (isShowingPreview ? 280 : 490))), height: 18)
+        previewButton.frame = NSRect(x: bounds.width - 460, y: bounds.height - 30, width: 96, height: 26)
         previewScroll.frame = NSRect(x: 16, y: 46, width: bounds.width - 32, height: max(0, bounds.height - 90))
         previewText.setFrameSize(NSSize(width: previewScroll.contentSize.width, height: max(previewText.frame.height, previewScroll.contentSize.height)))
-        copyButton.frame = NSRect(x: bounds.width - (isShowingPreview ? 140 : 250), y: bounds.height - 30, width: 94, height: 26)
+        copyOnlyButton.frame = NSRect(x: bounds.width - (isShowingPreview ? 248 : 358), y: bounds.height - 30, width: 102, height: 26)
+        permissionButton.frame = NSRect(x: 12, y: bounds.height - 30, width: 142, height: 26)
+        pasteButton.frame = NSRect(x: bounds.width - (isShowingPreview ? 140 : 250), y: bounds.height - 30, width: 94, height: 26)
         deleteButton.frame = NSRect(x: bounds.width - 148, y: bounds.height - 30, width: 104, height: 26)
         settingsButton.frame = NSRect(x: bounds.width - 33, y: bounds.height - 29, width: 24, height: 24)
         let settingsWidth = min(536, bounds.width - 24)
@@ -315,6 +347,7 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if handleCopyOnlyShortcut(event) { return true }
         if handleSettingsShortcut(event) { return true }
         if handlePreviewShortcut(event) { return true }
         if isShowingPreview, handlePreviewKey(event) { return true }
@@ -323,9 +356,17 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         return super.performKeyEquivalent(with: event)
     }
 
+    func handleCopyOnlyShortcut(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown, !hasMarkedText, !isShowingSettings,
+              event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+              event.keyCode == 36 || event.keyCode == 76 else { return false }
+        if !event.isARepeat { copyOnly() }
+        return true
+    }
+
     func handleNumberShortcut(_ event: NSEvent) -> Bool {
         guard let index = ResultShortcut.index(for: event), !hasMarkedText, !isShowingSettings, !isShowingPreview else { return false }
-        if !event.isARepeat { onCopy(index) }
+        if !event.isARepeat { onPaste(index) }
         return true
     }
 
@@ -364,9 +405,9 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         guard isShowingPreview, !isShowingSettings else { return false }
         if handleSettingsShortcut(event) || handlePreviewShortcut(event) { return true }
         let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
-        if event.type == .keyDown, (flags.isEmpty || flags == .command),
+        if event.type == .keyDown, flags.isEmpty,
            event.keyCode == UInt16(kVK_Return) || event.keyCode == UInt16(kVK_ANSI_KeypadEnter) {
-            if !event.isARepeat { copySelected() }
+            if !event.isARepeat { pasteSelected() }
             return true
         }
         return false
@@ -477,7 +518,10 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         searchIcon.isHidden = !showHistory
         previewButton.isHidden = !showHistory
         previewScroll.isHidden = !isShowingPreview || isShowingSettings
-        copyButton.isHidden = isShowingSettings
+        pasteButton.isHidden = isShowingSettings
+        copyOnlyButton.isHidden = isShowingSettings
+        permissionButton.isHidden = isShowingSettings || !model.needsPastePermission
+        footer.isHidden = !permissionButton.isHidden
         deleteButton.isHidden = !showHistory
         settingsView?.isHidden = !isShowingSettings
         let backDescription = isShowingSettings && isShowingPreview ? text.backToPreview :
@@ -496,8 +540,9 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         footer.textColor = model.errorMessage == nil ? .secondaryLabelColor : .systemRed
         footer.toolTip = model.errorMessage ?? model.statusMessage
         let hasSelection = model.selectedEntry != nil
-        copyButton.isEnabled = hasSelection && !model.isCopying
-        copyButton.title = model.isCopying ? text.copying : text.copy + "  ↵"
+        pasteButton.isEnabled = hasSelection && !model.isCopying
+        copyOnlyButton.isEnabled = pasteButton.isEnabled
+        pasteButton.title = model.isCopying ? text.copying : text.paste + "  ↵"
         previewButton.isEnabled = hasSelection
         deleteButton.isEnabled = hasSelection
         let currentDeleteTitle = model.query.isEmpty ? deleteTitle : filteredDeleteTitle
@@ -541,7 +586,7 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         switch command {
         case #selector(NSResponder.moveDown(_:)): model.moveSelection(by: 1)
         case #selector(NSResponder.moveUp(_:)): model.moveSelection(by: -1)
-        case #selector(NSResponder.insertNewline(_:)): copySelected()
+        case #selector(NSResponder.insertNewline(_:)): pasteSelected()
         case #selector(NSResponder.cancelOperation(_:)): cancelOperation(nil)
         case #selector(NSResponder.deleteBackward(_:)), #selector(NSResponder.deleteForward(_:)):
             if let event = NSApp.currentEvent, event.type == .keyDown {
@@ -564,19 +609,30 @@ final class ClipboardView: NSView, NSTextFieldDelegate, NSTableViewDataSource, N
         if isShowingPreview { closePreview() } else { showPreview() }
     }
 
-    @objc private func copySelected() {
+    @objc private func allowPasting() { ClipboardPasteService.requestPermission() }
+
+    @objc private func copyOnly() {
+        guard !isShowingSettings else { return }
+        if let entry = previewEntry {
+            guard model.results.contains(where: { $0.id == entry.id }) else { return }
+            model.select(entry.id)
+        }
+        onCopyOnly?()
+    }
+
+    @objc private func pasteSelected() {
         guard !isShowingSettings else { return }
         if let entry = previewEntry {
             guard model.results.contains(where: { $0.id == entry.id }) else { return }
             model.select(entry.id)
         }
         // The model waits for an in-flight search, so immediate Return uses the new query.
-        onCopy(nil)
+        onPaste(nil)
     }
 
     @objc private func doubleClickResult() {
         guard table.clickedRow >= 0 else { return }
-        copySelected()
+        pasteSelected()
     }
 
     @objc private func deleteSelected() {

@@ -147,7 +147,9 @@ private actor RateTransport {
         check(Set(cachedJSON.keys) == Set(["base", "rates", "updatedAt", "nextUpdateAt"]),
               "The cache contains only rate metadata, never a raw feed or search history")
         let permissions = try FileManager.default.attributesOfItem(atPath: file.path)[.posixPermissions] as? NSNumber
-        check(permissions?.intValue == 0o600, "The persisted currency cache is private to its owner")
+        check(permissions?.intValue == 0o600, "The persisted currency cache is owner-only as soon as it becomes visible")
+        let directoryPermissions = try FileManager.default.attributesOfItem(atPath: file.deletingLastPathComponent().path)[.posixPermissions] as? NSNumber
+        check(directoryPermissions?.intValue == 0o700, "Cache staging stays inside its private owner-only directory")
         let beforeChanges = publications
         var samples: [Double] = []
         for _ in 0..<1_000 {

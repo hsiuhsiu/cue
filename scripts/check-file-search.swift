@@ -283,9 +283,89 @@ struct CheckFileSearch {
               "Only successful app queries persist; filenames and file actions are excluded from learning")
         check(board.changeCount == untouchedClipboard, "Searching and opening files never touches the clipboard")
         checkRefinementAndNotifications()
+        checkChineseEditing()
         check(!window.isVisible && !NSApp.isActive, "All checks remain offscreen with activation prohibited")
         durations.sort()
         print("File search passed \(checks) isolated checks; synthetic typing p95 \(String(format: "%.3f", durations[durations.count * 95 / 100])) ms, max \(String(format: "%.3f", durations.last!)) ms.")
+    }
+
+    @MainActor static func checkChineseEditing() {
+        let fixture = FileSearchFixture()
+        let icons = AppIconCache(resolveBrowser: { _ in nil }, loadBrowserIcon: { _ in nil })
+        let model = LauncherModel(fileSearch: fixture, icons: icons)
+        var submissions = 0
+        let view = LauncherView(model: model, onSubmit: { submissions += 1 }, onCancel: {}, onSettings: {})
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 360),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = view
+        defer { window.contentView = nil; window.close() }
+        model.setQuery("f ")
+        window.makeFirstResponder(view.searchField)
+        view.placeInsertionPointAtEnd()
+        guard let editor = view.searchField.currentEditor() as? NSTextView else {
+            fatalError("Chinese file-search checks require an offscreen native field editor")
+        }
+        editor.insertText("身", replacementRange: editor.selectedRange())
+        check(model.query == "f 身" && fixture.requests.last?.term == "身",
+              "A committed single Chinese character immediately starts its filename query")
+        let prefix = document("身分資料.txt")
+        let substring = document("測試身分資料.txt")
+        fixture.finish(fixture.requests.count - 1, results: [prefix, substring])
+        check(model.results == [.file(prefix), .file(substring)] && model.selectedResult == .file(prefix),
+              "A single-character Chinese filename query renders keyboard-selectable results")
+
+        model.setQuery("f ")
+        view.placeInsertionPointAtEnd()
+        editor.setMarkedText("ㄕ", selectedRange: NSRange(location: 1, length: 0),
+                             replacementRange: editor.selectedRange())
+        let phoneticRequest = fixture.requests.count - 1
+        editor.setMarkedText("身", selectedRange: NSRange(location: 1, length: 0),
+                             replacementRange: NSRange(location: NSNotFound, length: 0))
+        check(editor.hasMarkedText(), "The Chinese filename fixture retains native marked text")
+        check(model.query == "f 身" && fixture.requests.last?.term == "身",
+              "Replacing phonetic marked text with a Chinese character updates the filename query")
+        fixture.finish(phoneticRequest, results: [document("ㄕ.txt")])
+        check(model.isSearchingFiles && model.results.isEmpty,
+              "A stale phonetic query cannot replace a pending Chinese filename query")
+        let text = editor.string
+        let markedRange = editor.markedRange()
+        fixture.finish(fixture.requests.count - 1, results: [prefix, substring])
+        check(editor.string == text && editor.markedRange() == markedRange && editor.hasMarkedText(),
+              "A filename completion preserves Chinese composition and the insertion point")
+        check(!view.control(view.searchField, textView: editor,
+                            doCommandBy: #selector(NSResponder.insertNewline(_:))) && submissions == 0,
+              "Return remains with the input method while a Chinese filename is composing")
+        check(!view.control(view.searchField, textView: editor,
+                            doCommandBy: #selector(NSResponder.moveDown(_:))) && model.selectedResult == .file(prefix),
+              "Arrow keys stay with the input method while a Chinese filename is composing")
+        let requestCount = fixture.requests.count
+        editor.setMarkedText("身", selectedRange: NSRange(location: 0, length: 0),
+                             replacementRange: NSRange(location: NSNotFound, length: 0))
+        check(fixture.requests.count == requestCount,
+              "Moving the marked-text selection does not repeat the filename request")
+        editor.insertText("身", replacementRange: editor.markedRange())
+        check(!editor.hasMarkedText() && model.query == "f 身" && model.results == [.file(prefix), .file(substring)],
+              "Committing Chinese composition retains its filename query and results")
+        _ = view.control(view.searchField, textView: editor, doCommandBy: #selector(NSResponder.moveDown(_:)))
+        _ = view.control(view.searchField, textView: editor, doCommandBy: #selector(NSResponder.insertNewline(_:)))
+        check(model.selectedResult == .file(substring) && submissions == 1,
+              "Down and Return select and submit the intended Chinese filename after composition")
+
+        model.setQuery("f ")
+        view.placeInsertionPointAtEnd()
+        editor.setMarkedText("身分", selectedRange: NSRange(location: 2, length: 0),
+                             replacementRange: editor.selectedRange())
+        check(model.query == "f 身分" && fixture.requests.last?.term == "身分",
+              "A multi-character Chinese composition immediately refines the filename query")
+        let cancelledRequest = fixture.requests.count - 1
+        editor.setMarkedText("", selectedRange: NSRange(location: 0, length: 0),
+                             replacementRange: NSRange(location: NSNotFound, length: 0))
+        fixture.finish(cancelledRequest, results: [prefix])
+        check(model.query == "f " && !model.isSearchingFiles && model.results.isEmpty,
+              "Cancelling composition clears the filename term and rejects late results")
+        check(!window.isVisible && !NSApp.isActive,
+              "Native Chinese file-search checks remain offscreen with activation prohibited")
     }
 
     /// A separate fixture keeps lifecycle request indices above independent

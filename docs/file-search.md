@@ -4,6 +4,8 @@
 
 In Cue, type **`f`**, a **space**, then part of a filename: **`f report`**, **`f .pdf`**, or **`f 發票`**. Uppercase **`F`** works too. This is an explicit file-search mode; typing only `f` still searches apps and commands. The blank `f ` prefix does not list recent files or start a broad search.
 
+Single Chinese characters work too, for example **`f 身`**. Search follows the visible text while an input method is composing. While marked text is active, Return and arrow keys stay with the input method; confirm the text before using them to open or select a file.
+
 Results include files and folders. Each row shows its filename and parent folder so identical names are distinguishable. Use **Up/Down** and **Return**, click a result, or press **Command+1–9** to open it in its default macOS application; a folder opens in Finder. Cue shows at most nine results without scrollbars. Make the filename more specific to narrow a large set. Exact filenames come first, then names beginning with the text, then names containing it, ignoring case and accents. The search text is literal, not a wildcard expression.
 
 The search uses macOS's existing **Spotlight index of local volumes**. Cue does not crawl your disk, read document contents, or create a separate index. It excludes hidden items, operating-system and library folders, and internal app-bundle resources. Indexed user documents in `~/Library/Mobile Documents` (iCloud Drive) and `~/Library/CloudStorage` remain eligible. Unindexed disks and Spotlight-excluded folders will not appear; access restrictions can also limit results, and new or renamed files may take time to reach Spotlight. Network volumes are outside this search. On Macs with a network-mounted home directory, this version leaves file search unavailable rather than querying that remote home. If an expected item is missing, check that Spotlight can find it and that the location is not excluded from Spotlight search. Cue does not request Full Disk Access automatically.
@@ -19,6 +21,8 @@ Searching works with **Cue network access off**. Neither file queries nor paths 
 ## 正體中文
 
 在 Cue 輸入 **`f`**、一個**空格**，再輸入部分檔名，例如 **`f report`**、**`f .pdf`** 或 **`f 發票`**；大寫 **`F`** 也可以。這會進入檔案搜尋模式；只有 `f` 時仍搜尋 App 與指令。單獨的 `f ` 不會列出最近檔案，也不會開始大量搜尋。
+
+也可只輸入一個中文字，例如 **`f 身`**。輸入法組字期間，搜尋會跟隨畫面上的文字更新；Return 與方向鍵仍交給輸入法處理，確認選字後才能用來開啟或選取檔案。
 
 結果包含檔案與資料夾，每列顯示檔名與所在資料夾，方便區別同名檔案。用**上下方向鍵**選取後按 **Return**、點選結果，或按 **Command+1–9**，即可使用 macOS 的預設 App 開啟；資料夾以 Finder 開啟。結果最多九列、不顯示捲軸，符合項目太多時可輸入更完整的檔名。排序依序為完全符合、檔名開頭符合、檔名包含文字，不區分大小寫與重音。搜尋文字照字面比對，不是萬用字元語法。
 

@@ -49,6 +49,26 @@ private actor SelectionFixture: SelectedTextAccessing {
     func counts() -> Counts { Counts(captures: captures, processIDs: processIDs, replacements: replacements, discards: discards) }
 }
 
+private actor ClipboardPasteFixture: ClipboardPasting {
+    var captures = 0, discards = 0
+    var deliveries: [String] = []
+    var gate: Gate?
+    var failure: ClipboardPasteError?
+    func configure(gate: Gate? = nil, error: ClipboardPasteError? = nil) { self.gate = gate; failure = error }
+    func capture(processID: Int32) async throws -> ClipboardPasteTarget {
+        captures += 1
+        if let gate { await gate.wait() }
+        if let failure { throw failure }
+        return ClipboardPasteTarget(id: UUID(), processID: processID)
+    }
+    func paste(_ target: ClipboardPasteTarget, text: String) async throws {
+        try Task.checkCancellation()
+        deliveries.append(text)
+    }
+    func discard(_ target: ClipboardPasteTarget) { discards += 1 }
+    func counts() -> (Int, Int, Int) { (captures, deliveries.count, discards) }
+}
+
 private actor ConverterFixture {
     private var gate: Gate?
     private var requests = 0
@@ -75,11 +95,11 @@ private actor ConverterFixture {
 @MainActor private final class FocusFixture {
     let cue: Int32 = 100
     let browser: Int32 = 200
-    var snapshot = LauncherFocusRequest.State(isVisible: false, isKeyWindow: false, frontmostProcess: 200)
+    var snapshot = PanelFocusRequest.State(isVisible: false, isKeyWindow: false, frontmostProcess: 200)
     var events: [String] = []
     var queued: [@MainActor @Sendable () -> Void] = []
     var focusSucceeds = true
-    lazy var request = LauncherFocusRequest(
+    lazy var request = PanelFocusRequest(
         processID: cue, state: { [unowned self] in snapshot },
         orderAndFocus: { [unowned self] in
             events.append("focus"); snapshot.isVisible = true
@@ -213,13 +233,16 @@ private actor ConverterFixture {
         defaults.register(defaults: ["clipboard.recordingEnabled": false])
         let board = NSPasteboard(name: NSPasteboard.Name(domain))
         defer { board.releaseGlobally() }
+        let seed = ClipboardStore(fileURL: folder.appendingPathComponent("clipboard.json"))
+        _ = try await seed.record(text: "Synthetic clipboard delivery", retention: .forever)
+        let paster = ClipboardPasteFixture()
         let clipboard = ClipboardModel(defaults: defaults, fileURL: folder.appendingPathComponent("clipboard.json"), pasteboardName: board.name)
         let source = SourceFixture()
         let selections = SelectionFixture()
         let converter = ConverterFixture()
         let model = LauncherModel(usageStore: SearchUsageStore(fileURL: folder.appendingPathComponent("Search/usage.json")))
         let controller = LauncherPanelController(
-            clipboard: clipboard, model: model,
+            clipboard: clipboard, clipboardPaster: paster, model: model,
             performSystemAction: { _ in fatalError("Unexpected system action") },
             openApplication: { _, _ in fatalError("Unexpected app launch") },
             selectedText: selections,
@@ -432,6 +455,38 @@ private actor ConverterFixture {
         check(await selections.counts().processIDs.last == 55_555,
               "Reclaimed launcher conversion targets the newly captured app, not the previous form")
         controller.dismiss(returnFocus: false)
+
+        // Clipboard delivery uses the same invocation target, without reading
+        // selected text or requiring a selection in the destination app.
+        source.processID = 42_424
+        controller.prepareInvocation()
+        model.setQuery("clipboard")
+        submit(view)
+        try await waitUntil { !clipboard.isLoading && clipboard.selectedEntry != nil }
+        let capturesBeforePaste = await selections.counts().captures
+        controller.pasteClipboardItem()
+        try await waitUntil { await paster.counts().1 == 1 && model.query.isEmpty }
+        check(board.string(forType: .string) == "Synthetic clipboard delivery", "Clipboard history writes the selected text before paste")
+        check(await selections.counts().captures == capturesBeforePaste, "Clipboard paste never reads destination selection or text")
+        check(await paster.deliveries == ["Synthetic clipboard delivery"], "One history selection delivers exactly once")
+        controller.prepareInvocation()
+        model.setQuery("clipboard"); submit(view)
+        try await waitUntil { clipboard.selectedEntry != nil }
+        let gate = Gate()
+        await paster.configure(gate: gate)
+        controller.pasteClipboardItem()
+        try await waitUntil { await paster.counts().0 == 2 }
+        clipboard.setQuery("changed")
+        await gate.open()
+        try await waitUntil { let counts = await paster.counts(); return !clipboard.isCopying && counts.2 >= 2 }
+        check(await paster.counts().1 == 1, "Changing the query cancels delayed capture without pasting")
+        clipboard.setQuery("")
+        await paster.configure(error: .permissionRequired)
+        controller.pasteClipboardItem()
+        try await waitUntil { clipboard.needsPastePermission }
+        check(await paster.counts().1 == 1 && clipboard.errorMessage != nil, "Missing permission keeps the history page and exposes a localized action")
+        controller.dismiss(returnFocus: false)
+        await paster.configure()
 
         // Exercise the actual production actor, with bundled data, while a main
         // actor heartbeat runs. Conversion must not monopolize the UI executor.

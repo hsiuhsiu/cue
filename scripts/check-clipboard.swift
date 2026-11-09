@@ -14,6 +14,7 @@ struct CheckClipboard {
         application.mainMenu = nil
         let checks = Checks()
         do {
+            try await checkPasteDelivery(checks)
             try await checkMonitor(checks)
             try await checkModelAndView(checks)
             try await checkCopyCancellationAndPreview(checks)
@@ -32,6 +33,83 @@ struct CheckClipboard {
             exit(1)
         }
         print("Clipboard regression passed: \(checks.count) checks; capture privacy, lifecycle, persistence, async copy, retention, and native keyboard routing. Only isolated named pasteboards were used.")
+    }
+
+    @MainActor
+    private static func checkPasteDelivery(_ checks: Checks) async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let driver = PasteDriverFixture()
+        let service = ClipboardPasteService(driver: driver, pasteboardName: fixture.board.name)
+        try fixture.write("Chosen item", marker: ClipboardMonitor.ownMarker)
+        let target = try await service.capture(processID: 424242)
+        try await service.paste(target, text: "Chosen item")
+        checks.expect(driver.postCount == 1, "Selected item posts exactly one paste")
+        checks.expect(fixture.board.string(forType: .string) == "Chosen item", "Pasted history item remains available for a later manual paste")
+        for scenario in ["focus", "clipboard", "permission", "cancel"] {
+            try fixture.write("Chosen item", marker: ClipboardMonitor.ownMarker)
+            let target = try await service.capture(processID: 424242)
+            switch scenario {
+            case "focus": driver.setError(.targetChanged)
+            case "clipboard": try fixture.write("New copy")
+            case "permission": driver.setError(.permissionRequired)
+            default: driver.setWaiting(true)
+            }
+            let checksBefore = driver.focusChecks
+            let task = Task { try await service.paste(target, text: "Chosen item") }
+            if scenario == "cancel" {
+                await checks.eventually("Paste handoff should start before cancellation") { driver.focusChecks > checksBefore }
+                task.cancel()
+            }
+            do { try await task.value; checks.expect(false, "Invalid paste must fail: \(scenario)") }
+            catch { checks.expect(true, "Invalid paste is cancelled: \(scenario)") }
+            checks.expect(driver.postCount == 1, "\(scenario) must never post into another target or paste newer clipboard content")
+            driver.setError(nil); driver.setWaiting(false)
+        }
+        let old = try await service.capture(processID: 424242)
+        let fresh = try await service.capture(processID: 424243)
+        await service.discard(old)
+        try fixture.write("Chosen item", marker: ClipboardMonitor.ownMarker)
+        try await service.paste(fresh, text: "Chosen item")
+        checks.expect(driver.postCount == 2, "Late cleanup cannot invalidate a newer target")
+        checks.expect(!driver.calledOnMain, "Paste identity checks and event posting stay off the main thread")
+
+        let seed = ClipboardStore(fileURL: fixture.file)
+        _ = try await seed.record(text: "History text", retention: .forever)
+        let model = ClipboardModel(defaults: fixture.defaults, fileURL: fixture.file, pasteboardName: fixture.board.name)
+        model.open()
+        await checks.eventually("Paste permission fixture loads") { !model.isLoading && !model.results.isEmpty }
+        var failures = 0
+        let originalCount = fixture.board.changeCount
+        model.copySelected(beforeCopy: { throw ClipboardPasteError.permissionRequired }, onFailure: { _ in failures += 1 }, onCopied: { checks.expect(false, "Denied paste cannot finish copying") })
+        await checks.eventually("Missing permission is surfaced") { failures == 1 }
+        checks.expect(fixture.board.changeCount == originalCount, "Permission is checked before replacing the clipboard")
+        var pastes = 0, copies = 0
+        let view = ClipboardView(model: model, onPaste: { _ in pastes += 1 }, onBack: {})
+        view.onCopyOnly = { copies += 1 }
+        let window = NSPanel(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = view
+        defer { window.contentView = nil; window.close() }
+        checks.expect(view.performKeyEquivalent(with: key(window, "\r", modifiers: .command, code: 36)) && copies == 1 && pastes == 0,
+                      "Command-Return copies without pasting")
+        view.showPreview()
+        checks.expect(view.performKeyEquivalent(with: key(window, "\r", modifiers: .command, code: 36)) && copies == 2 && pastes == 0,
+                      "Command-Return retains copy-only meaning inside preview")
+        checks.expect(view.performKeyEquivalent(with: key(window, "\r", modifiers: [], code: 36)) && pastes == 1,
+                      "Return in preview pastes by default")
+        if let path = ProcessInfo.processInfo.environment["CUE_CLIPBOARD_PREVIEW_DIRECTORY"] {
+            let directory = URL(fileURLWithPath: path)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            for preview in [false, true] {
+                if preview { view.showPreview() } else { view.closePreview() }
+                window.setContentSize(NSSize(width: 640, height: view.preferredHeight))
+                view.layoutSubtreeIfNeeded()
+                guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }
+                view.cacheDisplay(in: view.bounds, to: bitmap)
+                try bitmap.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent(preview ? "preview.png" : "history.png"))
+            }
+        }
+        await model.prepareForTermination()
     }
 
     @MainActor
@@ -139,7 +217,7 @@ struct CheckClipboard {
         checks.expect(model.errorMessage == nil, "A valid history file must load without errors")
         var copies = 0
         var backs = 0
-        let view = ClipboardView(model: model, onCopy: { index in model.copySelected(at: index) { copies += 1 } }, onBack: { backs += 1 })
+        let view = ClipboardView(model: model, onPaste: { index in model.copySelected(at: index) { copies += 1 } }, onBack: { backs += 1 })
         let window = NSPanel(contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = view
@@ -237,7 +315,7 @@ struct CheckClipboard {
         defer { model.close(); model.stop() }
         var copies = 0
         var backs = 0
-        let view = ClipboardView(model: model, onCopy: { index in model.copySelected(at: index) { copies += 1 } }, onBack: { backs += 1 })
+        let view = ClipboardView(model: model, onPaste: { index in model.copySelected(at: index) { copies += 1 } }, onBack: { backs += 1 })
         let window = NSPanel(contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = view
@@ -443,7 +521,7 @@ struct CheckClipboard {
         }
         let model = ClipboardModel(defaults: fixture.defaults, fileURL: fixture.file, pasteboardName: fixture.board.name)
         defer { model.close(); model.stop() }
-        let view = ClipboardView(model: model, onCopy: { _ in }, onBack: {})
+        let view = ClipboardView(model: model, onPaste: { _ in }, onBack: {})
         let window = NSPanel(contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = view
@@ -565,7 +643,7 @@ struct CheckClipboard {
         defer { model.close(); model.stop() }
         var requests = 0
         var copies = 0
-        let view = ClipboardView(model: model, onCopy: { index in
+        let view = ClipboardView(model: model, onPaste: { index in
             requests += 1
             model.copySelected(at: index) { copies += 1 }
         }, onBack: {})
@@ -861,4 +939,38 @@ private final class Fixture {
         defaults.removePersistentDomain(forName: suite)
         try? FileManager.default.removeItem(at: directory)
     }
+}
+
+private final class PasteDriverFixture: ClipboardPasteDriver, @unchecked Sendable {
+    private let lock = NSLock()
+    private var target: ClipboardPasteTarget?
+    private var error: ClipboardPasteError?
+    private var waiting = false
+    private var posts = 0, reads = 0
+    private var mainThread = false
+    var postCount: Int { lock.withLock { posts } }
+    var focusChecks: Int { lock.withLock { reads } }
+    var calledOnMain: Bool { lock.withLock { mainThread } }
+    func setError(_ value: ClipboardPasteError?) { lock.withLock { error = value } }
+    func setWaiting(_ value: Bool) { lock.withLock { waiting = value } }
+    func capture(processID: Int32) throws -> ClipboardPasteTarget {
+        lock.withLock {
+            mainThread = mainThread || Thread.isMainThread
+            let value = ClipboardPasteTarget(id: UUID(), processID: processID)
+            target = value; return value
+        }
+    }
+    func isFocused(_ value: ClipboardPasteTarget) throws -> Bool {
+        try lock.withLock {
+            mainThread = mainThread || Thread.isMainThread; reads += 1
+            if let error { throw error }
+            guard value == target else { throw ClipboardPasteError.targetChanged }
+            return !waiting
+        }
+    }
+    func postPaste(_ value: ClipboardPasteTarget) throws {
+        guard try isFocused(value) else { throw ClipboardPasteError.targetChanged }
+        lock.withLock { posts += 1 }
+    }
+    func discard(_ value: ClipboardPasteTarget) { lock.withLock { if target == value { target = nil } } }
 }

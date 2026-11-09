@@ -308,7 +308,7 @@ public enum LauncherResult: Identifiable, Hashable, Sendable {
     }
 
     /// A choice for this exact query may cross the command/app boundary. Keep
-    /// each group's existing order, so app text-match categories remain intact;
+    /// each group's existing order, including exact app names and aliases;
     /// general popularity alone must not displace a command for a new query.
     private static func merge(
         commands: [LauncherResult], applications: [LauncherResult],

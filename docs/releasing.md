@@ -112,6 +112,11 @@ App 及 DMG 內的預設值，也會執行網路政策與更新器測試。使�
    stale/revoked permission after updates, returning from System Settings,
    preserved explicit disablement, shortcut conflicts and no replay of old
    layout actions. These tests must not request or reset real system permission.
+   `scripts/check-local-signing.sh` uses disposable identities and a temporary
+   keychain to verify source-update signing continuity and rejection of changed
+   identities. Public release packaging remains ad hoc signed and does not use
+   the maintainer's local source-signing certificate. For daily use, build and
+   install the source app separately to preserve that configured identity.
    Record live GPT testing separately from simulated checks; a missing
    maintainer API key does not turn mocked answers into a live validation.
    Run `scripts/check-login-item.sh` with its injected service; it must not change

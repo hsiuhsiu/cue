@@ -8,14 +8,15 @@ Open Cue, which starts with just an empty input field, without initial results, 
 
 Saved clipboard history remains visible with an empty search field. Each record displays its number and the date and time it was copied. The compact window adapts to the result count and shows the nine most recent matching records, with no scrollbars. Search covers all saved history; records beyond the nine displayed are retained and can be found by refining the query. The display limit does not change the storage or retention limits below. A subtle blue tint reflects Cue's icon in both light and dark appearances.
 
-**Command+1–9 immediately copies the corresponding result and closes Cue**, without another Return press. In the main launcher, the same shortcuts immediately open the numbered app or run the numbered command. Both result lists are limited to nine visible matches.
+**Command+1–9 immediately pastes the corresponding result into the original app and closes Cue**, without another Return press. In the main launcher, the same shortcuts immediately open the numbered app or run the numbered command. Both result lists are limited to nine visible matches.
 
 | Action | Control |
 | --- | --- |
 | Search saved text and links | Type in the history search field |
 | Select an item | Up/Down or a single click |
-| Copy the selected item and close Cue | Return, **Copy**, or double-click |
-| Copy a numbered result and close Cue immediately | Command+1–9 |
+| Paste the selected item into the original app | Return, **Paste**, or double-click |
+| Paste a numbered result immediately | Command+1–9 |
+| Copy without pasting | **Copy** or Command+Return |
 | Preview the selected item’s full text | **Preview** or Command+Y; Esc returns to the same search and selection |
 | Paste into another app | Command+V in that app |
 | Delete the selected history item with an empty search field | Delete/Backspace |
@@ -27,7 +28,7 @@ When the search field contains text, Delete/Backspace edits the query normally. 
 
 The full-text preview opens only when requested. It preserves line breaks and exact text, stays read-only, and does not fetch links or render embedded content. Returning from clipboard settings preserves the preview; returning to history clears the preview’s full-text view. Opening settings or a preview, leaving the feature, changing the selection/query, or losing focus cancels an unfinished copy, so an old completion cannot close a newer page. Pasteboard publication runs in the background; work already being published cannot be rolled back safely.
 
-Copying does not paste automatically and does not require Accessibility permission. Deleting a history item removes that saved record; it does **not** clear the current system clipboard.
+Pasting needs Accessibility permission. Choose **Allow Pasting…** when prompted, then enable Cue in **System Settings → Privacy & Security → Accessibility**. The target app, window and focused element are checked again before Cue sends one Paste command; switching destinations or changing the clipboard cancels delivery. Cue does not inspect destination text. The selected text stays on the clipboard. **Copy / Command+Return** only copies and needs no Accessibility permission. Deleting a history item removes that saved record; it does **not** clear the current system clipboard.
 
 ### Recording and retention
 
@@ -51,14 +52,15 @@ History stays in `~/Library/Application Support/com.yyhsiu.cue/Clipboard/history
 
 剪貼簿頁的搜尋欄空白時，仍會顯示已儲存的記錄。每筆記錄都會顯示編號，以及拷貝的日期與時間。視窗會依結果數量調整高度，最多顯示符合搜尋條件的最近九筆記錄，不顯示捲軸。搜尋範圍仍涵蓋全部已儲存記錄；超過九筆的記錄會保留，可輸入更精確的文字尋找。顯示上限不影響下方說明的儲存容量與保留時間。淺色與深色外觀都採用呼應 Cue 圖示的淡藍色調。
 
-按 **Command+1–9 會立即拷貝對應編號的結果並關閉 Cue**，不必再按 Return。在主啟動器中，相同快速鍵會立即開啟對應的 App 或執行指令。兩種結果清單都最多顯示九筆符合項目。
+按 **Command+1–9 會立即將對應編號的結果貼回原 App 並關閉 Cue**，不必再按 Return。在主啟動器中，相同快速鍵會立即開啟對應的 App 或執行指令。兩種結果清單都最多顯示九筆符合項目。
 
 | 操作 | 方式 |
 | --- | --- |
 | 搜尋已儲存的文字與連結 | 在記錄頁的搜尋欄輸入文字 |
 | 選取項目 | 上／下方向鍵或點一下 |
-| 拷貝所選項目並關閉 Cue | Return、**拷貝**按鈕，或點兩下 |
-| 立即拷貝指定編號的結果並關閉 Cue | Command+1–9 |
+| 將所選項目貼回原 App | Return、**貼上**按鈕，或點兩下 |
+| 立即貼上指定編號的結果 | Command+1–9 |
+| 只拷貝、不貼上 | **拷貝**或 Command+Return |
 | 預覽所選記錄的完整文字 | **預覽**或 Command+Y；Esc 返回原本的搜尋與選取項目 |
 | 貼到其他 App | 在該 App 按 Command+V |
 | 搜尋欄空白時刪除所選記錄 | Delete／Backspace |
@@ -70,7 +72,7 @@ History stays in `~/Library/Application Support/com.yyhsiu.cue/Clipboard/history
 
 完整文字只會在主動開啟預覽時顯示，保留原本的換行與內容，僅供閱讀，不會抓取連結或呈現內嵌內容。從剪貼簿設定返回時會保留預覽；返回記錄清單時會清除預覽中的全文。開啟設定或預覽、離開功能頁、改變選取項目或搜尋文字，以及失去焦點時，都會取消尚未完成的拷貝，避免舊操作關閉後來開啟的頁面。剪貼簿寫入在背景執行；已開始發布的內容無法安全地回復。
 
-拷貝後不會自動貼上，也不需要「輔助使用」權限。刪除記錄只會移除已儲存的項目，**不會**清空系統剪貼簿目前的內容。
+貼上需要「輔助使用」權限。看到提示時按**允許貼上⋯**，再到「**系統設定 → 隱私權與安全性 → 輔助使用**」開啟 Cue。貼上前會再次確認原本的 App、視窗與輸入位置；切換目標或改變剪貼簿時就會取消，不會讀取目標欄位文字，也不會重複送出貼上。選取的文字會保留在剪貼簿。**拷貝／Command+Return** 只會拷貝，不需要此權限。刪除記錄只會移除已儲存的項目，**不會**清空系統剪貼簿目前的內容。
 
 ### 記錄與保留時間
 

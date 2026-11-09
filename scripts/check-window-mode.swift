@@ -45,6 +45,36 @@ private actor SyntheticWindowService: WindowControlling {
             }
             preconditionFailure("Timed out waiting for isolated fixture")
         }
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("cue-window-repeat-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let preferences = WindowControlPreferences(fileURL: temporary.appendingPathComponent("settings.json"))
+        await preferences.load()
+        let repeatedService = SyntheticWindowService()
+        var foreground: Int32 = 987654
+        var activations = 0
+        let existingWindows = Set(NSApp.windows.map(ObjectIdentifier.init))
+        let controller = WindowModeController(preferences: preferences, service: repeatedService,
+            screens: { [repeatedService.screen] }, frontmostProcess: { foreground },
+            sourceIsRunning: { $0 == 987654 }, restoreSource: { _ in activations += 1 })
+        let panel = NSApp.windows.first { !existingWindows.contains(ObjectIdentifier($0)) } as! NSPanel
+        expect(panel.styleMask.contains(.nonactivatingPanel) && !panel.becomesKeyOnlyIfNeeded && panel.canBecomeKey,
+               "Window controls take native key focus without changing the foreground app")
+        for _ in 0..<20 {
+            controller.prepareInvocation()
+            let id = controller.model.sessionID!
+            controller.model.perform(.fill) // Immediate action before capture completes.
+            await eventually { await repeatedService.captureCount() == 1 }
+            await repeatedService.finishCapture(id)
+            await eventually { controller.model.sessionID == nil }
+            expect(controller.targetProcessIdentifier == foreground && !controller.model.isBusy,
+                   "Completed layout closes the session before immediate reinvocation")
+        }
+        expect(await repeatedService.actionCount() == 20 && activations == 0,
+               "Repeated layouts execute once each with no foreground activation race")
+        foreground = ProcessInfo.processInfo.processIdentifier
+        controller.prepareInvocation()
+        expect(controller.model.sessionID == nil, "Cue's own settings never become a window target")
+        expect(!panel.isVisible, "Controller fixture never presents a desktop panel")
         let service = SyntheticWindowService()
         let screen = service.screen
         let model = WindowModeModel(service: service, screens: { [screen] })

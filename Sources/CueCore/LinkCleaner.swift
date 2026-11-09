@@ -47,6 +47,10 @@ public enum LinkCleaner {
               hasValidPercentEscapes(original),
               let components = URLComponents(string: original),
               let scheme = components.scheme?.lowercased(), scheme == "https" || scheme == "http",
+              // Validate the decoded spelling too: Foundation can truncate a
+              // host at an encoded NUL on some SDK/runtime combinations.
+              let encodedHost = components.percentEncodedHost,
+              let decodedHost = encodedHost.removingPercentEncoding, isValidHost(decodedHost),
               let host = components.host, isValidHost(host),
               (components.port.map { (0...65_535).contains($0) } ?? true),
               components.url != nil else { throw Error.invalidURL }

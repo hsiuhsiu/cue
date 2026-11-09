@@ -58,6 +58,7 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/SettingsWindowController.swift" \
     "$repo_root/Sources/Cue/WindowControlSettings.swift" \
     "$repo_root/Sources/Cue/WindowControlService.swift" \
+    "$repo_root/Sources/Cue/PanelFocusRequest.swift" \
     "$repo_root/Sources/Cue/WindowModeController.swift" \
     "$repo_root/Sources/Cue/HotKeyManager.swift" \
     "$repo_root/Sources/Cue/LauncherAppearance.swift" \

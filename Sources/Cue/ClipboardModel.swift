@@ -34,9 +34,16 @@ final class ClipboardModel {
     private(set) var isCopying = false
     private(set) var errorMessage: String?
     private(set) var statusMessage: String?
+    private(set) var needsPastePermission = false
     var onChange: (() -> Void)?
 
     var selectedEntry: ClipboardEntry? { results.first { $0.id == selectedID } }
+
+    func reportPasteError(_ message: String, needsPermission: Bool = false) {
+        errorMessage = message
+        needsPastePermission = needsPermission
+        onChange?()
+    }
 
     private let defaults: UserDefaults
     private let store: ClipboardStore
@@ -263,7 +270,11 @@ final class ClipboardModel {
         if wasCopying { onChange?() }
     }
 
-    func copySelected(at resultIndex: Int? = nil, onCopied: @escaping () -> Void) {
+    func copySelected(at resultIndex: Int? = nil,
+                      beforeCopy: @escaping @MainActor () async throws -> Void = {},
+                      onFailure: ((Error) -> Void)? = nil,
+                      onCopiedText: ((String) -> Void)? = nil,
+                      onCopied: @escaping () -> Void) {
         guard !isStopping, isPresented else { return }
         if let resultIndex, !(0..<LauncherPreferences.maximumVisibleResults).contains(resultIndex) { return }
         cancelPendingCopy()
@@ -280,6 +291,7 @@ final class ClipboardModel {
         let pendingOperations = operations
         isCopying = true
         errorMessage = nil
+        needsPastePermission = false
         onChange?()
         copyTask = Task { [weak self, store, copier] in
             do {
@@ -305,6 +317,10 @@ final class ClipboardModel {
                     self.prune()
                     return
                 }
+                try await beforeCopy()
+                try Task.checkCancellation()
+                guard self.isPresented, self.presentationGeneration == presentation,
+                      self.query == requestedQuery, self.copyGeneration == copyRequest else { return }
                 try await copier(entry.text)
                 try Task.checkCancellation()
                 guard self.isPresented, self.presentationGeneration == presentation,
@@ -312,12 +328,14 @@ final class ClipboardModel {
                 self.finishCopy()
                 // Copying a retained item works while recording is paused too.
                 if self.recordingEnabled { self.record(entry.text) }
+                onCopiedText?(entry.text)
                 onCopied()
             } catch {
                 guard !Task.isCancelled, let self, self.isPresented,
                       self.presentationGeneration == presentation, self.copyGeneration == copyRequest else { return }
                 self.errorMessage = Self.copyError
                 self.finishCopy()
+                onFailure?(error)
             }
         }
     }

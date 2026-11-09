@@ -218,6 +218,21 @@ struct CheckAdaptiveSearch {
         check(SearchEngine.search(apps, query: "codi", usage: earlySaved).first == apps[2],
               "First-use actions survive startup loading and immediate quit")
 
+        let home = IndexedApplication(name: "Home Assistant", url: URL(fileURLWithPath: "/Synthetic/Home Assistant.app"))
+        let haApps = ["HandBrake", "Hammerspoon", "ChatGPT", "Charles", "My Hardware"].map {
+            IndexedApplication(name: $0, url: URL(fileURLWithPath: "/Synthetic/\($0).app"))
+        } + [home]
+        let haFile = folder.appendingPathComponent("HA/usage.json")
+        let ha = LauncherModel(applications: haApps, usageStore: SearchUsageStore(fileURL: haFile))
+        ha.startUsageTracking()
+        ha.setQuery("HA")
+        check(ha.results.last == .application(home), "Initials reproduce the user's sixth-place result")
+        ha.recordSuccessfulAction(resultID: LauncherResult.application(home).id, query: "HA")
+        await ha.prepareForTermination()
+        let loadedHA = await SearchUsageStore(fileURL: haFile).load()
+        check(SearchEngine.search(haApps, query: "ha", usage: loadedHA).first == home,
+              "One successful HA choice remains first after restarting and loading persisted usage")
+
         // A command's incidental substring must not permanently block a learned
         // app choice: "it" also occurs inside the traditional-conversion alias.
         let terminal = IndexedApplication(name: "iTerm2", url: URL(fileURLWithPath: "/Synthetic/iTerm2.app"))

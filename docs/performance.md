@@ -49,9 +49,11 @@ For applications, an exact custom search alias comes first. Automatic names incl
 the display name, local bundle names, and the `.app` filename, prepared once during
 indexing. Each app appears once, using its strongest name match. Other text
 matching follows: exact name, name prefix, word prefix,
-substring, then initials/fuzzy matches. Within a matching category, ranking uses
-the score for the exact normalized query and selected result, followed by the
-result's overall score. Existing match penalties, positions, name lengths, names,
+substring, then initials/fuzzy matches. Exact custom aliases and complete names
+stay ahead. Among partial matches, the score for the exact normalized query
+comes before match category: choosing Home Assistant for `HA` can put it above
+incidental prefix and substring matches after one successful launch. General
+popularity only breaks ties within a category. Existing match penalties, positions, name lengths, names,
 and paths break remaining ties. Matching commands also learn their order relative
 to other commands.
 
@@ -97,7 +99,7 @@ Cue. Preferences and Clipboard History use separate storage.
 
 An actor loads and updates the state off the main thread. It prepares immutable
 score dictionaries there, including decay math. The typing path reads those
-scores from memory to sort within each list and merge matching apps and commands;
+scores from memory to rank each list and merge matching apps and commands;
 queries without their own history skip the merge. It never reads or writes
 the usage file or waits for that actor. Startup continues while history loads.
 Recent query results remain cached.
@@ -237,28 +239,68 @@ simulated results separate when reporting release readiness.
 
 ### Input and history comparison
 
-On **2026-10-19**, the same interaction fixture ran sequentially against unmodified
-**1.1.2** and the **1.2.0** candidate using optimized builds on the same Mac.
-App actions add no file access or menu construction to ordinary typing; the
-nonactivating panel and focus coordinator are unchanged.
+On **2026-11-09**, the same fixtures ran sequentially against unmodified
+**1.2.0** and **1.3.0-beta.1**, using optimized Swift 6 builds on the same Apple
+silicon Mac running macOS 27.2. Exact-query learning changes only the in-memory
+ranking comparator. Clipboard target validation runs only after an explicit
+selection, and window controls reuse the launcher's nonactivating focus coordinator.
 
-| Offscreen workload | 1.1.2 p95 | 1.2.0 p95 |
+| Offscreen workload | 1.2.0 p95 | 1.3.0-beta.1 p95 |
 | --- | ---: | ---: |
-| Native editor typing + layout | 2.513 ms | 2.005 ms |
-| Typing at the end of 1–32 KiB input | 16.927 ms | 16.588 ms |
-| 200 history recalls + native layout | 0.061 ms | 0.060 ms |
-| File refinement + native layout | 0.179 ms | 0.183 ms |
-| File completion + native layout | 0.140 ms | 0.143 ms |
-| Rendering during long-input edits | 3.815 ms | 3.834 ms |
+| Native editor typing + layout | 3.209 ms | 2.052 ms |
+| Typing at the end of 1–32 KiB input | 20.652 ms | 16.812 ms |
+| 200 history recalls + native layout | 0.082 ms | 0.059 ms |
+| File refinement + native layout | 0.183 ms | 0.181 ms |
+| File completion + native layout | 0.147 ms | 0.145 ms |
+| Rendering during long-input edits | 4.202 ms | 3.669 ms |
+| App search: 1,000 apps, 256 aliases, maximum usage; uncached model | 1.570 ms | 1.571 ms |
 
-Native-typing p99 was 4.990 ms in the baseline and 4.678 ms in the candidate;
-maxima were 15.997 and 14.131 ms. The candidate's history recall had a 0.054 ms
-median, 0.081 ms p99 and 3.312 ms maximum, including its first recall. These
-samples show no material regression; single-run differences do not establish
-that app actions make editing faster. Each
-synchronous edit published one model update, with no cleared matching file rows
-or unnecessary panel-height changes. The native view is already constructed;
-these are not physical input-to-display or full-history-page measurements.
+Native-typing p99 was 9.981 / 4.557 ms; maxima were 27.628 / 15.329 ms.
+No consistent regression was observed; differences between runs do not establish
+an editing speedup. Each synchronous edit published one model update, with no
+cleared matching file rows or unnecessary panel-height changes. These are warm,
+offscreen component measurements, not physical input-to-display latency.
+
+One candidate uncached-search sample took 22.910 ms wall time but only 0.900 ms
+thread CPU time; the baseline also had a 19.572 ms wall / 0.967 ms CPU outlier.
+This suggests scheduling or non-CPU waiting rather than increased ranking work.
+A separate serial candidate rerun measured a 2.318 ms maximum for that empty-usage
+workload. Maximum-usage uncached model p95 was 1.602 ms and maximum 1.955 ms on
+the repeat, versus 1.571 / 2.858 ms on the first run. No timing guarantee follows
+from these samples, and occasional OS scheduling delays remain possible.
+
+Validation for this change included 296 core tests, 72 adaptive-search checks,
+272 isolated clipboard checks, 62 text/paste lifecycle checks, 91 window-service
+checks, and 145 window-mode checks in each language. Synthetic window tests include
+40 consecutive numbered presets whose old positions constrain resizing. The CLT
+source bundle passed relocation, signing, offline-data and 535 localization-pair
+checks. The user separately confirmed HA ranking, direct clipboard paste and rapid
+custom numbered window layouts on the installed 1.3.0-beta.1 build.
+
+Local-signing changes are confined to build/install scripts and add no app startup
+or interaction work. Nineteen isolated checks verify certificate-bound identity
+continuity across different executable hashes, reject other signers, tampered
+resources and weakened identity requirements, and fail closed on missing signing
+configuration/keys. Both 1.3.0-beta.2 and beta.3 CLT builds passed relocated-bundle
+checks. Their app code hashes differ while their identifier-and-certificate
+requirements are identical. In coordinated testing on this Mac, the user granted
+Accessibility to beta.2 once, then confirmed Option+M and a custom numbered preset
+worked immediately after installing beta.3 without changing permission settings.
+This establishes retention for that update, not a guarantee across OS resets,
+different signing identities, or future security-policy changes.
+
+The final 1.3.0 integration also measures native Chinese marked-text edits. An
+isolated, interleaved editor comparison found that the custom TextKit 2 field
+editor spent about 18.7 ms of thread CPU per 32 KiB edit, versus 10.8 ms for the
+default field editor. Explicit TextKit 1 layout reduced that custom-editor case
+to about 1.1 ms while keeping native composition. With the complete launcher and
+new composition fixture, ordinary typing p50/p95/p99/max measured
+0.255/3.679/12.704/21.603 ms; long-input p95 was 7.528 ms. Marked-text file-query
+updates measured 0.502 ms p95, and completion rendering 0.274 ms p95 (14.828 ms
+maximum). These remain offscreen samples with occasional spikes, not a guarantee
+of physical input latency. The native keyboard/file-search checks cover caret
+placement, wrapping, candidate navigation, composition commit/cancel and stale
+results with this editor.
 
 ## 正體中文
 
@@ -268,8 +310,9 @@ these are not physical input-to-display or full-history-page measurements.
 改變要執行的項目。圖示最多兩個解碼工作、256 個快取項目；剪貼簿資料與搜尋也
 有固定上限。
 
-學習只記錄成功的 App／指令選擇，保存在本機 JSON；同一符合類別先看相同
-關鍵字的選擇，再看帶有 14 天半衰期的使用分數。明確別名及完全符合仍優先。
+學習只記錄成功的 App／指令選擇，保存在本機 JSON。明確別名及完整名稱仍優先；
+其他部分符合的結果會先比較相同關鍵字的選擇分數，再看符合類別。一般使用頻率
+仍只影響同一類別內的順序，使用分數有 14 天半衰期。
 背景學習完成不會改動正在選擇的列表，下次輸入或叫出才採用新分數。要重設學習，
 請結束 Cue 後只移除 `Search/usage.json`；設定與剪貼簿使用獨立儲存。
 
@@ -278,17 +321,30 @@ these are not physical input-to-display or full-history-page measurements.
 快照，存檔由背景處理，一般搜尋不掃描歷史。回看後的第一個修改只更新一次畫面，
 不會把舊輸入或游標位置蓋回去；歷史頁每頁最多九列。
 
-2026-10-19 使用 Xcode 27／Swift 6.4 的最佳化建置，在同一台 Mac 依序對照
-1.1.2 與 1.2.0。App 動作選單只在叫用時建立，路徑檢查只在執行後移到背景，
-原生面板與焦點協調維持原樣。原生打字 p95 分別為 2.513／2.005 ms，
-1–32 KiB 文字尾端編輯為 16.927／16.588 ms，歷史回看為 0.061／0.060 ms；
-檔案更新與長輸入維持原有範圍。原生打字 p99 為 4.990／4.678 ms，最大值
-15.997／14.131 ms；本次歷史回看中位數 0.054 ms、p99 0.081 ms、最大
-3.312 ms，包含第一次回看。沒有看到明顯退步，也不把單次量測差異解讀成新增
-動作加快了編輯。原生 View 已建立，每次同步編輯仍只發布一次畫面更新；這些
-數字不是按鍵到螢幕的延遲，也不是整個歷史管理頁的量測。
+2026-11-09 在 macOS 27.2、同一台 Apple silicon Mac 依序對照 1.2.0 與
+1.3.0-beta.1 的最佳化建置。原生打字 p95 為 3.209／2.052 ms，1–32 KiB
+文字尾端編輯為 20.652／16.812 ms，歷史回看為 0.082／0.059 ms。1,000 個
+App、256 個別名與最大學習紀錄下，未命中快取的搜尋 p95 為 1.570／1.571 ms。
+沒有看到穩定退步，也不把單次差異解讀為新增功能加快了編輯。一次 22.910 ms
+搜尋尖峰只使用 0.900 ms 執行緒 CPU 時間；另外序列重跑，同一情境最大值為
+2.318 ms。這些是離屏元件量測，無法保證系統排程或按鍵到螢幕的延遲。
 
-上表是指定日期、機器與合成工作負載的元件量測，不能當成未來版本、其他 Mac 或
-按鍵到畫面的延遲保證。依序執行上列命令可重新測量；保留第一次使用與最慢樣本，
-不要只看平均值。真實全域快捷鍵、跨 App 焦點、系統授權及可見畫面仍需另行協調
-實機測試；測試不應打斷日常使用或讀取個人資料。
+隔離測試與 Command Line Tools 建置通過；使用者另以已安裝的 1.3.0-beta.1
+確認 HA 排序、剪貼簿直接貼上，以及快速連續執行自訂數字配置正常。
+
+固定本機簽署只修改建置及安裝腳本，不增加 App 啟動或操作時的工作。19 項隔離
+檢查確認不同執行檔雜湊仍維持相同憑證身分、拒絕其他簽署者與遭修改的資源，
+並在設定或金鑰遺失時停止。1.3.0-beta.2 與 beta.3 的 CLT 建置及搬移後檢查皆
+通過；兩版 App 的程式碼雜湊不同，但憑證身分要求相同。另於本機實測：使用者
+為 beta.2 授權一次後，更新至 beta.3，未更動任何權限設定，就能直接使用
+Option+M 與自訂數字配置。這確認了本次更新保留授權，不代表系統重設、切換簽署
+身分或未來安全政策改變後也一定保留。
+
+1.3.0 最後整合中文組字即時搜尋時，交錯的離屏欄位測試發現：自訂 TextKit 2
+編輯元件在 32 KiB 文字每次編輯約用 18.7 ms 執行緒 CPU，系統預設欄位約
+10.8 ms；改用 TextKit 1 後，自訂欄位降至約 1.1 ms，並保留原生組字。
+完整啟動器的新測試中，一般打字 p50／p95／p99／最大值為
+0.255／3.679／12.704／21.603 ms，長輸入 p95 為 7.528 ms；組字中的檔案查詢
+更新 p95 為 0.502 ms，結果回來後的繪製 p95 為 0.274 ms、最大值 14.828 ms。
+這些仍是有偶發尖峰的離屏元件量測，不是實體按鍵延遲保證；原生鍵盤與檔案搜尋
+檢查涵蓋此編輯元件的游標、換行、選字、組字確認／取消及過期結果處理。

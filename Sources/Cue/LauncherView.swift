@@ -2,6 +2,38 @@ import AppKit
 import Carbon
 import CueCore
 
+private final class LauncherFieldEditor: NSTextView {
+    var onMarkedTextChange: (() -> Void)?
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        // AppKit defers the normal control change notification until composition
+        // commits. Search the visible text after the native marked range is ready.
+        onMarkedTextChange?()
+    }
+}
+
+private final class LauncherSearchFieldCell: NSTextFieldCell {
+    private lazy var editor: LauncherFieldEditor = {
+        // Keep incremental plain-text layout. With a custom field editor,
+        // TextKit 2 adds substantial work per edit on long launcher input.
+        let editor = LauncherFieldEditor(usingTextLayoutManager: false)
+        editor.isFieldEditor = true
+        return editor
+    }()
+
+    override func fieldEditor(for controlView: NSView) -> NSTextView? {
+        guard let field = controlView as? NSTextField else { return nil }
+        editor.onMarkedTextChange = { [weak field] in
+            guard let field else { return }
+            field.delegate?.controlTextDidChange?(
+                Notification(name: NSControl.textDidChangeNotification, object: field)
+            )
+        }
+        return editor
+    }
+}
+
 private final class ResultsTable: NSTableView {
     var menuForRow: ((Int) -> NSMenu?)?
     // Result clicks keep the search field ready for the next keystroke.
@@ -196,6 +228,9 @@ final class LauncherView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NS
         layer?.cornerRadius = 16
         layer?.masksToBounds = true
         addSubview(material)
+        searchField.cell = LauncherSearchFieldCell(textCell: "")
+        searchField.isEditable = true
+        searchField.isSelectable = true
         searchField.font = .systemFont(ofSize: 30)
         searchField.isBordered = false
         searchField.drawsBackground = false

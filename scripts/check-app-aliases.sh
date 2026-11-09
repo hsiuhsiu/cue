@@ -44,6 +44,7 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/LauncherView.swift" \
     "$repo_root/Sources/Cue/ClipboardMonitor.swift" \
     "$repo_root/Sources/Cue/ClipboardModel.swift" \
+    "$repo_root/Sources/Cue/ClipboardPasteService.swift" \
     "$repo_root/Sources/Cue/ClipboardView.swift" \
     "$repo_root/Sources/Cue/HotKeyManager.swift" \
     "$repo_root/Sources/Cue/SystemActions.swift" \
@@ -64,6 +65,7 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/GPTView.swift" \
     "$repo_root/Sources/Cue/CommandHistoryModel.swift" \
     "$repo_root/Sources/Cue/CommandHistoryView.swift" \
+    "$repo_root/Sources/Cue/PanelFocusRequest.swift" \
     "$repo_root/Sources/Cue/LauncherPanelController.swift" \
     "$repo_root/Sources/Cue/NetworkPolicy.swift" \
     "$repo_root/scripts/check-app-aliases.swift" \

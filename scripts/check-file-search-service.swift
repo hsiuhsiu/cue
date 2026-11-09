@@ -51,7 +51,7 @@ private final class FakeFileSearchBackend: FileSearchBackend, @unchecked Sendabl
     }
 
     @MainActor static func checkExpressions() throws {
-        let terms = ["report", "正體中文", "a*b?.txt", #"say "hello""#, #"x\y"#,
+        let terms = ["report", "身", "正體中文", "a*b?.txt", #"say "hello""#, #"x\y"#,
                      "a'b", #"x") || (kMDItemFSName == "*") || (""#, "(budget)[2026].pdf"]
         for term in terms {
             let expressions = SpotlightFileSearchExpression.queries(for: term)

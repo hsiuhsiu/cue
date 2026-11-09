@@ -64,13 +64,34 @@ final class SearchUsageTests: XCTestCase {
         XCTAssertEqual(SearchEngine.search(applications, query: "co", usage: usage.snapshot(at: now)).first, applications[1])
     }
 
-    func testExactAndStrongerTextMatchesRemainAheadOfFrequentWeakerMatches() {
+    func testExactNamesStayAheadWhileQueryLearningCrossesPartialMatchCategories() {
         let applications = [app("Code"), app("Code Pro"), app("Visual Studio Code"), app("Xcode")]
         var usage = SearchUsage()
         record(applications[3], query: "code", count: 100, at: now, in: &usage)
         record(applications[2], query: "code", count: 50, at: now, in: &usage)
         record(applications[1], query: "code", count: 20, at: now, in: &usage)
-        XCTAssertEqual(SearchEngine.search(applications.reversed(), query: "code", usage: usage.snapshot(at: now)), applications)
+        XCTAssertEqual(SearchEngine.search(applications.reversed(), query: "code", usage: usage.snapshot(at: now)),
+                       [applications[0], applications[3], applications[2], applications[1]])
+    }
+
+    func testHomeAssistantInitialsLearnAfterOneChoiceAcrossPrefixWordAndSubstringMatches() {
+        let home = app("Home Assistant")
+        let competitors = [app("HandBrake"), app("Hammerspoon"), app("ChatGPT"),
+                           app("Charles"), app("My Hardware")]
+        let applications = competitors + [home]
+        XCTAssertEqual(SearchEngine.search(applications, query: "HA").last, home)
+        var usage = SearchUsage()
+        record(home, query: "ha", at: now, in: &usage)
+        for query in ["ha", "HA", " ＨＡ "] {
+            let snapshot = usage.snapshot(at: now)
+            XCTAssertEqual(SearchEngine.search(applications, query: query, usage: snapshot).first, home)
+            XCTAssertEqual(LauncherResult.search(applications, query: query, usage: snapshot).first, .application(home))
+        }
+        // General popularity alone must not cross the matching categories.
+        var general = SearchUsage()
+        record(home, query: "home", count: 100, at: now, in: &general)
+        XCTAssertEqual(SearchEngine.search(applications, query: "ha", usage: general.snapshot(at: now)),
+                       SearchEngine.search(applications, query: "ha"))
     }
 
     func testHistoryCannotIntroduceUnmatchedApplicationsOrCommands() {
@@ -142,7 +163,7 @@ final class SearchUsageTests: XCTestCase {
                        [.updateIndex, .application(application)])
     }
 
-    func testCrossGroupLearningPreservesExistingAppTextCategoriesAndCommandOrder() {
+    func testCrossGroupLearningPreservesExactAppNamesAndCommandOrder() {
         let applications = [app("Screen"), app("Screen Utility"), app("Manage Screen")]
         var usage = SearchUsage()
         record(applications[0], query: "screen", count: 2, at: now, in: &usage)
@@ -155,7 +176,7 @@ final class SearchUsageTests: XCTestCase {
             if case .application(let application) = result { return application }
             return nil
         }
-        XCTAssertEqual(appResults, applications)
+        XCTAssertEqual(appResults, [applications[0], applications[2], applications[1]])
         XCTAssertEqual(results.filter { $0 == .lockScreen || $0 == .screenOff }, [.screenOff, .lockScreen])
         XCTAssertEqual(results.first, .application(applications[0]))
     }

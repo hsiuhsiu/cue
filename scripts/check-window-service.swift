@@ -12,6 +12,7 @@ private final class StubWindowDriver: WindowControlDriver, @unchecked Sendable {
     private var failedPosition = false
     private var failedReadsAfterWrite = false
     private var minimumSize: CGSize?
+    private var resizeBounds: CGRect?
     private var onSize: (@Sendable () -> Void)?
     private var recordedMainThread = false
 
@@ -42,8 +43,12 @@ private final class StubWindowDriver: WindowControlDriver, @unchecked Sendable {
         try request.check()
         let hook = lock.withLock {
             recordThread(); counts.sizes += 1
-            let actual = CGSize(width: max(size.width, minimumSize?.width ?? 0),
+            var actual = CGSize(width: max(size.width, minimumSize?.width ?? 0),
                                 height: max(size.height, minimumSize?.height ?? 0))
+            if let resizeBounds {
+                actual.width = min(actual.width, resizeBounds.maxX - state.frame.minX)
+                actual.height = min(actual.height, resizeBounds.maxY - state.frame.minY)
+            }
             state = copy(frame: CGRect(origin: state.frame.origin, size: actual))
             return onSize
         }
@@ -54,6 +59,7 @@ private final class StubWindowDriver: WindowControlDriver, @unchecked Sendable {
     func setState(_ value: WindowControlState) { lock.withLock { state = value } }
     func setTrusted(_ value: Bool) { lock.withLock { trusted = value } }
     func setMinimum(_ value: CGSize) { lock.withLock { minimumSize = value } }
+    func limitResize(to value: CGRect) { lock.withLock { resizeBounds = value } }
     func failPosition(_ value: Bool) { lock.withLock { failedPosition = value } }
     func failReadback() { lock.withLock { failedReadsAfterWrite = true } }
     func afterSize(_ value: @escaping @Sendable () -> Void) { lock.withLock { onSize = value } }
@@ -160,7 +166,7 @@ struct CheckWindowService {
             stub.setMinimum(CGSize(width: 800, height: 600))
             let result = try await service.apply(.half(.left), screens: [screen], sessionID: session)
             check(result.notice == .constrained && result.frame.width == 800, "Minimum size is read back honestly")
-            check(stub.writeCount() == 2, "Constrained size has no unbounded retries")
+            check(stub.writeCount() <= 4, "Constrained size has at most one corrective pass")
         }
         do {
             let stub = StubWindowDriver(state: state()), session = UUID()
@@ -232,6 +238,48 @@ struct CheckWindowService {
             let expired = WindowControlRequest(deadline: .now.advanced(by: .seconds(-1)), isCancelled: { false })
             do { try expired.check(); check(false, "Expired request passed") }
             catch { check(error as? WindowControlError == .timedOut, "Deadline checked before IPC") }
+        }
+        do {
+            // Model apps that cap a resize at the current screen edge. This
+            // reproduces a right/bottom half -> fill leaving a half-size window.
+            let stub = StubWindowDriver(state: state(frame: area))
+            stub.limitResize(to: area)
+            let service = WindowControlService(driver: stub)
+            for direction in [WindowDirection.right, .down, .left, .up, .right] {
+                let first = UUID()
+                _ = try await service.capture(processIdentifier: process, screens: [screen], sessionID: first)
+                let half = try await service.apply(.half(direction), screens: [screen], sessionID: first)
+                check(half.notice == nil && half.frame == WindowGeometry.half(direction, on: screen), "Half layout confirms fully")
+                service.cancel(sessionID: first)
+                let second = UUID()
+                _ = try await service.capture(processIdentifier: process, screens: [screen], sessionID: second)
+                let filled = try await service.apply(.fill, screens: [screen], sessionID: second)
+                check(filled.frame == area && filled.notice == nil, "Immediate second invocation fills after moving away from the old edge")
+                let restored = try await service.apply(.restore, screens: [screen], sessionID: second)
+                check(restored.frame == half.frame && restored.notice == nil, "Restore saves the final verified frame, not an intermediate resize")
+                service.cancel(sessionID: second)
+            }
+        }
+        do {
+            let stub = StubWindowDriver(state: state(frame: area))
+            stub.limitResize(to: area)
+            let service = WindowControlService(driver: stub)
+            let presets = [
+                WindowPreset(slot: 1, name: "Right 40%", x: 0.6, y: 0, width: 0.4, height: 1),
+                WindowPreset(slot: 2, name: "Left 80%", x: 0, y: 0, width: 0.8, height: 1),
+                WindowPreset(slot: 3, name: "Bottom", x: 0.1, y: 0.5, width: 0.8, height: 0.5),
+                WindowPreset(slot: 4, name: "Large", x: 0, y: 0, width: 1, height: 1)
+            ]
+            for _ in 0..<10 {
+                for preset in presets {
+                    let session = UUID()
+                    _ = try await service.capture(processIdentifier: process, screens: [screen], sessionID: session)
+                    let result = try await service.apply(.preset(preset), screens: [screen], sessionID: session)
+                    check(result.frame == WindowGeometry.frame(for: preset, on: screen) && result.notice == nil,
+                          "Rapid custom numbered layouts finish fully without a spurious constrained notice")
+                    service.cancel(sessionID: session)
+                }
+            }
         }
         print("Window service checks passed (\(checks)); synthetic targets only, no desktop activation or AX calls.")
     }

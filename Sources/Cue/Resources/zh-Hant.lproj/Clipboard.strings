@@ -13,7 +13,7 @@
 "recording.active" = "記錄中 · 僅限文字與連結";
 "recording.paused" = "已關閉記錄";
 "copy" = "拷貝";
-"copy.help" = "拷貝所選項目（Return）";
+"copy.help" = "只拷貝、不貼上（Command–Return）";
 "copied_at" = "拷貝於 %@";
 "delete" = "刪除";
 "delete.help" = "刪除所選項目（搜尋欄空白時按 Delete，或 ⌘⌫）";
@@ -40,3 +40,19 @@
 "preview.accessibility" = "完整剪貼簿文字";
 "copying" = "正在拷貝…";
 "back.preview" = "返回剪貼簿預覽（Esc）";
+
+"paste" = "貼上";
+
+"paste.help" = "貼回原本的 App（Return）";
+
+"paste.allow" = "允許貼上⋯";
+
+"paste.permission" = "請在「系統設定 → 隱私權與安全性 → 輔助使用」允許 Cue 貼上。仍可使用「拷貝」。";
+
+"paste.noTarget" = "請從要貼上的 App 叫出 Cue，或使用「拷貝」。";
+
+"paste.changed" = "貼上位置已改變，未貼上任何內容。請從目標欄位重新叫出 Cue 再試一次。";
+
+"paste.failed" = "無法貼入此欄位。請使用「拷貝」，再手動貼上。";
+
+"paste.clipboardChanged" = "貼上之前剪貼簿已改變，請重新選擇記錄。";

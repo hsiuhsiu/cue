@@ -6,12 +6,12 @@ Cue 是選單列中的 macOS 啟動器，提供 App 與檔名搜尋、視窗調�
 
 ## 下載
 
-- [下載 Cue 1.2.0 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v1.2.0/Cue-1.2.0-universal.dmg)
-- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v1.2.0)
+- [下載 Cue 1.3.0 通用版 DMG](https://github.com/hsiuhsiu/cue/releases/download/v1.3.0/Cue-1.3.0-universal.dmg)
+- [版本說明與下載檔案](https://github.com/hsiuhsiu/cue/releases/tag/v1.3.0)
 
 儲存庫與下載現在都已公開，不需要 GitHub 帳號。版本說明同時提供 English／正體中文。
 
-安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。自動化執行檢查使用 **Apple silicon、macOS 27.0、Xcode 27**，並已在這台 Mac 用實體快捷鍵確認從 Safari 安全登入欄叫出 Cue 後能正常輸入。Intel、其他 macOS 版本、真實 Spotlight 正向案例及完整公開更新安裝仍未驗證；詳見[版本驗證限制](https://github.com/hsiuhsiu/cue/releases/tag/v1.2.0)。
+安裝檔同時包含 Apple silicon 與 Intel 版本，最低建置目標為 macOS 14。自動化執行檢查使用 **Apple silicon、macOS 27.2、Xcode 27**，並已在這台 Mac 用實體快捷鍵確認從 Safari 安全登入欄叫出 Cue 後能正常輸入。Intel、其他 macOS 版本、真實 Spotlight 正向案例及完整公開更新安裝仍未驗證；詳見[版本驗證限制](https://github.com/hsiuhsiu/cue/releases/tag/v1.3.0)。
 
 ## 安裝與更新
 
@@ -41,6 +41,8 @@ open "$HOME/Applications/Cue.app"
 
 之後更新自行建置版時，先結束 Cue，在同一份儲存庫執行 `git pull --ff-only` 與 `./scripts/install-app.sh`，再重新開啟已安裝的 App。
 
+建議在安裝前執行一次 `./scripts/setup-local-signing.sh`，建立免費的固定本機簽署身分。首次切換仍需重新授權輔助使用；後續原始碼更新會沿用相同身分，減少每次更新都要移除再加入權限的問題。詳見[本機簽署](building.md#讓自行建置版更新後保留輔助使用授權)。
+
 首次建置需要網路下載固定版本的 Sparkle 相依套件；執行中的自行建置版預設關閉網路與自動檢查更新。若曾在設定中明確選擇允許或關閉網路，會保留該選擇。
 
 **設定 → 一般與操作 → 登入時啟動**可在登入 macOS 後自動執行 Cue，下載版與自行建置版皆可使用，首次安裝不會自動啟用。若 macOS 要求允許，按**開啟登入項目⋯**完成設定。
@@ -64,7 +66,7 @@ open "$HOME/Applications/Cue.app"
 | Option+Space | 顯示或關閉 Cue，這是預設快捷鍵 |
 | 直接輸入 App 名稱 | 搜尋應用程式 |
 | 上／下方向鍵、Enter | 選擇並開啟搜尋結果 |
-| Command+1–9 | 立即執行對應編號的結果；在剪貼簿頁會拷貝該筆記錄並關閉 Cue |
+| Command+1–9 | 立即執行對應編號的結果；在剪貼簿頁會將該筆記錄貼回原 App |
 | Command+K | 針對目前輸入選擇 Google、GPT 問答或翻譯 |
 | 選取 App 後按 Command+E | 編輯該 App 的搜尋別名 |
 | Escape | 關閉搜尋面板 |
@@ -104,7 +106,7 @@ Cue 會記住成功開啟的 App 或指令。同一文字符合程度內，優�
 
 輸入 `clipboard` 或「剪貼簿」即可開啟記錄頁。功能**預設關閉**；選擇**啟用剪貼簿記錄**後才會記錄新拷貝的文字與連結，不會匯入原本已在系統剪貼簿中的內容。
 
-每筆記錄顯示日期時間；按 Enter 或 Command+1–9 拷貝，再到目的 App 按 Command+V 貼上。搜尋欄空白時可按 Delete 刪除所選記錄；有搜尋文字時，使用**刪除**按鈕或 Command+Delete。剪貼簿頁的齒輪與 Command+, 會開啟自己的設定，可設定記錄開關與保留時間，預設為七天。
+每筆記錄顯示日期時間；按 Enter 或 Command+1–9 直接貼回原 App；**拷貝／Command+Return** 只拷貝。貼上需要「輔助使用」權限，缺少時可按**允許貼上⋯**前往系統設定。搜尋欄空白時可按 Delete 刪除所選記錄；有搜尋文字時，使用**刪除**按鈕或 Command+Delete。剪貼簿頁的齒輪與 Command+, 會開啟自己的設定，可設定記錄開關與保留時間，預設為七天。
 
 記錄只存於本機，以可讀文字儲存，最多 500 筆或 4 MiB；已知的敏感剪貼簿標記會被略過，但無法辨識所有敏感內容。搜尋涵蓋全部記錄，每次最多顯示九筆，顯示限制不會刪除較舊內容。詳見[剪貼簿記錄說明](clipboard.md)。
 

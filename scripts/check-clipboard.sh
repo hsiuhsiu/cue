@@ -24,6 +24,7 @@ xcrun swiftc -swift-version 6 -O -parse-as-library \
     "$repo_root/Sources/Cue/ResultShortcut.swift" \
     "$repo_root/Sources/Cue/ClipboardMonitor.swift" \
     "$repo_root/Sources/Cue/ClipboardModel.swift" \
+    "$repo_root/Sources/Cue/ClipboardPasteService.swift" \
     "$repo_root/Sources/Cue/ClipboardView.swift" \
     "$repo_root/scripts/check-clipboard.swift" \
     -o "$check_directory/check-clipboard"

@@ -90,13 +90,13 @@ Cue 透過來源 App 的 AXFocusedWindow 取得目標，不以面板顯示後的
 - 原顯示器消失時，用保存的比例映射至目前目標顯示器並限制在可見範圍；畫面提示已調整還原位置。螢幕拓樸變更時取消待處理命令，重新取得目標；不重播舊操作。
 - 對目標先確認 position／size 屬性是否可寫。固定尺寸視窗仍可置中或換顯示器；無法 resize 時不假裝半屏成功。對話框、sheet、最小化視窗、Cue 自己的視窗及不支援的 AX 元素給出具體提示，不主動解除最小化或移動 parent window。[Apple AXUIElement API](https://developer.apple.com/documentation/applicationservices/axuielement_h)
 - 位於 macOS 原生全螢幕狀態的目標，會提示先離開全螢幕；不以模擬綠色按鈕或未公開 Spaces API 偷渡。已送出的 AX 呼叫無法保證立即取消；取消後不送下一個 setter，也不把晚到結果套到新 session。
-- 寫入位置和大小並非跨 App 原子交易。採有界的 resize／position 順序與讀回確認；部分成功則以真實幾何回報並保留可還原的 before，不無限重試、不默默移動另一扇視窗。若無法讀回，顯示「尚無法確認視窗狀態」，不要謊報成功。
+- 寫入位置和大小並非跨 App 原子交易。採 resize／position 順序與讀回確認；若 App 因舊位置限制了尺寸，移到新位置後最多再修正一次，正常操作不增加等待；部分成功則以真實幾何回報並保留可還原的 before，不無限重試、不默默移動另一扇視窗。若無法讀回，顯示「尚無法確認視窗狀態」，不要謊報成功。
 
 ## 實作邊界
 
 - **CueCore 幾何／狀態邏輯：** 純值型別表達 screen snapshot、frame、command、preset、restore state。半屏、置中、顯示器選擇與座標轉換不依賴 AppKit／AX，能直接測試。
 - **Window service：** 專用 actor／序列 worker 包住 AX capture、驗證、setter、讀回；參考 `SelectedTextService` 的可注入 driver 和 session cancellation，不把視窗功能塞入文字轉換服務。AX reference 不跨 actor 任意使用。
-- **Window mode controller/view：** 主執行緒只做本地按鍵路由、輕量幾何顯示及狀態更新；原生 panel 重用，App icon 使用快取。啟動、一般搜尋、背景閒置均不列舉其他 App 的視窗。
+- **Window mode controller/view：** 主執行緒只做本地按鍵路由、輕量幾何顯示及狀態更新；原生 panel 重用，與主搜尋共用非啟用式焦點機制，保持原 App 在前景，避免連續叫出時把 Cue 自己抓成目標。啟動、一般搜尋、背景閒置均不列舉其他 App 的視窗。
 - **熱鍵：** 延用 `HotKeyManager` 的 Carbon 全域啟動鍵；模式內由 key panel 接收本地按鍵，不設全域 event tap。manager 的 signature 共用，ID 由 App 層共用遞增序列分配，避免兩個 manager 互相觸發；按住不重複呼叫，喚醒後重設按住狀態。替換快捷鍵保留目前「先取得新鍵、成功後才釋放舊鍵」行為；驗證 ⌥M 與 launcher 自訂鍵及 Moom 的衝突。Moom 仍占用 ⌥M 時提示由使用者停用舊綁定或改鍵，不自動停止 Moom。
 - **權限：** 共用 Cue 既有 Accessibility 信任狀態。只有使用者啟用／使用此功能時才顯示相關授權說明及系統入口；不在啟動 App 時彈窗、不自動修改權限。使用者已授權的安裝版本可能可沿用，仍以系統實際信任狀態為準。[Apple AXIsProcessTrustedWithOptions](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions)
 - **延遲上限：** 每個 AX element 設 messaging timeout，避免無回應的目標長時間占用 worker。目前每次 IPC 120 ms、整筆操作 900 ms 的內部預算；這是失敗上限，不是人工等待。鍵盤事件不可同步等待 AX。除了動作進行中，不設輪詢或常駐掃描。[Apple AXUIElementSetMessagingTimeout](https://developer.apple.com/documentation/applicationservices/1459345-axuielementsetmessagingtimeout)

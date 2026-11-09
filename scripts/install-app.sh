@@ -65,7 +65,11 @@ if [[ "$build_app" -eq 1 ]]; then
     "$repo_root/scripts/build-app.sh" --check
 else
     [[ -x "$source_app/Contents/MacOS/Cue" ]] || fail "No built app found. Run this script without --no-build first."
-    /usr/bin/codesign --verify --deep --strict --all-architectures "$source_app"
+    "$repo_root/scripts/local-signing.sh" check
+    "$repo_root/scripts/local-signing.sh" verify "$source_app"
+    if [[ -e "$destination" ]]; then
+        "$repo_root/scripts/local-signing.sh" check-update "$destination" "$source_app"
+    fi
 fi
 
 require_cue_quit() {
@@ -88,7 +92,10 @@ fi
 [[ -x "$source_app/Contents/MacOS/Cue" ]] || fail "The build did not produce a Cue executable."
 [[ "$(/usr/bin/plutil -extract CFBundleIdentifier raw -o - "$source_app/Contents/Info.plist")" == com.yyhsiu.cue ]] \
     || fail "The built app has an unexpected bundle identifier."
-/usr/bin/codesign --verify --deep --strict --all-architectures "$source_app"
+"$repo_root/scripts/local-signing.sh" verify "$source_app"
+if [[ -e "$destination" ]]; then
+    "$repo_root/scripts/local-signing.sh" check-update "$destination" "$source_app"
+fi
 
 mkdir -p "$destination_parent" \
     || fail "Cannot create $destination_parent. Choose a writable destination; the default needs no administrator access."
@@ -123,19 +130,20 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 /usr/bin/ditto "$source_app" "$staged_app"
-/usr/bin/codesign --verify --deep --strict --all-architectures "$staged_app"
+"$repo_root/scripts/local-signing.sh" verify "$staged_app"
 # Recheck after the build/copy, before changing the installed app.
 require_cue_quit
 [[ ! -L "$destination" ]] || fail "The destination became a symlink. Nothing was replaced."
 if [[ -e "$destination" ]]; then
     [[ "$(/usr/bin/plutil -extract CFBundleIdentifier raw -o - "$destination/Contents/Info.plist")" == com.yyhsiu.cue ]] \
         || fail "The destination changed to another app. Nothing was replaced."
+    "$repo_root/scripts/local-signing.sh" check-update "$destination" "$staged_app"
     mv "$destination" "$previous_app"
     had_previous=1
 fi
 mv "$staged_app" "$destination"
 installed_new=1
-/usr/bin/codesign --verify --deep --strict --all-architectures "$destination"
+"$repo_root/scripts/local-signing.sh" verify "$destination"
 completed=1
 
 printf '\nInstalled %s\n' "$destination"

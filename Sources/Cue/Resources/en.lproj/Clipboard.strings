@@ -13,7 +13,7 @@
 "recording.active" = "Recording · Text and links only";
 "recording.paused" = "Recording is off";
 "copy" = "Copy";
-"copy.help" = "Copy selected item (Return)";
+"copy.help" = "Copy without pasting (Command–Return)";
 "copied_at" = "Copied %@";
 "delete" = "Delete";
 "delete.help" = "Delete selected item (Delete when search is empty, or ⌘⌫)";
@@ -40,3 +40,19 @@
 "preview.accessibility" = "Full clipboard text";
 "copying" = "Copying…";
 "back.preview" = "Back to clipboard preview (Esc)";
+
+"paste" = "Paste";
+
+"paste.help" = "Paste into the original app (Return)";
+
+"paste.allow" = "Allow Pasting…";
+
+"paste.permission" = "Allow Cue in System Settings → Privacy & Security → Accessibility to paste. You can still use Copy.";
+
+"paste.noTarget" = "Open Cue from the app you want to paste into, or use Copy.";
+
+"paste.changed" = "The destination changed. Nothing was pasted. Invoke Cue from the desired field and try again.";
+
+"paste.failed" = "Couldn’t paste into this field. Use Copy, then paste manually.";
+
+"paste.clipboardChanged" = "The clipboard changed before pasting. Please choose the item again.";

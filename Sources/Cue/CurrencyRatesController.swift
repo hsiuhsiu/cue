@@ -1,5 +1,6 @@
 import Combine
 import CueCore
+import Darwin
 import Foundation
 
 /// One public daily USD table. Amounts and search text never enter this request.
@@ -289,8 +290,14 @@ private actor CurrencyRateCache {
             encoder.dateEncodingStrategy = .secondsSince1970
             let bytes = try encoder.encode(CurrencyRateData.Saved(snapshot))
             guard bytes.count <= CurrencyRatesController.maximumResponseBytes else { return }
-            try bytes.write(to: file, options: [.atomic, .completeFileProtectionUnlessOpen])
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+            // Finish data and permissions before publishing the cache. An
+            // atomic Data.write followed by chmod exposes the replacement
+            // before its final mode is set to readers outside this actor.
+            let staged = parent.appendingPathComponent(".rates-\(UUID()).tmp")
+            defer { try? FileManager.default.removeItem(at: staged) }
+            try bytes.write(to: staged, options: [.withoutOverwriting, .completeFileProtectionUnlessOpen])
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: staged.path)
+            guard Darwin.rename(staged.path, file.path) == 0 else { return }
         } catch { /* A read-only/full cache cannot prevent an in-memory conversion. */ }
     }
 }

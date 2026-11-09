@@ -45,6 +45,7 @@ swift_major="$(printf '%s\n' "$swift_version" | sed -nE 's/.*Swift version ([0-9
     || fail "Cue needs Swift 6 or later. Update Command Line Tools in System Settings > Software Update, then retry."
 /usr/bin/xcrun --sdk macosx --show-sdk-path >/dev/null \
     || fail "The macOS SDK is unavailable. Install or update Command Line Tools, then retry."
+"$repo_root/scripts/local-signing.sh" check
 printf '%s\n' "$swift_version"
 [[ "$check_only" -eq 0 ]] || { printf 'Build prerequisites are ready.\n'; exit 0; }
 
@@ -124,8 +125,7 @@ done
 diff --no-dereference -qr "$sparkle_framework" "$staged_app/Contents/Frameworks/Sparkle.framework"
 codesign --verify --deep --strict --all-architectures \
     "$staged_app/Contents/Frameworks/Sparkle.framework"
-codesign --force --sign - --timestamp=none "$staged_app"
-codesign --verify --deep --strict --all-architectures "$staged_app"
+"$repo_root/scripts/local-signing.sh" sign "$staged_app"
 
 # Check again in case the old output was opened during the build.
 process_paths="$(/bin/ps -axo comm=)" || fail "Cannot check whether the build output is running."
